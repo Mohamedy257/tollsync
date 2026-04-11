@@ -397,6 +397,32 @@ export default function CalculatorPage() {
           }
         </label>
 
+        {/* Paste button for mobile — clipboard API needed on mobile since paste event doesn't fire */}
+        {uploading === 0 && navigator.clipboard?.read && (
+          <button
+            className="btn btn-sm"
+            style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
+            onClick={async (e) => {
+              e.preventDefault();
+              try {
+                const items = await navigator.clipboard.read();
+                const imageFiles = [];
+                for (const item of items) {
+                  for (const type of item.types) {
+                    if (type.startsWith('image/')) {
+                      const blob = await item.getType(type);
+                      imageFiles.push(new File([blob], `pasted.${type.split('/')[1]}`, { type }));
+                    }
+                  }
+                }
+                if (imageFiles.length) handleFiles(imageFiles);
+              } catch {}
+            }}
+          >
+            📋 Paste image from clipboard
+          </button>
+        )}
+
         {uploadError && <div className="alert alert-error" style={{ marginTop: 8 }}>{uploadError}</div>}
 
         {uploadResults.length > 0 && (
