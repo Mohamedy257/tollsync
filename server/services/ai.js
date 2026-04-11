@@ -1,0 +1,241 @@
+const Anthropic = require('@anthropic-ai/sdk');
+const fs = require('fs');
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const EZPASS_PROMPT = `Extract all EZ-Pass toll transactions from this file.
+Return ONLY a raw JSON array, no markdown, no explanation.
+Each object must have:
+- transponder_id (string)
+- entry_datetime (ISO 8601 from "Entry Date and Time" column, null if not present)
+- exit_datetime (ISO 8601 from "Exit Date and Time" column, null if not present)
+- location (string — combine entry plaza, exit plaza, and facility name if available)
+- amount (positive number in dollars, strip any minus sign)
+Exclude credit card payments, replenishments, and non-toll rows.`;
+
+function getTripsPrompt() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return `Extract all car rental trip records from this file.
+Return ONLY a raw JSON array, no markdown, no explanation.
+Each object must have:
+- renter_name (string)
+- vehicle (string - make/model or plate if visible)
+- start_datetime (ISO 8601)
+- end_datetime (ISO 8601)
+- trip_id (string or null)
+
+IMPORTANT: Today is ${year}-${String(month).padStart(2,'0')}. The current year is ${year}.
+If the screenshot does not show a year, you MUST use ${year} — never guess an older year like 2020, 2021, etc.
+Double-check: all dates must have year ${year} unless the file explicitly states a different year.`;
+}
+
+async function parseFileWithAI(filePath, mimeType, type) {
+  const prompt = type === 'trips' ? getTripsPrompt() : EZPASS_PROMPT;
+  const fileData = fs.readFileSync(filePath);
+  const b64 = fileData.toString('base64');
+
+  let content;
+  if (mimeType === 'application/pdf') {
+    content = [
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+      { type: 'text', text: prompt }
+    ];
+  } else if (mimeType.startsWith('image/')) {
+    content = [
+      { type: 'image', source: { type: 'base64', media_type: mimeType, data: b64 } },
+      { type: 'text', text: prompt }
+    ];
+  } else {
+    const text = fileData.toString('utf-8');
+    content = `${prompt}\n\nFile content:\n${text.slice(0, 8000)}`;
+  }
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 16000,
+    messages: [{ role: 'user', content }]
+  });
+
+  const raw = response.content.map(b => b.text || '').join('');
+  const clean = raw.replace(/```json|```/g, '').trim();
+
+  const start = clean.indexOf('[');
+  const end = clean.lastIndexOf(']');
+  if (start === -1 || end === -1) throw new Error('No JSON array found in AI response');
+  return JSON.parse(clean.slice(start, end + 1));
+}
+
+// Deterministic code-based matching using vehicle_id → transponder
+function matchTollsToTrips(vehicles, trips, tolls) {
+  // Build vehicle_id → transponder map
+  const vehicleTransponderMap = {};
+  for (const v of vehicles) {
+    if (v.transponder) vehicleTransponderMap[v.id] = v.transponder.replace(/\s/g, '');
+  }
+  // Build transponder → vehicle_id map
+  const transponderToVehicleId = {};
+  for (const v of vehicles) {
+    if (v.transponder) transponderToVehicleId[v.transponder.replace(/\s/g, '')] = v.id;
+  }
+
+  const tripResults = trips.map(t => ({
+    ...t,
+    total_tolls: 0,
+    toll_count: 0,
+    toll_items: [],
+  }));
+
+  const unmatchedTolls = [];
+
+  for (const toll of tolls) {
+    const matchTime = toll.exit_datetime || toll.entry_datetime;
+    if (!matchTime) { unmatchedTolls.push(toll); continue; }
+
+    const tollMs = new Date(matchTime).getTime();
+    if (isNaN(tollMs)) { unmatchedTolls.push(toll); continue; }
+
+    const tollTransponder = (toll.transponder_id || '').replace(/\s/g, '');
+    const matchedVehicleId = transponderToVehicleId[tollTransponder];
+
+    // If vehicles are registered and this transponder isn't one of them, skip
+    if (vehicles.length > 0 && !matchedVehicleId) {
+      unmatchedTolls.push(toll);
+      continue;
+    }
+
+    // Find candidate trips within datetime window, restricted to the matched vehicle
+    let candidates = tripResults.filter(t => {
+      const start = new Date(t.start_datetime).getTime();
+      const end = new Date(t.end_datetime).getTime();
+      if (tollMs < start || tollMs > end) return false;
+      // If this toll has a known vehicle, only match trips assigned to that vehicle
+      if (matchedVehicleId) return t.vehicle_id === matchedVehicleId;
+      return true;
+    });
+
+    if (!candidates.length) { unmatchedTolls.push(toll); continue; }
+
+    candidates.sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+    const trip = candidates[0];
+
+    trip.toll_items.push({
+      toll_db_id: toll.toll_db_id,
+      entry_datetime: toll.entry_datetime,
+      exit_datetime: toll.exit_datetime,
+      location: toll.location,
+      amount: toll.amount,
+      transponder_id: toll.transponder_id,
+    });
+    trip.total_tolls = +(trip.total_tolls + toll.amount).toFixed(2);
+    trip.toll_count++;
+  }
+
+  const total_matched = tripResults.reduce((s, t) => s + t.total_tolls, 0);
+  const total_unmatched = unmatchedTolls.reduce((s, t) => s + t.amount, 0);
+
+  return {
+    trips: tripResults,
+    unmatched_tolls: unmatchedTolls,
+    total_matched: +total_matched.toFixed(2),
+    total_unmatched: +total_unmatched.toFixed(2),
+  };
+}
+
+async function parseFileAutoDetect(filePath, mimeType) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  const prompt = `Look at this file and determine what type it is, then extract the data.
+
+If it is a car rental trip receipt/reservation/screenshot (shows renter name, vehicle, trip dates):
+Return: { "type": "trips", "data": [ { "renter_name", "vehicle", "plate", "start_datetime", "end_datetime", "trip_id" } ] }
+
+If it is an EZ-Pass toll statement/transaction history (shows toll transactions, transponder IDs, amounts):
+Return: { "type": "ezpass", "report_from": "<ISO 8601 date or null>", "report_to": "<ISO 8601 date or null>", "data": [ { "transponder_id", "entry_datetime", "exit_datetime", "location", "amount" } ] }
+
+Rules:
+- Return ONLY raw JSON, no markdown, no explanation.
+- For trips: Today is ${year}-${String(month).padStart(2,'0')}. Use year ${year} for all dates if the year is not shown. Never use an older year like 2020.
+- For trips: "plate" is the license plate number visible on the screenshot (e.g. "ABC1234"), or null if not visible.
+- For trips: "vehicle" is the make/model/year string (e.g. "Nissan Altima 2020").
+- For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if not present). amount must be positive, strip minus signs. Exclude credit card payments and replenishments.
+- For ezpass: location should combine entry plaza, exit plaza, and facility name.
+- For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
+
+  const fileData = fs.readFileSync(filePath);
+  const b64 = fileData.toString('base64');
+
+  let content;
+  if (mimeType === 'application/pdf') {
+    content = [
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+      { type: 'text', text: prompt }
+    ];
+  } else if (mimeType.startsWith('image/')) {
+    content = [
+      { type: 'image', source: { type: 'base64', media_type: mimeType, data: b64 } },
+      { type: 'text', text: prompt }
+    ];
+  } else {
+    const text = fileData.toString('utf-8');
+    content = `${prompt}\n\nFile content:\n${text.slice(0, 8000)}`;
+  }
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 16000,
+    messages: [{ role: 'user', content }]
+  });
+
+  const raw = response.content.map(b => b.text || '').join('');
+  const clean = raw.replace(/```json|```/g, '').trim();
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON found in AI response');
+  const result = JSON.parse(clean.slice(start, end + 1));
+  if (!result.type || !Array.isArray(result.data)) throw new Error('Unexpected AI response structure');
+  return result;
+}
+
+// Parse plain text (e.g. email body) as trip data
+async function parseTextAsTrips(text) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  const prompt = `Extract all car rental trip records from this email or text.
+Return ONLY a raw JSON array, no markdown, no explanation.
+Each object must have:
+- renter_name (string)
+- vehicle (string - make/model or plate if visible, or null)
+- plate (string - license plate if visible, or null)
+- start_datetime (ISO 8601 with time)
+- end_datetime (ISO 8601 with time)
+- trip_id (string or null — look for a numeric ID in the subject like "(55545268)" or in the email body)
+
+IMPORTANT: Today is ${year}-${String(month).padStart(2,'0')}. Use year ${year} if not shown.
+If start or end time is not present in the text, return null for that trip (do not guess times).
+For trip modification/extension emails: extract the updated end_datetime and the trip_id.
+Return [] if no trips found.
+
+Text:
+${text.slice(0, 12000)}`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const raw = response.content.map(b => b.text || '').join('');
+  const clean = raw.replace(/```json|```/g, '').trim();
+  const start = clean.indexOf('[');
+  const end = clean.lastIndexOf(']');
+  if (start === -1 || end === -1) return [];
+  return JSON.parse(clean.slice(start, end + 1));
+}
+
+module.exports = { parseFileWithAI, parseFileAutoDetect, matchTollsToTrips, parseTextAsTrips };

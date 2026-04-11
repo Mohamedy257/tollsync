@@ -1,0 +1,14 @@
+{
+  "name": "turo-toll-calc",
+  "version": "1.0.0",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\"",
+    "build": "cd client && npm install && npm run build",
+    "start": "NODE_ENV=production node server/index.js",
+    "setup:db": "cd server && node db/setup.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
