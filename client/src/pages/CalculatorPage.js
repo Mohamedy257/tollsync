@@ -63,7 +63,7 @@ function TripCard({ t, reportRange }) {
       {/* Clickable header — not captured in export */}
       <div
         onClick={() => setExpanded(e => !e)}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '12px 16px', borderBottom: expanded ? '1px solid #f0ede8' : 'none' }}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer', padding: '12px 16px', borderBottom: expanded ? '1px solid #f0ede8' : 'none', gap: 8 }}
       >
         <div>
           <p style={{ fontWeight: 600, margin: 0 }}>{t.renter_name || 'Unknown renter'}</p>
@@ -102,18 +102,22 @@ function TripCard({ t, reportRange }) {
           {/* Grid header */}
           {t.toll_items && t.toll_items.length > 0 ? (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '4px 0 6px', fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e8e8e8' }}>
-                <span>Transponder</span><span>Location</span><span>Entry</span><span>Exit</span><span style={{ textAlign: 'right' }}>Amount</span>
-              </div>
-              {t.toll_items.map((ti, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '7px 0', borderBottom: '0.5px solid #f0ede8', fontSize: 12, alignItems: 'start' }}>
-                  <span style={{ color: '#444', fontFamily: 'monospace', fontSize: 11 }}>{ti.transponder_id || '—'}</span>
-                  <span style={{ color: '#222' }}>{ti.location || '—'}</span>
-                  <span style={{ color: '#666' }}>{fmtDt(ti.entry_datetime)}</span>
-                  <span style={{ color: '#666' }}>{fmtDt(ti.exit_datetime)}</span>
-                  <span style={{ fontWeight: 600, textAlign: 'right', color: '#222' }}>${parseFloat(ti.amount).toFixed(2)}</span>
+              <div className="scroll-x">
+                <div style={{ minWidth: 560 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '4px 0 6px', fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e8e8e8' }}>
+                    <span>Transponder</span><span>Location</span><span>Entry</span><span>Exit</span><span style={{ textAlign: 'right' }}>Amount</span>
+                  </div>
+                  {t.toll_items.map((ti, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '7px 0', borderBottom: '0.5px solid #f0ede8', fontSize: 12, alignItems: 'start' }}>
+                      <span style={{ color: '#444', fontFamily: 'monospace', fontSize: 11 }}>{ti.transponder_id || '—'}</span>
+                      <span style={{ color: '#222' }}>{ti.location || '—'}</span>
+                      <span style={{ color: '#666' }}>{fmtDt(ti.entry_datetime)}</span>
+                      <span style={{ color: '#666' }}>{fmtDt(ti.exit_datetime)}</span>
+                      <span style={{ fontWeight: 600, textAlign: 'right', color: '#222' }}>${parseFloat(ti.amount).toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 10, fontSize: 14, fontWeight: 700, color: '#185fa5' }}>
                 Total: ${parseFloat(t.total_tolls).toFixed(2)}
               </div>
@@ -413,7 +417,7 @@ export default function CalculatorPage() {
 
       {/* Loaded data summary */}
       {(trips.length > 0 || tolls.length > 0) && (
-        <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-start' }}>
+        <div className="data-summary" style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-start' }}>
           {trips.length > 0 && (
             <div className="card" style={{ flex: 1, padding: '10px 14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: tripsExpanded ? 10 : 0 }}>
@@ -478,6 +482,10 @@ export default function CalculatorPage() {
               ⚠️ Enter vehicle details — calculation will start automatically
             </p>
           </div>
+
+            {/* Grid — scrollable on mobile */}
+          <div className="scroll-x">
+          <div style={{ minWidth: 560 }}>
 
           {/* Grid header */}
           {(() => {
@@ -588,6 +596,9 @@ export default function CalculatorPage() {
               </div>
             );
           })}
+
+          </div>{/* minWidth */}
+          </div>{/* scroll-x */}
 
           {/* Footer with Save All */}
           <div style={{ padding: '10px 16px', borderTop: '1px solid #f0c060', background: '#faf6e8' }}>

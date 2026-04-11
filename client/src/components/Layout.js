@@ -20,6 +20,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="layout">
+      {/* Desktop sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
           <h1>⚡ TollSync</h1>
@@ -43,7 +44,26 @@ export default function Layout({ children }) {
           <button className="logout-btn" onClick={handleLogout}>Sign out</button>
         </div>
       </aside>
+
       <main className="main">{children}</main>
+
+      {/* Mobile bottom nav */}
+      <nav className="bottom-nav">
+        {NAV.map(n => (
+          <button
+            key={n.path}
+            className={`bottom-nav-item ${location.pathname === n.path ? 'active' : ''}`}
+            onClick={() => navigate(n.path)}
+          >
+            <span className="bottom-nav-icon">{n.icon}</span>
+            <span className="bottom-nav-label">{n.label}</span>
+          </button>
+        ))}
+        <button className="bottom-nav-item" onClick={handleLogout}>
+          <span className="bottom-nav-icon">👤</span>
+          <span className="bottom-nav-label">Sign out</span>
+        </button>
+      </nav>
     </div>
   );
 }
