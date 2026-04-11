@@ -4,7 +4,8 @@
       "Bash(git commit -m ':*)",
       "Bash(git commit -m 'Fix Vehicle model: allow empty name for unknown-vehicle prompts:*)",
       "Bash(git commit -m 'Add Paste button for mobile clipboard image upload:*)",
-      "Bash(git commit -m 'Make Integrations page mobile friendly:*)"
+      "Bash(git commit -m 'Make Integrations page mobile friendly:*)",
+      "Bash(git commit -m 'Scroll vehicle card into view after mobile keyboard closes:*)"
     ]
   }
 }

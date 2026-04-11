@@ -639,7 +639,17 @@ export default function CalculatorPage() {
         };
 
         return (
-          <div className="card" style={{ marginBottom: 12, borderColor: '#f0c060', background: '#fffdf0', padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ marginBottom: 12, borderColor: '#f0c060', background: '#fffdf0', padding: 0, overflow: 'hidden' }}
+            onBlur={(e) => {
+              if (!isMobile) return;
+              // After keyboard closes, scroll the card back into view
+              setTimeout(() => {
+                if (!e.currentTarget.contains(document.activeElement)) {
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+              }, 300);
+            }}
+          >
             <div style={{ padding: '10px 16px', borderBottom: '1px solid #f0c060', background: '#fdf6e3' }}>
               <p style={{ fontWeight: 600, fontSize: 13, color: '#854f0b', margin: 0 }}>
                 ⚠️ Enter vehicle details — calculation will start automatically
