@@ -515,22 +515,51 @@ export default function CalculatorPage() {
         const cols = anyHasCandidates ? '220px 140px 160px 180px' : '220px 160px 180px';
 
         const saveDisabled = savingAll || missingTransponders.some(v => {
-          if (!v.name && !vehicleNameInputs[v.id]) return true;
           const hc = v.candidates && v.candidates.some(c => c.transponder_id);
           const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
-          if (hc && sel && sel !== 'new') return false;
-          return !transponderInputs[v.id];
+          if (sel && sel !== 'new') return false; // selected existing vehicle
+          if (!v.name && !vehicleNameInputs[v.id]) return true; // needs YMM
+          return !transponderInputs[v.id]; // needs transponder
         });
 
+        // All registered vehicles for the blank-name picker
+        const registeredVehicles = vehicles.filter(rv => rv.transponder_id);
+
         // Shared field renderers
-        const renderYMM = (v) => v.name ? (
-          <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>
-        ) : (
-          <input className="form-control" style={{ fontSize: 13, marginBottom: 2 }}
-            placeholder="Year Make Model (e.g. Nissan Altima 2020)"
-            value={vehicleNameInputs[v.id] || ''}
-            onChange={e => setVehicleNameInputs(s => ({ ...s, [v.id]: e.target.value }))} />
-        );
+        const renderYMM = (v) => {
+          if (v.name) return <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>;
+
+          // No name detected — let user pick existing or add new
+          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
+          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
+          const showInput = !registeredVehicles.length || sel === 'new' || (!sel && !registeredVehicles.length);
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {registeredVehicles.map(rv => (
+                <label key={rv.id} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12 }}>
+                  <input type="radio" name={`vymm-${v.id}`} value={rv.id}
+                    checked={sel === rv.id}
+                    onChange={() => setVehicleSelections(s => ({ ...s, [v.id]: rv.id }))} />
+                  <span style={{ fontWeight: 500 }}>{rv.name}</span>
+                  {rv.plate && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#888' }}>{rv.plate}</span>}
+                </label>
+              ))}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12 }}>
+                <input type="radio" name={`vymm-${v.id}`} value="new"
+                  checked={sel === 'new' || (!sel && !registeredVehicles.length)}
+                  onChange={() => setVehicleSelections(s => ({ ...s, [v.id]: 'new' }))} />
+                <span style={{ color: '#185fa5' }}>+ New vehicle</span>
+              </label>
+              {(showInput || sel === 'new') && (
+                <input className="form-control" style={{ fontSize: 12, marginTop: 2 }}
+                  placeholder="Year Make Model (e.g. Nissan Altima 2020)"
+                  value={vehicleNameInputs[v.id] || ''}
+                  onChange={e => setVehicleNameInputs(s => ({ ...s, [v.id]: e.target.value }))} />
+              )}
+            </div>
+          );
+        };
 
         const renderRenterDates = (v) => {
           const vehicleTrips = trips.filter(t => t.vehicle_id === v.id);
@@ -567,13 +596,16 @@ export default function CalculatorPage() {
         };
 
         const renderPlate = (v) => {
-          const hasCandidates = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null);
+          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
+          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
+          // User selected an existing registered vehicle (via candidates or blank-name picker)
+          const selectedExisting = sel && sel !== 'new' ? vehicles.find(rv => rv.id === sel) : null;
+          if (selectedExisting) return <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#555' }}>{selectedExisting.plate || '—'}</span>;
           const needsPlate = !v.plate;
-          const sameYmmRegistered = vehicles.filter(rv => rv.id !== v.id && rv.transponder_id && rv.name.toLowerCase() === v.name.toLowerCase());
-          const sessionSuggestions = missingTransponders.filter(mv => mv.id !== v.id && mv.name.toLowerCase() === v.name.toLowerCase()).map(mv => ({ plate: plateInputs[mv.id] || mv.plate || '', transponder_id: transponderInputs[mv.id] || '' })).filter(s => s.plate || s.transponder_id);
+          const sameYmmRegistered = vehicles.filter(rv => rv.id !== v.id && rv.transponder_id && v.name && rv.name.toLowerCase() === v.name.toLowerCase());
+          const sessionSuggestions = missingTransponders.filter(mv => mv.id !== v.id && v.name && mv.name.toLowerCase() === v.name.toLowerCase()).map(mv => ({ plate: plateInputs[mv.id] || mv.plate || '', transponder_id: transponderInputs[mv.id] || '' })).filter(s => s.plate || s.transponder_id);
           const allSuggestions = [...sameYmmRegistered.map(rv => ({ plate: rv.plate, transponder_id: rv.transponder_id })), ...sessionSuggestions];
-          if ((!hasCandidates || sel === 'new' || !sel) && needsPlate) return (
+          if (needsPlate) return (
             <>
               {allSuggestions.length > 0 && <datalist id={`plates-${v.id}`}>{allSuggestions.filter(s => s.plate).map((s, i) => <option key={i} value={s.plate} />)}</datalist>}
               <input className="form-control" style={{ fontFamily: 'monospace', textTransform: 'uppercase', fontSize: 13 }}
@@ -587,12 +619,14 @@ export default function CalculatorPage() {
         };
 
         const renderTransponder = (v) => {
-          const hasCandidates = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null);
-          const sameYmmRegistered = vehicles.filter(rv => rv.id !== v.id && rv.transponder_id && rv.name.toLowerCase() === v.name.toLowerCase());
-          const sessionSuggestions = missingTransponders.filter(mv => mv.id !== v.id && mv.name.toLowerCase() === v.name.toLowerCase()).map(mv => ({ plate: plateInputs[mv.id] || mv.plate || '', transponder_id: transponderInputs[mv.id] || '' })).filter(s => s.plate || s.transponder_id);
+          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
+          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
+          const selectedExisting = sel && sel !== 'new' ? vehicles.find(rv => rv.id === sel) : null;
+          if (selectedExisting) return <span style={{ fontSize: 11, color: '#aaa' }}>Uses {selectedExisting.name}'s transponder</span>;
+          const sameYmmRegistered = vehicles.filter(rv => rv.id !== v.id && rv.transponder_id && v.name && rv.name.toLowerCase() === v.name.toLowerCase());
+          const sessionSuggestions = missingTransponders.filter(mv => mv.id !== v.id && v.name && mv.name.toLowerCase() === v.name.toLowerCase()).map(mv => ({ plate: plateInputs[mv.id] || mv.plate || '', transponder_id: transponderInputs[mv.id] || '' })).filter(s => s.plate || s.transponder_id);
           const allSuggestions = [...sameYmmRegistered.map(rv => ({ plate: rv.plate, transponder_id: rv.transponder_id })), ...sessionSuggestions];
-          if (!hasCandidates || sel === 'new' || !sel) return (
+          return (
             <>
               {allSuggestions.length > 0 && <datalist id={`transponders-${v.id}`}>{allSuggestions.filter(s => s.transponder_id).map((s, i) => <option key={i} value={s.transponder_id} />)}</datalist>}
               <input className="form-control" style={{ fontFamily: 'monospace', fontSize: 13 }}
@@ -602,7 +636,6 @@ export default function CalculatorPage() {
                 onChange={e => setTransponderInputs(s => ({ ...s, [v.id]: e.target.value }))} />
             </>
           );
-          return <span style={{ fontSize: 11, color: '#aaa' }}>Uses selected car's transponder</span>;
         };
 
         return (
