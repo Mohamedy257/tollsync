@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const auth = require('../middleware/auth');
-const { store, uid } = require('../db/store');
+const TollTransaction = require('../models/TollTransaction');
 const { parseFileWithAI } = require('../services/ai');
 
 const router = express.Router();
@@ -14,10 +14,8 @@ const upload = multer({
 });
 
 // GET /api/ezpass
-router.get('/', (req, res) => {
-  const tolls = store.toll_transactions
-    .filter(t => t.host_id === req.hostId)
-    .sort((a, b) => new Date(b.exit_datetime || b.entry_datetime) - new Date(a.exit_datetime || a.entry_datetime));
+router.get('/', async (req, res) => {
+  const tolls = await TollTransaction.find({ host_id: req.hostId }).sort({ exit_datetime: -1 });
   res.json({ tolls });
 });
 
@@ -33,8 +31,7 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
       const inserted = [];
       for (const toll of parsed) {
         if ((!toll.entry_datetime && !toll.exit_datetime) || !toll.amount) continue;
-        const record = {
-          id: uid(),
+        const record = await TollTransaction.create({
           host_id: req.hostId,
           transponder_id: toll.transponder_id,
           entry_datetime: toll.entry_datetime || null,
@@ -42,8 +39,7 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
           location: toll.location,
           amount: Math.abs(parseFloat(toll.amount)),
           source_file: file.originalname,
-        };
-        store.toll_transactions.push(record);
+        });
         inserted.push(record);
       }
       results.push({ file: file.originalname, count: inserted.length, tolls: inserted });
@@ -58,15 +54,14 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
 });
 
 // DELETE /api/ezpass/:id
-router.delete('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  store.toll_transactions = store.toll_transactions.filter(t => !(t.id === id && t.host_id === req.hostId));
+router.delete('/:id', async (req, res) => {
+  await TollTransaction.deleteOne({ _id: req.params.id, host_id: req.hostId });
   res.json({ success: true });
 });
 
 // DELETE /api/ezpass — clear all
-router.delete('/', (req, res) => {
-  store.toll_transactions = store.toll_transactions.filter(t => t.host_id !== req.hostId);
+router.delete('/', async (req, res) => {
+  await TollTransaction.deleteMany({ host_id: req.hostId });
   res.json({ success: true });
 });
 

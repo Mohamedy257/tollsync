@@ -1,7 +1,10 @@
 const express = require('express');
 const { google } = require('googleapis');
 const auth = require('../middleware/auth');
-const { store, uid } = require('../db/store');
+const Vehicle = require('../models/Vehicle');
+const Trip = require('../models/Trip');
+const GmailToken = require('../models/GmailToken');
+const GmailConfig = require('../models/GmailConfig');
 const { parseTextAsTrips } = require('../services/ai');
 
 const router = express.Router();
@@ -47,7 +50,11 @@ router.get('/gmail/callback', async (req, res) => {
   try {
     const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code);
-    store.gmail_tokens[hostId] = tokens;
+    await GmailToken.findOneAndUpdate(
+      { host_id: hostId },
+      { tokens },
+      { upsert: true }
+    );
     res.redirect(`${clientUrl}/integrations?gmail=connected`);
   } catch (err) {
     console.error('Gmail OAuth callback error:', err.message, err.response?.data);
@@ -57,50 +64,60 @@ router.get('/gmail/callback', async (req, res) => {
 });
 
 // GET /api/integrations/gmail/status
-router.get('/gmail/status', auth, (req, res) => {
-  const tokens = store.gmail_tokens[req.hostId];
-  const config = store.gmail_config[req.hostId] || DEFAULT_CONFIG;
-  res.json({ connected: !!tokens, config });
+router.get('/gmail/status', auth, async (req, res) => {
+  const tokenDoc = await GmailToken.findOne({ host_id: req.hostId });
+  const configDoc = await GmailConfig.findOne({ host_id: req.hostId });
+  const config = configDoc
+    ? { query: configDoc.query, subjectRegex: configDoc.subjectRegex, maxResults: configDoc.maxResults, afterDate: configDoc.afterDate }
+    : DEFAULT_CONFIG;
+  res.json({ connected: !!tokenDoc, config });
 });
 
 // DELETE /api/integrations/gmail/disconnect
-router.delete('/gmail/disconnect', auth, (req, res) => {
-  delete store.gmail_tokens[req.hostId];
+router.delete('/gmail/disconnect', auth, async (req, res) => {
+  await GmailToken.deleteOne({ host_id: req.hostId });
   res.json({ success: true });
 });
 
 // PUT /api/integrations/gmail/config
-router.put('/gmail/config', auth, (req, res) => {
+router.put('/gmail/config', auth, async (req, res) => {
   const { query, subjectRegex, maxResults, afterDate } = req.body;
-  // Validate regex
   if (subjectRegex) {
     try { new RegExp(subjectRegex); } catch {
       return res.status(400).json({ error: 'Invalid subject regex' });
     }
   }
-  store.gmail_config[req.hostId] = {
+  const config = {
     query: (query || DEFAULT_CONFIG.query).trim(),
     subjectRegex: (subjectRegex || '').trim(),
     maxResults: Math.max(1, Math.min(parseInt(maxResults) || 50, 10000)),
     afterDate: (afterDate || '').trim(),
   };
-  res.json({ config: store.gmail_config[req.hostId] });
+  await GmailConfig.findOneAndUpdate({ host_id: req.hostId }, config, { upsert: true });
+  res.json({ config });
 });
 
 // POST /api/integrations/gmail/sync — fetch emails and parse trips
 router.post('/gmail/sync', auth, async (req, res) => {
-  const tokens = store.gmail_tokens[req.hostId];
-  if (!tokens) return res.status(401).json({ error: 'Gmail not connected' });
+  const tokenDoc = await GmailToken.findOne({ host_id: req.hostId });
+  if (!tokenDoc) return res.status(401).json({ error: 'Gmail not connected' });
 
-  const config = store.gmail_config[req.hostId] || DEFAULT_CONFIG;
+  const configDoc = await GmailConfig.findOne({ host_id: req.hostId });
+  const config = configDoc
+    ? { query: configDoc.query, subjectRegex: configDoc.subjectRegex, maxResults: configDoc.maxResults, afterDate: configDoc.afterDate }
+    : DEFAULT_CONFIG;
 
   try {
     const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(tokens);
+    oauth2Client.setCredentials(tokenDoc.tokens);
 
     // Save refreshed tokens automatically
-    oauth2Client.on('tokens', (newTokens) => {
-      store.gmail_tokens[req.hostId] = { ...tokens, ...newTokens };
+    oauth2Client.on('tokens', async (newTokens) => {
+      await GmailToken.findOneAndUpdate(
+        { host_id: req.hostId },
+        { tokens: { ...tokenDoc.tokens, ...newTokens } },
+        { upsert: true }
+      );
     });
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
@@ -108,7 +125,7 @@ router.post('/gmail/sync', auth, async (req, res) => {
     let query = config.query;
     if (config.afterDate) query += ` after:${config.afterDate.replace(/-/g, '/')}`;
 
-    // Paginate to collect up to maxResults messages (Gmail API max 500/page)
+    // Paginate to collect up to maxResults messages
     const messages = [];
     let pageToken;
     do {
@@ -138,7 +155,7 @@ router.post('/gmail/sync', auth, async (req, res) => {
     const subjectRegex = config.subjectRegex ? new RegExp(config.subjectRegex, 'i') : null;
     const filtered = subjectRegex
       ? messageDetails.filter(({ data, error }) => {
-          if (error || !data) return true; // keep errored ones to report
+          if (error || !data) return true;
           const subject = getHeader(data, 'Subject') || '';
           return subjectRegex.test(subject);
         })
@@ -175,16 +192,16 @@ router.post('/gmail/sync', auth, async (req, res) => {
       for (const trip of trips) {
         if (!trip.start_datetime || !trip.end_datetime) continue;
 
-        // Validate has time component
         const hasTime = dt => /T\d{2}:\d{2}/.test(dt) && !/T00:00(:\d{2})?Z?$/.test(dt);
         if (!hasTime(trip.start_datetime) || !hasTime(trip.end_datetime)) continue;
 
-        // If same trip_id exists, update end date (trip extension) and skip insert
+        // If same trip_id exists, update end date (trip extension)
         if (trip.trip_id) {
-          const existing = store.trips.find(t => t.host_id === req.hostId && t.trip_id === trip.trip_id);
+          const existing = await Trip.findOne({ host_id: req.hostId, trip_id: trip.trip_id });
           if (existing) {
             if (trip.end_datetime && trip.end_datetime !== existing.end_datetime) {
               existing.end_datetime = trip.end_datetime;
+              await existing.save();
               insertedAny = true;
             }
             continue;
@@ -192,21 +209,20 @@ router.post('/gmail/sync', auth, async (req, res) => {
         }
 
         // Deduplicate by renter + dates
-        const duplicate = store.trips.find(t =>
-          t.host_id === req.hostId &&
-          t.renter_name === trip.renter_name &&
-          t.start_datetime === trip.start_datetime &&
-          t.end_datetime === trip.end_datetime
-        );
+        const duplicate = await Trip.findOne({
+          host_id: req.hostId,
+          renter_name: trip.renter_name,
+          start_datetime: trip.start_datetime,
+          end_datetime: trip.end_datetime,
+        });
         if (duplicate) continue;
 
         const vehicleName = (trip.vehicle || '').trim();
         const plate = (trip.plate || '').trim().toUpperCase();
 
-        // Vehicle matching — same logic as upload route (registered only)
         let vehicle_id = null;
         if (vehicleName || plate) {
-          const myVehicles = store.vehicles.filter(v => v.host_id === req.hostId);
+          const myVehicles = await Vehicle.find({ host_id: req.hostId });
           if (plate) {
             const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate && v.transponder_id);
             if (plateMatch) vehicle_id = plateMatch.id;
@@ -216,42 +232,39 @@ router.post('/gmail/sync', auth, async (req, res) => {
               v => vehicleName && v.name.toLowerCase() === vehicleName.toLowerCase() && v.transponder_id
             );
             if (registeredMatches.length === 0 && vehicleName) {
-              const newVehicle = {
-                id: uid(), host_id: req.hostId, name: vehicleName,
+              const newVehicle = await Vehicle.create({
+                host_id: req.hostId, name: vehicleName,
                 plate: plate || '', transponder_id: '',
-                created_at: new Date().toISOString(), auto_added: true,
-              };
-              store.vehicles.push(newVehicle);
+                auto_added: true,
+              });
               vehicle_id = newVehicle.id;
             } else if (registeredMatches.length === 1) {
-              const existing = registeredMatches[0];
-              const existingPlate = (existing.plate || '').toUpperCase();
+              const existingV = registeredMatches[0];
+              const existingPlate = (existingV.plate || '').toUpperCase();
               if (!plate || !existingPlate || plate === existingPlate) {
-                vehicle_id = existing.id;
+                vehicle_id = existingV.id;
               } else {
-                const newVehicle = {
-                  id: uid(), host_id: req.hostId, name: vehicleName,
+                const newVehicle = await Vehicle.create({
+                  host_id: req.hostId, name: vehicleName,
                   plate, transponder_id: '',
-                  created_at: new Date().toISOString(), auto_added: true,
-                };
-                store.vehicles.push(newVehicle);
+                  auto_added: true,
+                });
                 vehicle_id = newVehicle.id;
               }
             } else if (registeredMatches.length > 1) {
-              const newVehicle = {
-                id: uid(), host_id: req.hostId, name: vehicleName,
+              const newVehicle = await Vehicle.create({
+                host_id: req.hostId, name: vehicleName,
                 plate: plate || '', transponder_id: '',
-                created_at: new Date().toISOString(), auto_added: true,
+                auto_added: true,
                 candidates: registeredMatches.map(v => ({ id: v.id, name: v.name, plate: v.plate, transponder_id: v.transponder_id })),
-              };
-              store.vehicles.push(newVehicle);
+              });
               vehicle_id = newVehicle.id;
             }
           }
         }
 
-        store.trips.push({
-          id: uid(), host_id: req.hostId,
+        await Trip.create({
+          host_id: req.hostId,
           renter_name: trip.renter_name, vehicle: vehicleName,
           plate: plate || '', vehicle_id,
           start_datetime: trip.start_datetime, end_datetime: trip.end_datetime,
@@ -266,9 +279,8 @@ router.post('/gmail/sync', auth, async (req, res) => {
     res.json({ synced, skipped, errors, total: messages.length });
   } catch (err) {
     console.error('Gmail sync error:', err);
-    // Handle token expiry
     if (err.code === 401 || err.message?.includes('invalid_grant')) {
-      delete store.gmail_tokens[req.hostId];
+      await GmailToken.deleteOne({ host_id: req.hostId });
       return res.status(401).json({ error: 'Gmail session expired. Please reconnect.' });
     }
     res.status(500).json({ error: err.message });
@@ -285,14 +297,10 @@ function getHeader(message, name) {
 function extractEmailBody(message) {
   const parts = [];
   collectParts(message.payload, parts);
-
-  // Prefer plain text, fall back to HTML stripped of tags
   const plain = parts.find(p => p.mimeType === 'text/plain');
   if (plain?.body?.data) return decodeBase64(plain.body.data);
-
   const html = parts.find(p => p.mimeType === 'text/html');
   if (html?.body?.data) return stripHtml(decodeBase64(html.body.data));
-
   return null;
 }
 

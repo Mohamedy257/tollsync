@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const auth = require('../middleware/auth');
-const { store, uid } = require('../db/store');
+const Trip = require('../models/Trip');
 const { parseFileWithAI } = require('../services/ai');
 
 const router = express.Router();
@@ -14,10 +14,8 @@ const upload = multer({
 });
 
 // GET /api/trips
-router.get('/', (req, res) => {
-  const trips = store.trips
-    .filter(t => t.host_id === req.hostId)
-    .sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime));
+router.get('/', async (req, res) => {
+  const trips = await Trip.find({ host_id: req.hostId }).sort({ start_datetime: -1 });
   res.json({ trips });
 });
 
@@ -33,8 +31,7 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
       const inserted = [];
       for (const trip of parsed) {
         if (!trip.start_datetime || !trip.end_datetime) continue;
-        const record = {
-          id: uid(),
+        const record = await Trip.create({
           host_id: req.hostId,
           renter_name: trip.renter_name,
           vehicle: trip.vehicle,
@@ -42,8 +39,7 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
           end_datetime: trip.end_datetime,
           trip_id: trip.trip_id,
           source_file: file.originalname,
-        };
-        store.trips.push(record);
+        });
         inserted.push(record);
       }
       results.push({ file: file.originalname, count: inserted.length, trips: inserted });
@@ -58,26 +54,25 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
 });
 
 // PATCH /api/trips/:id — update start/end datetime
-router.patch('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const trip = store.trips.find(t => t.id === id && t.host_id === req.hostId);
+router.patch('/:id', async (req, res) => {
+  const trip = await Trip.findOne({ _id: req.params.id, host_id: req.hostId });
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   const { start_datetime, end_datetime } = req.body;
   if (start_datetime) trip.start_datetime = start_datetime;
   if (end_datetime) trip.end_datetime = end_datetime;
+  await trip.save();
   res.json({ trip });
 });
 
 // DELETE /api/trips/:id
-router.delete('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  store.trips = store.trips.filter(t => !(t.id === id && t.host_id === req.hostId));
+router.delete('/:id', async (req, res) => {
+  await Trip.deleteOne({ _id: req.params.id, host_id: req.hostId });
   res.json({ success: true });
 });
 
 // DELETE /api/trips — clear all
-router.delete('/', (req, res) => {
-  store.trips = store.trips.filter(t => t.host_id !== req.hostId);
+router.delete('/', async (req, res) => {
+  await Trip.deleteMany({ host_id: req.hostId });
   res.json({ success: true });
 });
 

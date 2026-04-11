@@ -1,6 +1,10 @@
 const express = require('express');
 const auth = require('../middleware/auth');
-const { store, uid } = require('../db/store');
+const Trip = require('../models/Trip');
+const TollTransaction = require('../models/TollTransaction');
+const TripResult = require('../models/TripResult');
+const EzpassReportRange = require('../models/EzpassReportRange');
+const Vehicle = require('../models/Vehicle');
 const { matchTollsToTrips } = require('../services/ai');
 
 const router = express.Router();
@@ -9,13 +13,11 @@ router.use(auth);
 // POST /api/results/calculate
 router.post('/calculate', async (req, res) => {
   try {
-    const vehicles = store.vehicles.filter(v => v.host_id === req.hostId);
-    const trips = store.trips
-      .filter(t => t.host_id === req.hostId)
-      .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
-    const tolls = store.toll_transactions
-      .filter(t => t.host_id === req.hostId)
-      .sort((a, b) => new Date(a.exit_datetime || a.entry_datetime) - new Date(b.exit_datetime || b.entry_datetime));
+    const [vehicles, trips, tolls] = await Promise.all([
+      Vehicle.find({ host_id: req.hostId }),
+      Trip.find({ host_id: req.hostId }).sort({ start_datetime: 1 }),
+      TollTransaction.find({ host_id: req.hostId }).sort({ exit_datetime: 1 }),
+    ]);
 
     if (!trips.length) return res.status(400).json({ error: 'No trips found. Upload trip data first.' });
     if (!tolls.length) return res.status(400).json({ error: 'No toll transactions found. Upload EZ-Pass data first.' });
@@ -26,7 +28,7 @@ router.post('/calculate', async (req, res) => {
       renter_name: t.renter_name,
       vehicle: t.vehicle,
       plate: t.plate,
-      vehicle_id: t.vehicle_id,
+      vehicle_id: t.vehicle_id?.toString() || null,
       start_datetime: t.start_datetime,
       end_datetime: t.end_datetime,
       trip_id: t.trip_id,
@@ -42,13 +44,13 @@ router.post('/calculate', async (req, res) => {
 
     const matched = matchTollsToTrips(vehiclesMapped, tripsMapped, tollsMapped);
 
-    // Persist results in memory
-    store.trip_results = store.trip_results.filter(r => r.host_id !== req.hostId);
+    // Replace persisted results for this host
+    await TripResult.deleteMany({ host_id: req.hostId });
+    const toInsert = [];
     for (const trip of matched.trips) {
       for (const item of (trip.toll_items || [])) {
         if (!item.toll_db_id || !trip.trip_db_id) continue;
-        store.trip_results.push({
-          id: uid(),
+        toInsert.push({
           host_id: req.hostId,
           trip_id: trip.trip_db_id,
           toll_transaction_id: item.toll_db_id,
@@ -56,9 +58,10 @@ router.post('/calculate', async (req, res) => {
         });
       }
     }
+    if (toInsert.length) await TripResult.insertMany(toInsert);
 
-    const reportRange = store.ezpass_report_range[req.hostId] || null;
-    res.json({ ...matched, report_range: reportRange });
+    const reportRange = await EzpassReportRange.findOne({ host_id: req.hostId });
+    res.json({ ...matched, report_range: reportRange ? { from: reportRange.from, to: reportRange.to } : null });
   } catch (err) {
     console.error('Match error:', err);
     res.status(500).json({ error: err.message || 'Matching failed' });
@@ -66,25 +69,26 @@ router.post('/calculate', async (req, res) => {
 });
 
 // GET /api/results — last saved results
-router.get('/', (req, res) => {
-  const trips = store.trips.filter(t => t.host_id === req.hostId);
-  const results = store.trip_results.filter(r => r.host_id === req.hostId);
-  const tolls = store.toll_transactions.filter(t => t.host_id === req.hostId);
+router.get('/', async (req, res) => {
+  const [trips, results, tolls] = await Promise.all([
+    Trip.find({ host_id: req.hostId }),
+    TripResult.find({ host_id: req.hostId }),
+    TollTransaction.find({ host_id: req.hostId }),
+  ]);
 
-  const matchedTollIds = new Set(results.map(r => r.toll_transaction_id));
+  const matchedTollIds = new Set(results.map(r => r.toll_transaction_id?.toString()));
 
   const tripRows = trips
     .map(trip => {
-      const tripResults = results.filter(r => r.trip_id === trip.id);
+      const tripResults = results.filter(r => r.trip_id?.toString() === trip.id);
       const toll_items = tripResults.map(r => {
-        const toll = tolls.find(t => t.id === r.toll_transaction_id);
+        const toll = tolls.find(t => t.id === r.toll_transaction_id?.toString());
         if (!toll) return null;
         return {
           toll_db_id: toll.id,
           location: toll.location,
           entry_datetime: toll.entry_datetime,
           exit_datetime: toll.exit_datetime,
-          match_datetime: toll.match_datetime,
           amount: r.amount,
           transponder_id: toll.transponder_id,
         };

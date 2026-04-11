@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { store, uid } = require('../db/store');
+const Host = require('../models/Host');
 
 const router = express.Router();
 
@@ -10,11 +10,10 @@ router.post('/register', async (req, res) => {
   const { email, password, name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   try {
-    const existing = store.hosts.find(h => h.email === email.toLowerCase());
+    const existing = await Host.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(409).json({ error: 'Email already registered' });
     const hash = await bcrypt.hash(password, 10);
-    const host = { id: uid(), email: email.toLowerCase(), password_hash: hash, name: name || null };
-    store.hosts.push(host);
+    const host = await Host.create({ email, password_hash: hash, name: name || null });
     const token = jwt.sign({ hostId: host.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, host: { id: host.id, email: host.email, name: host.name } });
   } catch (err) {
@@ -28,7 +27,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   try {
-    const host = store.hosts.find(h => h.email === email.toLowerCase());
+    const host = await Host.findOne({ email: email.toLowerCase() });
     if (!host) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, host.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
@@ -41,8 +40,8 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', require('../middleware/auth'), (req, res) => {
-  const host = store.hosts.find(h => h.id === req.hostId);
+router.get('/me', require('../middleware/auth'), async (req, res) => {
+  const host = await Host.findById(req.hostId);
   if (!host) return res.status(404).json({ error: 'Host not found' });
   res.json({ host: { id: host.id, email: host.email, name: host.name } });
 });
