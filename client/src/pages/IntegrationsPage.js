@@ -4,7 +4,7 @@ import api from '../api/client';
 
 export default function IntegrationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [status, setStatus] = useState(null); // null | { connected, config }
+  const [status, setStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [syncError, setSyncError] = useState('');
@@ -24,7 +24,6 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     loadStatus();
-    // Handle OAuth callback result
     const gmail = searchParams.get('gmail');
     if (gmail === 'connected') {
       setSearchParams({});
@@ -93,9 +92,11 @@ export default function IntegrationsPage() {
 
       {/* Gmail card */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+
+        {/* Card header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fce8e6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+            <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 10, background: '#fce8e6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
               📧
             </div>
             <div>
@@ -103,7 +104,7 @@ export default function IntegrationsPage() {
               <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Sync rental trip emails directly from your inbox</p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div>
             {status?.connected && (
               <span style={{ fontSize: 12, color: '#3b6d11', background: '#eaf3de', padding: '3px 10px', borderRadius: 20, fontWeight: 500 }}>
                 ● Connected
@@ -124,6 +125,7 @@ export default function IntegrationsPage() {
         )}
 
         {syncError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{syncError}</div>}
+
         {syncResult && (
           <div style={{ background: '#eaf3de', border: '0.5px solid #c0dd97', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
             ✅ Sync complete — <strong>{syncResult.synced}</strong> email{syncResult.synced !== 1 ? 's' : ''} with trips imported,{' '}
@@ -134,7 +136,7 @@ export default function IntegrationsPage() {
           </div>
         )}
 
-        {/* Config */}
+        {/* Search settings */}
         {status && (
           <div style={{ borderTop: '0.5px solid #f0ede8', paddingTop: 16, marginTop: 4 }}>
             <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Search settings</p>
@@ -154,7 +156,7 @@ export default function IntegrationsPage() {
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>
-                  Subject filter <span style={{ color: '#aaa', fontWeight: 400 }}>— regex applied after fetch (e.g. <code>is booked</code>)</span>
+                  Subject filter <span style={{ color: '#aaa', fontWeight: 400 }}>— regex (e.g. <code>is booked</code>)</span>
                 </label>
                 <input
                   className="form-control"
@@ -164,8 +166,8 @@ export default function IntegrationsPage() {
                   style={{ fontFamily: 'monospace', fontSize: 13 }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div className="form-group" style={{ margin: 0, flex: 1 }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ margin: 0, flex: '1 1 140px' }}>
                   <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Max emails to fetch</label>
                   <input
                     className="form-control"
@@ -175,7 +177,7 @@ export default function IntegrationsPage() {
                     onChange={e => updateConfig('maxResults', e.target.value)}
                   />
                 </div>
-                <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                <div className="form-group" style={{ margin: 0, flex: '1 1 140px' }}>
                   <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Only emails after date</label>
                   <input
                     className="form-control"
@@ -197,16 +199,16 @@ export default function IntegrationsPage() {
         )}
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, borderTop: '0.5px solid #f0ede8', paddingTop: 16 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16, borderTop: '0.5px solid #f0ede8', paddingTop: 16 }}>
           {status?.connected ? (
             <>
-              <button className="btn btn-primary" onClick={sync} disabled={syncing}>
+              <button className="btn btn-primary" style={{ flex: '1 1 auto' }} onClick={sync} disabled={syncing}>
                 {syncing ? <><span className="spinner" /> Syncing...</> : '🔄 Sync trips now'}
               </button>
               <button className="btn btn-sm btn-danger" onClick={disconnect}>Disconnect</button>
             </>
           ) : (
-            <button className="btn btn-primary" onClick={connectGmail} disabled={connecting}>
+            <button className="btn btn-primary" style={{ flex: '1 1 auto', justifyContent: 'center' }} onClick={connectGmail} disabled={connecting}>
               {connecting ? <><span className="spinner" /> Connecting...</> : '📧 Connect Gmail'}
             </button>
           )}
@@ -221,10 +223,10 @@ export default function IntegrationsPage() {
           <li>Enable the <strong>Gmail API</strong> under APIs &amp; Services → Library</li>
           <li>Go to <strong>APIs &amp; Services → Credentials</strong> → Create OAuth 2.0 Client ID</li>
           <li>Application type: <strong>Web application</strong></li>
-          <li>Add authorized redirect URI: <code style={{ background: '#f0ede8', padding: '1px 6px', borderRadius: 4 }}>http://localhost:3001/api/integrations/gmail/callback</code></li>
+          <li>Add authorized redirect URI: <code style={{ background: '#f0ede8', padding: '1px 6px', borderRadius: 4, wordBreak: 'break-all' }}>http://localhost:3001/api/integrations/gmail/callback</code></li>
           <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into <code>server/.env</code>:</li>
         </ol>
-        <pre style={{ background: '#f0ede8', padding: '10px 14px', borderRadius: 8, fontSize: 12, marginTop: 10, overflowX: 'auto' }}>
+        <pre style={{ background: '#f0ede8', padding: '10px 14px', borderRadius: 8, fontSize: 12, marginTop: 10, overflowX: 'auto', whiteSpace: 'pre', wordBreak: 'normal' }}>
 {`GOOGLE_CLIENT_ID=your_client_id_here
 GOOGLE_CLIENT_SECRET=your_client_secret_here
 GOOGLE_REDIRECT_URI=http://localhost:3001/api/integrations/gmail/callback
