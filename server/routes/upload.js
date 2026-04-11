@@ -76,7 +76,15 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
 
           let vehicle_id = null;
 
-          if (vehicleName) {
+          if (!vehicleName) {
+            // No vehicle name detected — create a blank vehicle to prompt user for YMM
+            const newVehicle = await Vehicle.create({
+              host_id: req.hostId, name: '',
+              plate: plate || '', transponder_id: '',
+              auto_added: true,
+            });
+            vehicle_id = newVehicle.id;
+          } else if (vehicleName) {
             const myVehicles = await Vehicle.find({ host_id: req.hostId });
 
             // 1. Exact plate match against registered vehicles only
@@ -133,7 +141,7 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
                 vehicle_id = newVehicle.id;
               }
             }
-          }
+          } // end else if (vehicleName)
 
           const record = await Trip.create({
             host_id: req.hostId,
@@ -204,7 +212,7 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
 
 // POST /api/upload/resolve-vehicle
 router.post('/resolve-vehicle', async (req, res) => {
-  const { vehicleId, targetVehicleId, plate, transponder_id } = req.body;
+  const { vehicleId, targetVehicleId, plate, transponder_id, name } = req.body;
   const vehicle = await Vehicle.findOne({ _id: vehicleId, host_id: req.hostId });
   if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
 
@@ -221,6 +229,7 @@ router.post('/resolve-vehicle', async (req, res) => {
 
   const cleanPlate = plate ? plate.toUpperCase() : '';
   const cleanTransponder = transponder_id ? transponder_id.replace(/\s/g, '') : '';
+  const cleanName = (name || '').trim();
 
   // Check if another vehicle already has this plate or transponder
   const duplicate = await Vehicle.findOne({
@@ -238,6 +247,11 @@ router.post('/resolve-vehicle', async (req, res) => {
     return res.json({ vehicle: duplicate });
   }
 
+  if (cleanName) {
+    vehicle.name = cleanName;
+    // Also update the vehicle string on all linked trips
+    await Trip.updateMany({ host_id: req.hostId, vehicle_id: vehicleId }, { vehicle: cleanName });
+  }
   if (cleanPlate) vehicle.plate = cleanPlate;
   if (cleanTransponder) vehicle.transponder_id = cleanTransponder;
   vehicle.candidates = null;

@@ -221,7 +221,15 @@ router.post('/gmail/sync', auth, async (req, res) => {
         const plate = (trip.plate || '').trim().toUpperCase();
 
         let vehicle_id = null;
-        if (vehicleName || plate) {
+        if (!vehicleName && !plate) {
+          // No vehicle info in email — create blank vehicle to prompt user for YMM
+          const newVehicle = await Vehicle.create({
+            host_id: req.hostId, name: '',
+            plate: '', transponder_id: '',
+            auto_added: true,
+          });
+          vehicle_id = newVehicle.id;
+        } else if (vehicleName || plate) {
           const myVehicles = await Vehicle.find({ host_id: req.hostId });
           if (plate) {
             const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate && v.transponder_id);
@@ -261,7 +269,7 @@ router.post('/gmail/sync', auth, async (req, res) => {
               vehicle_id = newVehicle.id;
             }
           }
-        }
+        } // end else if (vehicleName || plate)
 
         await Trip.create({
           host_id: req.hostId,

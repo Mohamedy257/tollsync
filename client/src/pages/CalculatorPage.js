@@ -154,6 +154,7 @@ export default function CalculatorPage() {
   const [dragging, setDragging] = useState(false);
   const [transponderInputs, setTransponderInputs] = useState({});
   const [plateInputs, setPlateInputs] = useState({});
+  const [vehicleNameInputs, setVehicleNameInputs] = useState({}); // for vehicles with no YMM
   const [vehicleSelections, setVehicleSelections] = useState({}); // vehicleId → candidateId or 'new'
   const [tripsExpanded, setTripsExpanded] = useState(true);
   const [editingTrip, setEditingTrip] = useState(null);
@@ -287,12 +288,13 @@ export default function CalculatorPage() {
     const plate = (plateInputs[vehicleId] || '').trim().toUpperCase();
     const transponder = (transponderInputs[vehicleId] || '').trim();
 
+    const name = (vehicleNameInputs[vehicleId] || '').trim();
+
     if (hasCandidates && sel && sel !== 'new') {
-      // Reassign to existing car — use its existing plate/transponder, no input needed
-      await api.post('/upload/resolve-vehicle', { vehicleId, targetVehicleId: sel, ...(plate ? { plate } : {}) });
+      await api.post('/upload/resolve-vehicle', { vehicleId, targetVehicleId: sel, ...(plate ? { plate } : {}), ...(name ? { name } : {}) });
     } else {
       if (!transponder) throw new Error(`No transponder entered for vehicle ${vehicleId}`);
-      await api.post('/upload/resolve-vehicle', { vehicleId, ...(plate ? { plate } : {}), transponder_id: transponder });
+      await api.post('/upload/resolve-vehicle', { vehicleId, ...(plate ? { plate } : {}), transponder_id: transponder, ...(name ? { name } : {}) });
     }
     return true;
   };
@@ -310,6 +312,7 @@ export default function CalculatorPage() {
       }
       setTransponderInputs({});
       setPlateInputs({});
+      setVehicleNameInputs({});
       setVehicleSelections({});
       const { trips: tr, tolls: tl, vehicles: veh } = await loadAll();
       if (tr.length > 0 && tl.length > 0 && veh.filter(x => !x.transponder_id).length === 0) {
@@ -492,7 +495,7 @@ export default function CalculatorPage() {
             const anyHasCandidates = missingTransponders.some(v => v.candidates && v.candidates.some(c => c.transponder_id));
             return (
               <div style={{ display: 'grid', gridTemplateColumns: anyHasCandidates ? '220px 140px 160px 180px' : '220px 160px 180px', gap: '0 12px', padding: '8px 16px', background: '#faf6e8', borderBottom: '1px solid #f0c060', fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <span>Renter · Vehicle · Dates</span>
+                <span>Vehicle (YMM) · Renter · Dates</span>
                 {anyHasCandidates && <span>Which car</span>}
                 <span>License Plate</span>
                 <span>EZ-Pass Transponder</span>
@@ -523,9 +526,19 @@ export default function CalculatorPage() {
             return (
               <div key={v.id} style={{ display: 'grid', gridTemplateColumns: anyHasCandidates ? '220px 140px 160px 180px' : '220px 160px 180px', gap: '0 12px', padding: '12px 16px', borderBottom: idx < missingTransponders.length - 1 ? '0.5px solid #f0e8c0' : 'none', alignItems: 'start' }}>
 
-                {/* Col 1: Renter + vehicle + dates */}
+                {/* Col 1: YMM (input if missing) + renter + dates */}
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>
+                  {v.name ? (
+                    <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>
+                  ) : (
+                    <input
+                      className="form-control"
+                      style={{ fontSize: 12, padding: '5px 8px', marginBottom: 4 }}
+                      placeholder="Year Make Model (e.g. Nissan Altima 2020)"
+                      value={vehicleNameInputs[v.id] || ''}
+                      onChange={e => setVehicleNameInputs(s => ({ ...s, [v.id]: e.target.value }))}
+                    />
+                  )}
                   {vehicleTrips.map(t => (
                     <p key={t.id} style={{ fontSize: 11, color: '#888', margin: '3px 0 0' }}>
                       {t.renter_name || 'Unknown'} · {t.start_datetime ? new Date(t.start_datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
@@ -606,6 +619,7 @@ export default function CalculatorPage() {
               className="btn btn-primary btn-sm"
               onClick={saveAllVehicles}
               disabled={savingAll || missingTransponders.some(v => {
+                if (!v.name && !vehicleNameInputs[v.id]) return true; // YMM required
                 const hc = v.candidates && v.candidates.some(c => c.transponder_id);
                 const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
                 if (hc && sel && sel !== 'new') return false;
