@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import html2canvas from 'html2canvas';
 import api from '../api/client';
+import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
 
 function fmtDt(iso) {
   if (!iso) return '—';
@@ -154,13 +155,16 @@ export default function CalculatorPage() {
   const [dragging, setDragging] = useState(false);
   const [transponderInputs, setTransponderInputs] = useState({});
   const [plateInputs, setPlateInputs] = useState({});
-  const [vehicleNameInputs, setVehicleNameInputs] = useState({}); // for vehicles with no YMM
+  const [vehicleNameInputs, setVehicleNameInputs] = useState({}); // legacy / fallback
+  const [ymmDraft, setYmmDraft] = useState({}); // vehicleId → { year, make, model, freeformMake, freeformModel }
   const [vehicleSelections, setVehicleSelections] = useState({}); // vehicleId → candidateId or 'new'
   const [tripsExpanded, setTripsExpanded] = useState(true);
   const [editingTrip, setEditingTrip] = useState(null);
   const [editDates, setEditDates] = useState({});
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [showActionSheet, setShowActionSheet] = useState(false);
   const fileRef = useRef();
+  const cameraRef = useRef();
   const autoCalcRef = useRef(false);
 
   useEffect(() => {
@@ -295,7 +299,12 @@ export default function CalculatorPage() {
     const plate = (plateInputs[vehicleId] || '').trim().toUpperCase();
     const transponder = (transponderInputs[vehicleId] || '').trim();
 
-    const name = (vehicleNameInputs[vehicleId] || '').trim();
+    // Build YMM name from structured dropdowns or legacy free-form
+    const draft = ymmDraft[vehicleId] || {};
+    const makeName = draft.make === 'Other' ? (draft.freeformMake || '').trim() : (draft.make || '');
+    const modelName = draft.model === 'Other' ? (draft.freeformModel || '').trim() : (draft.model || '');
+    const ymmName = [draft.year, makeName, modelName].filter(Boolean).join(' ').trim();
+    const name = ymmName || (vehicleNameInputs[vehicleId] || '').trim();
 
     if (hasCandidates && sel && sel !== 'new') {
       await api.post('/upload/resolve-vehicle', { vehicleId, targetVehicleId: sel, ...(plate ? { plate } : {}), ...(name ? { name } : {}) });
@@ -367,13 +376,100 @@ export default function CalculatorPage() {
         <p>Upload rental trip screenshots and EZ-Pass statements — files are detected automatically.</p>
       </div>
 
+      {/* Mobile action sheet */}
+      {showActionSheet && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowActionSheet(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+              zIndex: 1000, touchAction: 'none',
+            }}
+          />
+          {/* Sheet */}
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001,
+            background: '#fff', borderRadius: '16px 16px 0 0',
+            padding: '12px 16px 32px',
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{ width: 36, height: 4, background: '#ddd', borderRadius: 99, margin: '0 auto 16px' }} />
+            <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 12, textAlign: 'center' }}>Add files</p>
+
+            {/* Browse library */}
+            <button
+              className="btn"
+              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12 }}
+              onClick={() => { setShowActionSheet(false); setTimeout(() => fileRef.current?.click(), 50); }}
+            >
+              📁 &nbsp; Choose from library
+            </button>
+
+            {/* Take photo */}
+            <button
+              className="btn"
+              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12 }}
+              onClick={() => { setShowActionSheet(false); setTimeout(() => cameraRef.current?.click(), 50); }}
+            >
+              📷 &nbsp; Take photo
+            </button>
+
+            {/* Paste from clipboard */}
+            {navigator.clipboard?.read && (
+              <button
+                className="btn"
+                style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12 }}
+                onClick={async () => {
+                  setShowActionSheet(false);
+                  try {
+                    const items = await navigator.clipboard.read();
+                    const imageFiles = [];
+                    for (const item of items) {
+                      for (const type of item.types) {
+                        if (type.startsWith('image/')) {
+                          const blob = await item.getType(type);
+                          imageFiles.push(new File([blob], `pasted.${type.split('/')[1]}`, { type }));
+                        }
+                      }
+                    }
+                    if (imageFiles.length) handleFiles(imageFiles);
+                  } catch {}
+                }}
+              >
+                📋 &nbsp; Paste from clipboard
+              </button>
+            )}
+
+            <button
+              className="btn btn-sm"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 4, color: '#888' }}
+              onClick={() => setShowActionSheet(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Single upload zone */}
       <div className="card">
+        {/* Hidden camera input (mobile only) */}
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={e => handleFiles(e.target.files)}
+        />
+
         <label
           className={`upload-zone${dragging ? ' upload-zone-drag' : ''}`}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
+          onClick={isMobile && uploading === 0 ? e => { e.preventDefault(); setShowActionSheet(true); } : undefined}
         >
           <input ref={fileRef} type="file" multiple accept=".csv,.pdf,image/*"
             onChange={e => handleFiles(e.target.files)} />
@@ -398,37 +494,19 @@ export default function CalculatorPage() {
             )
             : <>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-                <p className="upload-label">Drop files, click to browse, or paste (⌘V)</p>
-                <p className="upload-hint">Trip screenshots · EZ-Pass PDF/CSV — AI detects which is which</p>
+                {isMobile
+                  ? <>
+                      <p className="upload-label">Tap to add files</p>
+                      <p className="upload-hint">Choose from library, take photo, or paste</p>
+                    </>
+                  : <>
+                      <p className="upload-label">Drop files, click to browse, or paste (⌘V)</p>
+                      <p className="upload-hint">Trip screenshots · EZ-Pass PDF/CSV — AI detects which is which</p>
+                    </>
+                }
               </>
           }
         </label>
-
-        {/* Paste button for mobile — clipboard API needed on mobile since paste event doesn't fire */}
-        {uploading === 0 && navigator.clipboard?.read && (
-          <button
-            className="btn btn-sm"
-            style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
-            onClick={async (e) => {
-              e.preventDefault();
-              try {
-                const items = await navigator.clipboard.read();
-                const imageFiles = [];
-                for (const item of items) {
-                  for (const type of item.types) {
-                    if (type.startsWith('image/')) {
-                      const blob = await item.getType(type);
-                      imageFiles.push(new File([blob], `pasted.${type.split('/')[1]}`, { type }));
-                    }
-                  }
-                }
-                if (imageFiles.length) handleFiles(imageFiles);
-              } catch {}
-            }}
-          >
-            📋 Paste image from clipboard
-          </button>
-        )}
 
         {uploadError && <div className="alert alert-error" style={{ marginTop: 8 }}>{uploadError}</div>}
 
@@ -518,7 +596,13 @@ export default function CalculatorPage() {
           const hc = v.candidates && v.candidates.some(c => c.transponder_id);
           const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
           if (sel && sel !== 'new') return false; // selected existing vehicle
-          if (!v.name && !vehicleNameInputs[v.id]) return true; // needs YMM
+          if (!v.name) {
+            // needs YMM from dropdowns
+            const draft = ymmDraft[v.id] || {};
+            const makeName = draft.make === 'Other' ? (draft.freeformMake || '').trim() : (draft.make || '');
+            const modelName = draft.model === 'Other' ? (draft.freeformModel || '').trim() : (draft.model || '');
+            if (!draft.year || !makeName || !modelName) return true;
+          }
           return !transponderInputs[v.id]; // needs transponder
         });
 
@@ -529,10 +613,14 @@ export default function CalculatorPage() {
         const renderYMM = (v) => {
           if (v.name) return <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>;
 
-          // No name detected — let user pick existing or add new
+          // No name detected — let user pick existing registered vehicle or add new via dropdowns
           const hc = v.candidates && v.candidates.some(c => c.transponder_id);
           const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
-          const showInput = !registeredVehicles.length || sel === 'new' || (!sel && !registeredVehicles.length);
+          const showDropdowns = !registeredVehicles.length || sel === 'new' || (!sel && !registeredVehicles.length);
+
+          const draft = ymmDraft[v.id] || {};
+          const setDraft = (patch) => setYmmDraft(s => ({ ...s, [v.id]: { ...(s[v.id] || {}), ...patch } }));
+          const availableModels = draft.make && draft.make !== 'Other' ? (CAR_MODELS[draft.make] || []) : [];
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -551,11 +639,59 @@ export default function CalculatorPage() {
                   onChange={() => setVehicleSelections(s => ({ ...s, [v.id]: 'new' }))} />
                 <span style={{ color: '#185fa5' }}>+ New vehicle</span>
               </label>
-              {(showInput || sel === 'new') && (
-                <input className="form-control" style={{ fontSize: 12, marginTop: 2 }}
-                  placeholder="Year Make Model (e.g. Nissan Altima 2020)"
-                  value={vehicleNameInputs[v.id] || ''}
-                  onChange={e => setVehicleNameInputs(s => ({ ...s, [v.id]: e.target.value }))} />
+
+              {showDropdowns && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 }}>
+                  {/* Year */}
+                  <select className="form-control" style={{ fontSize: 12 }}
+                    value={draft.year || ''}
+                    onChange={e => setDraft({ year: e.target.value })}>
+                    <option value="">Year</option>
+                    {CAR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+
+                  {/* Make */}
+                  <select className="form-control" style={{ fontSize: 12 }}
+                    value={draft.make || ''}
+                    onChange={e => setDraft({ make: e.target.value, model: '', freeformMake: '', freeformModel: '' })}>
+                    <option value="">Make</option>
+                    {CAR_MAKES.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+
+                  {/* Free-form make (when Other selected) */}
+                  {draft.make === 'Other' && (
+                    <input className="form-control" style={{ fontSize: 12 }}
+                      placeholder="Enter make"
+                      value={draft.freeformMake || ''}
+                      onChange={e => setDraft({ freeformMake: e.target.value })} />
+                  )}
+
+                  {/* Model — only show once make is chosen */}
+                  {draft.make && draft.make !== 'Other' && (
+                    <select className="form-control" style={{ fontSize: 12 }}
+                      value={draft.model || ''}
+                      onChange={e => setDraft({ model: e.target.value, freeformModel: '' })}>
+                      <option value="">Model</option>
+                      {availableModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  )}
+
+                  {/* Free-form make (Other make) → free-form model too */}
+                  {draft.make === 'Other' && (
+                    <input className="form-control" style={{ fontSize: 12 }}
+                      placeholder="Enter model"
+                      value={draft.freeformModel || ''}
+                      onChange={e => setDraft({ freeformModel: e.target.value })} />
+                  )}
+
+                  {/* Free-form model (known make but Other model) */}
+                  {draft.make && draft.make !== 'Other' && draft.model === 'Other' && (
+                    <input className="form-control" style={{ fontSize: 12 }}
+                      placeholder="Enter model"
+                      value={draft.freeformModel || ''}
+                      onChange={e => setDraft({ freeformModel: e.target.value })} />
+                  )}
+                </div>
               )}
             </div>
           );
