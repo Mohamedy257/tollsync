@@ -45,12 +45,27 @@ function TripCard({ t, reportRange }) {
       const dataUrl = canvas.toDataURL('image/png');
 
       if (isMobile && win) {
-        // Write the image into the pre-opened tab so the user can save from browser
         win.document.write(
           `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">` +
-          `<title>Toll summary</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:flex-start;}` +
-          `img{max-width:100%;height:auto;display:block;}</style></head>` +
-          `<body><img src="${dataUrl}" /></body></html>`
+          `<title>Toll summary</title>` +
+          `<style>
+            *{box-sizing:border-box;margin:0;padding:0}
+            body{background:#111;min-height:100vh;display:flex;flex-direction:column;}
+            .bar{position:sticky;top:0;z-index:10;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);
+              display:flex;align-items:center;gap:12px;padding:12px 16px;}
+            .back{background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:99px;
+              padding:7px 16px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
+            .hint{color:rgba(255,255,255,0.55);font-size:12px;}
+            .img-wrap{display:flex;justify-content:center;padding:12px;}
+            img{max-width:100%;height:auto;border-radius:4px;}
+          </style></head>` +
+          `<body>` +
+          `<div class="bar">` +
+          `<button class="back" onclick="window.close()">&#8592; Back</button>` +
+          `<span class="hint">Long-press image to save</span>` +
+          `</div>` +
+          `<div class="img-wrap"><img src="${dataUrl}" /></div>` +
+          `</body></html>`
         );
         win.document.close();
       } else {
