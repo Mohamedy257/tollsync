@@ -397,23 +397,27 @@ export default function CalculatorPage() {
             <div style={{ width: 36, height: 4, background: '#ddd', borderRadius: 99, margin: '0 auto 16px' }} />
             <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 12, textAlign: 'center' }}>Add files</p>
 
-            {/* Browse library */}
-            <button
+            {/* Browse library — label wraps input so tap is a direct user gesture (iOS-safe) */}
+            <label
               className="btn"
-              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12 }}
-              onClick={() => { setShowActionSheet(false); setTimeout(() => fileRef.current?.click(), 50); }}
+              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12, cursor: 'pointer' }}
+              onClick={() => setShowActionSheet(false)}
             >
+              <input type="file" multiple accept=".csv,.pdf,image/*" style={{ display: 'none' }}
+                onChange={e => handleFiles(e.target.files)} />
               📁 &nbsp; Choose from library
-            </button>
+            </label>
 
-            {/* Take photo */}
-            <button
+            {/* Take photo — same pattern with capture */}
+            <label
               className="btn"
-              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12 }}
-              onClick={() => { setShowActionSheet(false); setTimeout(() => cameraRef.current?.click(), 50); }}
+              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12, cursor: 'pointer' }}
+              onClick={() => setShowActionSheet(false)}
             >
+              <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                onChange={e => handleFiles(e.target.files)} />
               📷 &nbsp; Take photo
-            </button>
+            </label>
 
             {/* Paste from clipboard */}
             {navigator.clipboard?.read && (
