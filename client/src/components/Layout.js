@@ -12,6 +12,12 @@ const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const isStandalone = window.navigator.standalone === true ||
   window.matchMedia('(display-mode: standalone)').matches;
 
+// Migrate old dismissed flag → treat as installed so banner doesn't resurface
+if (localStorage.getItem('pwa-dismissed') === '1') {
+  localStorage.removeItem('pwa-dismissed');
+  localStorage.setItem('pwa-installed-v2', '1');
+}
+
 export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -20,21 +26,17 @@ export default function Layout({ children }) {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showIOSHint, setShowIOSHint] = useState(false);
   const [installed, setInstalled] = useState(
-    () => isStandalone || localStorage.getItem('pwa-installed') === '1'
-  );
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem('pwa-dismissed') === '1'
+    () => isStandalone || localStorage.getItem('pwa-installed-v2') === '1'
   );
 
   useEffect(() => {
-    if (installed || dismissed) return;
+    if (installed) return;
 
     const onPrompt = (e) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', onPrompt);
 
-    // Mark as installed when the OS confirms it — prevents duplicate icons
     const onInstalled = () => {
-      localStorage.setItem('pwa-installed', '1');
+      localStorage.setItem('pwa-installed-v2', '1');
       setInstalled(true);
       setInstallPrompt(null);
     };
@@ -44,14 +46,14 @@ export default function Layout({ children }) {
       window.removeEventListener('beforeinstallprompt', onPrompt);
       window.removeEventListener('appinstalled', onInstalled);
     };
-  }, [installed, dismissed]);
+  }, [installed]);
 
   const handleInstall = async () => {
     if (installPrompt) {
       await installPrompt.prompt();
       const { outcome } = await installPrompt.userChoice;
       if (outcome === 'accepted') {
-        localStorage.setItem('pwa-installed', '1');
+        localStorage.setItem('pwa-installed-v2', '1');
         setInstalled(true);
         setInstallPrompt(null);
       }
@@ -61,13 +63,13 @@ export default function Layout({ children }) {
   };
 
   const dismiss = () => {
-    localStorage.setItem('pwa-dismissed', '1');
-    setDismissed(true);
+    localStorage.setItem('pwa-installed-v2', '1'); // treat dismiss as "don't show again"
+    setInstalled(true);
     setInstallPrompt(null);
     setShowIOSHint(false);
   };
 
-  const showBanner = !installed && !dismissed && (installPrompt || isIOS);
+  const showBanner = !installed && (installPrompt || isIOS);
 
   const handleLogout = () => {
     logout();
