@@ -24,6 +24,12 @@ function TripCard({ t, reportRange }) {
   const gridRef = useRef();
   const [exporting, setExporting] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   const exportImage = async (e) => {
     e.stopPropagation();
@@ -86,14 +92,17 @@ function TripCard({ t, reportRange }) {
         onClick={() => setExpanded(e => !e)}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer', padding: '12px 16px', borderBottom: expanded ? '1px solid #f0ede8' : 'none', gap: 8 }}
       >
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, margin: 0 }}>{t.renter_name || 'Unknown renter'}</p>
           <p style={{ fontSize: 12, color: '#888', marginTop: 2, marginBottom: 0 }}>
-            {t.vehicle || '—'} &nbsp;·&nbsp; {fmtDt(t.start_datetime)} → {fmtDt(t.end_datetime)}
-            {t.trip_id && <> &nbsp;·&nbsp; #{t.trip_id}</>}
+            {t.vehicle || '—'}
+          </p>
+          <p style={{ fontSize: 11, color: '#aaa', marginTop: 1, marginBottom: 0 }}>
+            {fmtDt(t.start_datetime)} → {fmtDt(t.end_datetime)}
+            {t.trip_id && <> · #{t.trip_id}</>}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <div style={{ textAlign: 'right' }}>
             <p style={{ fontSize: 18, fontWeight: 700, color: '#185fa5', margin: 0 }}>${parseFloat(t.total_tolls).toFixed(2)}</p>
             <p style={{ fontSize: 11, color: '#aaa', margin: 0 }}>{t.toll_count} charge{t.toll_count !== 1 ? 's' : ''}</p>
@@ -106,23 +115,40 @@ function TripCard({ t, reportRange }) {
       {expanded && (
         <div ref={gridRef} style={{ background: '#fff', padding: '16px 16px 12px' }}>
           {/* Report header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, paddingBottom: 12, borderBottom: '2px solid #185fa5' }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: isMobile ? 8 : 0, marginBottom: 14, paddingBottom: 12, borderBottom: '2px solid #185fa5' }}>
             <div>
               <p style={{ fontWeight: 700, fontSize: 15, margin: 0, color: '#185fa5' }}>Toll Charge Report</p>
               <p style={{ fontSize: 12, color: '#555', margin: '3px 0 0' }}>Renter: <strong>{t.renter_name || 'Unknown'}</strong></p>
               <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Vehicle: <strong>{t.vehicle || '—'}</strong></p>
               {t.trip_id && <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Trip #: <strong>{t.trip_id}</strong></p>}
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
               <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip Start: <strong>{fmtDt(t.start_datetime)}</strong></p>
               <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Trip End: <strong>{fmtDt(t.end_datetime)}</strong></p>
               <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Generated: <strong>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></p>
             </div>
           </div>
 
-          {/* Grid header */}
+          {/* Toll items */}
           {t.toll_items && t.toll_items.length > 0 ? (
             <>
+              {isMobile ? (
+                /* Mobile: one card per toll charge */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {t.toll_items.map((ti, i) => (
+                    <div key={i} style={{ background: '#f8f7f4', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ color: '#222', fontWeight: 600 }}>{ti.location || '—'}</span>
+                        <span style={{ fontWeight: 700, color: '#185fa5', fontSize: 14 }}>${parseFloat(ti.amount).toFixed(2)}</span>
+                      </div>
+                      <div style={{ color: '#666', marginBottom: 2 }}>In: {fmtDt(ti.entry_datetime)}</div>
+                      <div style={{ color: '#666', marginBottom: 2 }}>Out: {fmtDt(ti.exit_datetime)}</div>
+                      <div style={{ color: '#aaa', fontFamily: 'monospace', fontSize: 11 }}>{ti.transponder_id || '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              /* Desktop: grid */
               <div className="scroll-x">
                 <div style={{ minWidth: 560 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '4px 0 6px', fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e8e8e8' }}>
@@ -139,6 +165,7 @@ function TripCard({ t, reportRange }) {
                   ))}
                 </div>
               </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 10, fontSize: 14, fontWeight: 700, color: '#185fa5' }}>
                 Total: ${parseFloat(t.total_tolls).toFixed(2)}
               </div>
