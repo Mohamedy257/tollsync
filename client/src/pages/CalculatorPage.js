@@ -29,13 +29,33 @@ function TripCard({ t, reportRange }) {
     e.stopPropagation();
     if (!gridRef.current) return;
     setExporting(true);
+
+    const isMobile = window.innerWidth < 768;
+    // Open window synchronously inside the user-gesture handler so mobile browsers allow it
+    const win = isMobile ? window.open('', '_blank') : null;
+
     try {
       const canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
-      a.click();
-    } catch {}
+      const dataUrl = canvas.toDataURL('image/png');
+
+      if (isMobile && win) {
+        // Write the image into the pre-opened tab so the user can save from browser
+        win.document.write(
+          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">` +
+          `<title>Toll summary</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:flex-start;}` +
+          `img{max-width:100%;height:auto;display:block;}</style></head>` +
+          `<body><img src="${dataUrl}" /></body></html>`
+        );
+        win.document.close();
+      } else {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
+        a.click();
+      }
+    } catch {
+      if (win) win.close();
+    }
     finally { setExporting(false); }
   };
 
