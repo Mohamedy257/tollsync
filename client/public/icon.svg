@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#185fa5"/>
+  <!-- Road (white dashes) -->
+  <rect x="236" y="80" width="40" height="80" rx="8" fill="white" opacity="0.3"/>
+  <rect x="236" y="216" width="40" height="80" rx="8" fill="white" opacity="0.3"/>
+  <rect x="236" y="352" width="40" height="80" rx="8" fill="white" opacity="0.3"/>
+  <!-- Toll gate bar -->
+  <rect x="100" y="230" width="312" height="24" rx="12" fill="white"/>
+  <!-- Left post -->
+  <rect x="100" y="180" width="24" height="120" rx="8" fill="#fbbf24"/>
+  <!-- Right post -->
+  <rect x="388" y="180" width="24" height="120" rx="8" fill="#fbbf24"/>
+  <!-- Dollar sign -->
+  <text x="256" y="310" font-family="system-ui, sans-serif" font-size="96" font-weight="700" fill="white" text-anchor="middle">$</text>
+</svg>
