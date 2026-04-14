@@ -255,6 +255,7 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
 
 // POST /api/upload/resolve-vehicle
 router.post('/resolve-vehicle', async (req, res) => {
+  try {
   const { vehicleId, targetVehicleId, plate, transponder_id, name } = req.body;
   const vehicle = await Vehicle.findOne({ _id: vehicleId, host_id: req.hostId });
   if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
@@ -275,14 +276,15 @@ router.post('/resolve-vehicle', async (req, res) => {
   const cleanName = (name || '').trim();
 
   // Check if another vehicle already has this plate or transponder
-  const duplicate = await Vehicle.findOne({
+  const orClauses = [
+    ...(cleanPlate ? [{ plate: cleanPlate }] : []),
+    ...(cleanTransponder ? [{ transponder_id: cleanTransponder }] : []),
+  ];
+  const duplicate = orClauses.length > 0 ? await Vehicle.findOne({
     _id: { $ne: vehicleId },
     host_id: req.hostId,
-    $or: [
-      ...(cleanPlate ? [{ plate: cleanPlate }] : []),
-      ...(cleanTransponder ? [{ transponder_id: cleanTransponder }] : []),
-    ],
-  });
+    $or: orClauses,
+  }) : null;
 
   if (duplicate) {
     await Trip.updateMany({ host_id: req.hostId, vehicle_id: vehicleId }, { vehicle_id: duplicate.id });
@@ -300,6 +302,10 @@ router.post('/resolve-vehicle', async (req, res) => {
   vehicle.candidates = null;
   await vehicle.save();
   res.json({ vehicle });
+  } catch (err) {
+    console.error('resolve-vehicle error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

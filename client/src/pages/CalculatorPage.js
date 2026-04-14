@@ -376,6 +376,7 @@ export default function CalculatorPage() {
   };
 
   const [savingAll, setSavingAll] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Resolves a single vehicle — pure API call, no loadAll
   const resolveOneVehicle = async (vehicleId) => {
@@ -403,19 +404,25 @@ export default function CalculatorPage() {
 
   const saveAllVehicles = async () => {
     setSavingAll(true);
+    setSaveError('');
+    const errors = [];
     try {
-      // Sequential — avoid race conditions when vehicles share the same YMM
       for (const v of missingTransponders) {
         try {
           await resolveOneVehicle(v.id);
         } catch (err) {
-          console.error('resolve failed for vehicle', v.id, err?.response?.data || err.message);
+          const msg = err?.response?.data?.error || err.message || 'Unknown error';
+          errors.push(`${v.name || 'Vehicle'}: ${msg}`);
         }
+      }
+      if (errors.length) {
+        setSaveError(errors.join(' · '));
       }
       setTransponderInputs({});
       setPlateInputs({});
       setVehicleNameInputs({});
       setVehicleSelections({});
+      setYmmDraft({});
       const { trips: tr, tolls: tl, vehicles: veh } = await loadAll();
       if (tr.length > 0 && tl.length > 0 && veh.filter(x => !x.transponder_id).length === 0) {
         autoCalcRef.current = true;
@@ -933,6 +940,11 @@ export default function CalculatorPage() {
                 style={isMobile ? { width: '100%', justifyContent: 'center' } : {}}>
                 {savingAll ? <><span className="spinner" /> Saving...</> : 'Save all'}
               </button>
+              {saveError && (
+                <div className="alert alert-error" style={{ marginTop: 8, fontSize: 12 }}>
+                  {saveError}
+                </div>
+              )}
             </div>
           </div>
         );
