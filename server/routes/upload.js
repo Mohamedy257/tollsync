@@ -6,7 +6,7 @@ const Vehicle = require('../models/Vehicle');
 const Trip = require('../models/Trip');
 const TollTransaction = require('../models/TollTransaction');
 const EzpassReportRange = require('../models/EzpassReportRange');
-const { parseFileAutoDetect } = require('../services/ai');
+const { parseFileAutoDetect, parseMultipleImagesAutoDetect } = require('../services/ai');
 
 const router = express.Router();
 router.use(auth);
@@ -23,18 +23,45 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
 
   const results = [];
 
-  // Parse all files in parallel — AI calls are independent and this is the main bottleneck
-  const parsed = await Promise.all(
-    files.map(file =>
-      parseFileAutoDetect(file.path, file.mimetype)
-        .then(result => ({ file, result, error: null }))
-        .catch(err => ({ file, result: null, error: err }))
-        .finally(() => fs.unlink(file.path, () => {}))
-    )
-  );
+  // If ALL uploaded files are images, process them together in one AI call
+  // so multi-page documents (e.g. EZPass spanning several screenshots) share full context.
+  const allImages = files.every(f => f.mimetype.startsWith('image/'));
+
+  let parsed;
+  if (allImages && files.length > 1) {
+    try {
+      const result = await parseMultipleImagesAutoDetect(
+        files.map(f => ({ path: f.path, mimeType: f.mimetype }))
+      );
+      // Treat the combined result as if it came from the first file
+      parsed = [{ file: files[0], result, error: null }];
+      // Mark remaining files as skipped (data already included in combined result)
+      for (let i = 1; i < files.length; i++) {
+        parsed.push({ file: files[i], result: null, error: null, skip: true });
+      }
+    } catch (err) {
+      parsed = [{ file: files[0], result: null, error: err }];
+      for (let i = 1; i < files.length; i++) {
+        parsed.push({ file: files[i], result: null, error: null, skip: true });
+      }
+    } finally {
+      files.forEach(f => fs.unlink(f.path, () => {}));
+    }
+  } else {
+    // Parse all files in parallel — AI calls are independent
+    parsed = await Promise.all(
+      files.map(file =>
+        parseFileAutoDetect(file.path, file.mimetype)
+          .then(result => ({ file, result, error: null }))
+          .catch(err => ({ file, result: null, error: err }))
+          .finally(() => fs.unlink(file.path, () => {}))
+      )
+    );
+  }
 
   // Insert results sequentially to avoid race conditions
-  for (const { file, result, error } of parsed) {
+  for (const { file, result, error, skip } of parsed) {
+    if (skip) continue; // already included in combined multi-image result
     if (error) {
       console.error('Auto-detect error:', error.message);
       results.push({ file: file.originalname, error: error.message });

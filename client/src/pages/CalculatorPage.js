@@ -270,6 +270,26 @@ export default function CalculatorPage() {
     }
   }, [canCalculate, calculating, calculate]);
 
+  // Convert HEIC/HEIF (iPhone camera format) to JPEG via canvas.
+  // iOS Safari can decode HEIC natively via createImageBitmap even though
+  // the Claude API doesn't accept it.
+  const normalizeFile = async (file) => {
+    const unsupported = ['image/heic', 'image/heif'];
+    const needsConvert = unsupported.includes(file.type) || (file.type === '' && /\.(heic|heif)$/i.test(file.name));
+    if (!needsConvert) return file;
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+      return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+    } catch {
+      return file; // fallback: upload as-is, server will surface the error
+    }
+  };
+
   const handleFiles = useCallback(async (files) => {
     if (!files || !files.length) return;
     setUploading(files.length); setUploadError(''); setUploadResults([]);
@@ -278,8 +298,12 @@ export default function CalculatorPage() {
     progressTimerRef.current = setInterval(() => {
       setUploadProgress(p => p >= 90 ? 90 : p + (90 - p) * 0.06);
     }, 300);
+
+    // Normalize HEIC → JPEG before upload
+    const normalized = await Promise.all(Array.from(files).map(normalizeFile));
+
     const formData = new FormData();
-    Array.from(files).forEach(f => formData.append('files', f));
+    normalized.forEach(f => formData.append('files', f));
     try {
       const res = await api.post('/upload/auto', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

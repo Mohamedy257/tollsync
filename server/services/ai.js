@@ -53,7 +53,7 @@ async function parseFileWithAI(filePath, mimeType, type) {
   }
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 16000,
     messages: [{ role: 'user', content }]
   });
@@ -143,12 +143,11 @@ function matchTollsToTrips(vehicles, trips, tolls) {
   };
 }
 
-async function parseFileAutoDetect(filePath, mimeType) {
+function buildAutoDetectPrompt() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-
-  const prompt = `Look at this file and determine what type it is, then extract the data.
+  return `Look at this file and determine what type it is, then extract the data.
 
 If it is a car rental trip receipt/reservation/screenshot (shows renter name, vehicle, trip dates):
 Return: { "type": "trips", "data": [ { "renter_name", "vehicle", "plate", "start_datetime", "end_datetime", "trip_id" } ] }
@@ -164,7 +163,10 @@ Rules:
 - For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if not present). amount must be positive, strip minus signs. Exclude credit card payments and replenishments.
 - For ezpass: location should combine entry plaza, exit plaza, and facility name.
 - For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
+}
 
+async function parseFileAutoDetect(filePath, mimeType) {
+  const prompt = buildAutoDetectPrompt();
   const fileData = fs.readFileSync(filePath);
   const b64 = fileData.toString('base64');
 
@@ -185,7 +187,34 @@ Rules:
   }
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
+    max_tokens: 16000,
+    messages: [{ role: 'user', content }]
+  });
+
+  const raw = response.content.map(b => b.text || '').join('');
+  const clean = raw.replace(/```json|```/g, '').trim();
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON found in AI response');
+  const result = JSON.parse(clean.slice(start, end + 1));
+  if (!result.type || !Array.isArray(result.data)) throw new Error('Unexpected AI response structure');
+  return result;
+}
+
+// Process multiple image files in a single AI call so multi-page documents
+// (e.g. EZPass statements spanning several screenshots) share full context.
+async function parseMultipleImagesAutoDetect(fileItems) {
+  const prompt = buildAutoDetectPrompt();
+  const content = [];
+  for (const { path, mimeType } of fileItems) {
+    const b64 = fs.readFileSync(path).toString('base64');
+    content.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: b64 } });
+  }
+  content.push({ type: 'text', text: prompt });
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
     max_tokens: 16000,
     messages: [{ role: 'user', content }]
   });
@@ -225,7 +254,7 @@ Text:
 ${text.slice(0, 12000)}`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -238,4 +267,4 @@ ${text.slice(0, 12000)}`;
   return JSON.parse(clean.slice(start, end + 1));
 }
 
-module.exports = { parseFileWithAI, parseFileAutoDetect, matchTollsToTrips, parseTextAsTrips };
+module.exports = { parseFileWithAI, parseFileAutoDetect, parseMultipleImagesAutoDetect, matchTollsToTrips, parseTextAsTrips };
