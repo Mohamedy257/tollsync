@@ -483,14 +483,15 @@ export default function CalculatorPage() {
             <div style={{ width: 36, height: 4, background: '#ddd', borderRadius: 99, margin: '0 auto 16px' }} />
             <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 12, textAlign: 'center' }}>Add files</p>
 
-            {/* Browse library — label wraps input so tap is a direct user gesture (iOS-safe) */}
+            {/* Browse library — label wraps input so tap is a direct user gesture (iOS-safe).
+                Do NOT call setShowActionSheet(false) on click — that unmounts the input before
+                the user finishes picking, causing onChange to fire on a dead element. */}
             <label
               className="btn"
               style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12, cursor: 'pointer' }}
-              onClick={() => setShowActionSheet(false)}
             >
               <input type="file" multiple accept=".csv,.pdf,image/*" style={{ display: 'none' }}
-                onChange={e => handleFiles(e.target.files)} />
+                onChange={e => { setShowActionSheet(false); handleFiles(e.target.files); }} />
               📁 &nbsp; Choose from library
             </label>
 
@@ -498,10 +499,9 @@ export default function CalculatorPage() {
             <label
               className="btn"
               style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12, cursor: 'pointer' }}
-              onClick={() => setShowActionSheet(false)}
             >
               <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
-                onChange={e => handleFiles(e.target.files)} />
+                onChange={e => { setShowActionSheet(false); handleFiles(e.target.files); }} />
               📷 &nbsp; Take photo
             </label>
 
