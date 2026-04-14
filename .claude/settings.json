@@ -8,7 +8,12 @@
       "Bash(git commit -m 'Scroll vehicle card into view after mobile keyboard closes:*)",
       "Bash(npx tsc:*)",
       "Bash(node -e ':*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(convert --version)",
+      "Bash(python3 -c \"import cairosvg\")",
+      "Bash(rsvg-convert -w 192 -h 192 /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon.svg -o /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon-192.png)",
+      "Bash(rsvg-convert -w 512 -h 512 /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon.svg -o /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon-512.png)",
+      "Bash(node -e \"require\\('./server/routes/upload'\\)\")"
     ]
   }
 }
