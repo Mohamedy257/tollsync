@@ -16,10 +16,26 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 });
 
+// Mobile browsers (iOS Files app, Android Chrome) often send PDFs and CSVs
+// as application/octet-stream. Use file extension as the authoritative source.
+function resolveMimeType(file) {
+  const name = (file.originalname || '').toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.csv')) return 'text/csv';
+  if (name.endsWith('.heic') || name.endsWith('.heif')) return 'image/jpeg'; // should be converted client-side already
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.webp')) return 'image/webp';
+  return file.mimetype || 'application/octet-stream';
+}
+
 // POST /api/upload/auto
 router.post('/auto', upload.array('files', 20), async (req, res) => {
   const files = req.files;
   if (!files || !files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+  // Resolve reliable MIME types before any processing
+  files.forEach(f => { f.mimetype = resolveMimeType(f); });
 
   const results = [];
 

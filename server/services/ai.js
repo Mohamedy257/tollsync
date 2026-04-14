@@ -48,8 +48,9 @@ async function parseFileWithAI(filePath, mimeType, type) {
       { type: 'text', text: prompt }
     ];
   } else {
+    // CSV and any other text-based format
     const text = fileData.toString('utf-8');
-    content = `${prompt}\n\nFile content:\n${text.slice(0, 8000)}`;
+    content = `${prompt}\n\nFile content:\n${text.slice(0, 12000)}`;
   }
 
   const response = await client.messages.create({
@@ -182,8 +183,9 @@ async function parseFileAutoDetect(filePath, mimeType) {
       { type: 'text', text: prompt }
     ];
   } else {
+    // CSV and any other text-based format
     const text = fileData.toString('utf-8');
-    content = `${prompt}\n\nFile content:\n${text.slice(0, 8000)}`;
+    content = `${prompt}\n\nFile content:\n${text.slice(0, 12000)}`;
   }
 
   const response = await client.messages.create({
