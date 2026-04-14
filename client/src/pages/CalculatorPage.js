@@ -130,17 +130,18 @@ function TripCard({ t, reportRange }) {
       {expanded && (
         <div ref={gridRef} style={{ background: '#fff', padding: '16px 16px 12px' }}>
           {/* Report header */}
-          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: isMobile ? 8 : 0, marginBottom: 14, paddingBottom: 12, borderBottom: '2px solid #185fa5' }}>
-            <div>
+          <div style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '2px solid #185fa5' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: isMobile ? 6 : 0, marginBottom: 10 }}>
               <p style={{ fontWeight: 700, fontSize: 15, margin: 0, color: '#185fa5' }}>Toll Charge Report</p>
-              <p style={{ fontSize: 12, color: '#555', margin: '3px 0 0' }}>Renter: <strong>{t.renter_name || 'Unknown'}</strong></p>
-              <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Vehicle: <strong>{t.vehicle || '—'}</strong></p>
-              {t.trip_id && <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Trip #: <strong>{t.trip_id}</strong></p>}
+              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Generated: <strong>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></p>
             </div>
-            <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '3px 0' : '3px 16px' }}>
+              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Renter: <strong>{t.renter_name || 'Unknown'}</strong></p>
               <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip Start: <strong>{fmtDt(t.start_datetime)}</strong></p>
-              <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Trip End: <strong>{fmtDt(t.end_datetime)}</strong></p>
-              <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>Generated: <strong>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></p>
+              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Vehicle: <strong>{t.vehicle || '—'}</strong></p>
+              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip End: <strong>{fmtDt(t.end_datetime)}</strong></p>
+              {t.plate && <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Plate: <strong style={{ fontFamily: 'monospace' }}>{t.plate}</strong></p>}
+              {t.trip_id && <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip #: <strong>{t.trip_id}</strong></p>}
             </div>
           </div>
 
@@ -721,8 +722,20 @@ export default function CalculatorPage() {
           const setDraft = (patch) => setYmmDraft(s => ({ ...s, [v.id]: { ...(s[v.id] || {}), ...patch } }));
           const availableModels = draft.make && draft.make !== 'Other' ? (CAR_MODELS[draft.make] || []) : [];
 
+          // Renter names for this unidentified vehicle
+          const vehicleTrips = trips.filter(t => t.vehicle_id === v.id);
+          const renterNames = [...new Set(vehicleTrips.map(t => t.renter_name).filter(Boolean))];
+
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {/* Guest name badge — shown prominently so user knows who they're assigning */}
+              {renterNames.length > 0 && (
+                <div style={{ background: '#185fa5', borderRadius: 8, padding: '8px 12px', marginBottom: 2 }}>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: '0 0 2px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guest</p>
+                  {renterNames.map(n => <p key={n} style={{ fontSize: 14, color: '#fff', fontWeight: 700, margin: 0 }}>{n}</p>)}
+                </div>
+              )}
+              <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Which vehicle did this guest use?</p>
               {registeredVehicles.map(rv => (
                 <label key={rv.id} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12 }}>
                   <input type="radio" name={`vymm-${v.id}`} value={rv.id}
@@ -810,8 +823,16 @@ export default function CalculatorPage() {
           const hasCandidates = v.candidates && v.candidates.some(c => c.transponder_id);
           const sel = vehicleSelections[v.id] ?? (hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null);
           if (!hasCandidates) return null;
+          const whichCarTrips = trips.filter(t => t.vehicle_id === v.id);
+          const whichCarRenters = [...new Set(whichCarTrips.map(t => t.renter_name).filter(Boolean))];
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {whichCarRenters.length > 0 && (
+                <div style={{ background: '#185fa5', borderRadius: 6, padding: '6px 10px', marginBottom: 4 }}>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: '0 0 1px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guest</p>
+                  {whichCarRenters.map(n => <p key={n} style={{ fontSize: 13, color: '#fff', fontWeight: 700, margin: 0 }}>{n}</p>)}
+                </div>
+              )}
               {v.candidates.map(c => (
                 <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
                   <input type="radio" name={`sel-${v.id}`} value={c.id}
