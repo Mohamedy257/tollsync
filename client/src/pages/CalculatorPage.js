@@ -382,7 +382,8 @@ export default function CalculatorPage() {
   const resolveOneVehicle = async (vehicleId) => {
     const v = vehicles.find(veh => veh.id === vehicleId);
     const hasCandidates = v?.candidates && v.candidates.some(c => c.transponder_id);
-    const sel = vehicleSelections[vehicleId] ?? (hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null);
+    const defaultSel = hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null;
+    const sel = vehicleSelections[vehicleId] ?? defaultSel;
     const plate = (plateInputs[vehicleId] || '').trim().toUpperCase();
     const transponder = (transponderInputs[vehicleId] || '').trim();
 
@@ -393,7 +394,8 @@ export default function CalculatorPage() {
     const ymmName = [draft.year, makeName, modelName].filter(Boolean).join(' ').trim();
     const name = ymmName || (vehicleNameInputs[vehicleId] || '').trim();
 
-    if (hasCandidates && sel && sel !== 'new') {
+    // Use existing vehicle if one was selected from the radio list (regardless of candidates)
+    if (sel && sel !== 'new') {
       await api.post('/upload/resolve-vehicle', { vehicleId, targetVehicleId: sel, ...(plate ? { plate } : {}), ...(name ? { name } : {}) });
     } else {
       if (!transponder) throw new Error(`No transponder entered for vehicle ${vehicleId}`);
@@ -691,16 +693,16 @@ export default function CalculatorPage() {
 
         const saveDisabled = savingAll || missingTransponders.some(v => {
           const hc = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
-          if (sel && sel !== 'new') return false; // selected existing vehicle
+          const defaultSel = hc ? v.candidates.find(c => c.transponder_id)?.id : null;
+          const sel = vehicleSelections[v.id] ?? defaultSel;
+          if (sel && sel !== 'new') return false; // user picked an existing vehicle — no transponder needed
           if (!v.name) {
-            // needs YMM from dropdowns
             const draft = ymmDraft[v.id] || {};
             const makeName = draft.make === 'Other' ? (draft.freeformMake || '').trim() : (draft.make || '');
             const modelName = draft.model === 'Other' ? (draft.freeformModel || '').trim() : (draft.model || '');
             if (!draft.year || !makeName || !modelName) return true;
           }
-          return !transponderInputs[v.id]; // needs transponder
+          return !transponderInputs[v.id];
         });
 
         // All registered vehicles for the blank-name picker
