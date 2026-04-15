@@ -349,9 +349,11 @@ export default function CalculatorPage() {
   const clearTrips = async () => {
     if (!window.confirm('Clear all trips?')) return;
     await api.delete('/trips');
+    await api.delete('/vehicles/auto-unresolved');
     setTrips([]); setResults(null);
     setVehicleSelections({}); setTransponderInputs({}); setPlateInputs({});
     setVehicleNameInputs({}); setYmmDraft({}); setSaveError('');
+    setVehicles(v => v.filter(x => !x.auto_added || x.transponder_id));
   };
 
   const deleteTrip = async (id) => {

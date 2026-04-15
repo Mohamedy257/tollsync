@@ -45,6 +45,16 @@ router.put('/:id', async (req, res) => {
   res.json({ vehicle });
 });
 
+// DELETE /api/vehicles/auto-unresolved — remove auto-added vehicles that still lack a transponder
+router.delete('/auto-unresolved', async (req, res) => {
+  const result = await Vehicle.deleteMany({
+    host_id: req.hostId,
+    auto_added: true,
+    $or: [{ transponder_id: '' }, { transponder_id: null }],
+  });
+  res.json({ deleted: result.deletedCount });
+});
+
 // DELETE /api/vehicles/:id
 router.delete('/:id', async (req, res) => {
   await Vehicle.deleteOne({ _id: req.params.id, host_id: req.hostId });
