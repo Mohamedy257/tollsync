@@ -348,7 +348,10 @@ export default function CalculatorPage() {
 
   const clearTrips = async () => {
     if (!window.confirm('Clear all trips?')) return;
-    await api.delete('/trips'); setTrips([]); setResults(null);
+    await api.delete('/trips');
+    setTrips([]); setResults(null);
+    setVehicleSelections({}); setTransponderInputs({}); setPlateInputs({});
+    setVehicleNameInputs({}); setYmmDraft({}); setSaveError('');
   };
 
   const deleteTrip = async (id) => {
