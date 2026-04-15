@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api/client';
 
 function fmtDt(iso) {
@@ -27,6 +27,13 @@ export default function EzPassPage() {
   const [sortCol, setSortCol] = useState('exit_datetime');
   const [sortDir, setSortDir] = useState(-1); // -1 = desc, 1 = asc
   const [search, setSearch] = useState('');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   useEffect(() => { load(); }, []);
 
@@ -105,91 +112,104 @@ export default function EzPassPage() {
         </div>
       ) : (
         <>
-          {/* Summary row */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+          {/* Summary + search row */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
             <span className="badge badge-blue">{tolls.length} record{tolls.length !== 1 ? 's' : ''}</span>
             <span style={{ fontSize: 13, color: '#555' }}>Total: <strong>${total.toFixed(2)}</strong></span>
-            <div style={{ marginLeft: 'auto' }}>
-              <input
-                className="form-control"
-                style={{ fontSize: 13, padding: '5px 10px', width: 220 }}
-                placeholder="Search transponder, location…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
+            <input
+              className="form-control"
+              style={{ fontSize: 13, padding: '5px 10px', width: isMobile ? '100%' : 220, marginLeft: isMobile ? 0 : 'auto' }}
+              placeholder="Search transponder, location…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
 
-          {/* Table */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div className="scroll-x">
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: '#f8f7f4', borderBottom: '1px solid #e5e3de' }}>
-                    {COLS.map(c => (
-                      <th
-                        key={c.key}
-                        onClick={() => toggleSort(c.key)}
-                        style={{
-                          padding: '9px 14px',
-                          textAlign: c.right ? 'right' : 'left',
-                          fontWeight: 600, fontSize: 11,
-                          color: sortCol === c.key ? '#185fa5' : '#888',
-                          textTransform: 'uppercase', letterSpacing: '0.05em',
-                          cursor: 'pointer', whiteSpace: 'nowrap',
-                          userSelect: 'none',
-                        }}
-                      >
-                        {c.label}<SortIcon col={c.key} />
-                      </th>
-                    ))}
-                    <th style={{ width: 36 }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((t, i) => (
-                    <tr key={t._id || t.id} style={{ borderBottom: i < sorted.length - 1 ? '0.5px solid #f0ede8' : 'none' }}>
-                      {COLS.map(c => {
-                        const raw = t[c.key];
-                        const val = c.fmt ? c.fmt(raw) : (raw || '—');
-                        return (
-                          <td key={c.key} style={{
-                            padding: '9px 14px',
-                            textAlign: c.right ? 'right' : 'left',
-                            fontFamily: c.mono ? 'monospace' : undefined,
-                            fontSize: c.mono ? 12 : 13,
-                            color: c.muted ? '#aaa' : c.right ? '#185fa5' : '#1a1a1a',
-                            fontWeight: c.right ? 600 : undefined,
-                            whiteSpace: c.key === 'location' ? 'normal' : 'nowrap',
-                          }}>
-                            {val}
-                          </td>
-                        );
-                      })}
-                      <td style={{ padding: '9px 10px', textAlign: 'right' }}>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => removeToll(t._id || t.id)}
-                        >✕</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: '#f8f7f4', borderTop: '1px solid #e5e3de' }}>
-                    <td colSpan={4} style={{ padding: '8px 14px', fontSize: 12, color: '#888' }}>
-                      {filtered.length} record{filtered.length !== 1 ? 's' : ''}{search ? ' (filtered)' : ''}
-                    </td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, color: '#185fa5' }}>
-                      ${total.toFixed(2)}
-                    </td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
-              </table>
+          {isMobile ? (
+            /* ── Mobile: card per record ── */
+            <div>
+              {sorted.map((t, i) => (
+                <div key={t._id || t.id} className="card" style={{ marginBottom: 8, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>{t.location || '—'}</span>
+                    <span style={{ fontWeight: 700, fontSize: 16, color: '#185fa5', flexShrink: 0 }}>${parseFloat(t.amount).toFixed(2)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 3 }}>
+                    <span style={{ fontFamily: 'monospace' }}>{t.transponder_id || '—'}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>In: {fmtDt(t.entry_datetime)}</div>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Out: {fmtDt(t.exit_datetime)}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: '#bbb' }}>{t.source_file || ''}</span>
+                    <button className="btn btn-sm btn-danger" style={{ padding: '3px 8px', fontSize: 11 }}
+                      onClick={() => removeToll(t._id || t.id)}>✕</button>
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 12, color: '#888', textAlign: 'right', marginTop: 8 }}>
+                {filtered.length} record{filtered.length !== 1 ? 's' : ''}{search ? ' (filtered)' : ''} · Total <strong style={{ color: '#185fa5' }}>${total.toFixed(2)}</strong>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* ── Desktop: full table ── */
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="scroll-x">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f8f7f4', borderBottom: '1px solid #e5e3de' }}>
+                      {COLS.map(c => (
+                        <th key={c.key} onClick={() => toggleSort(c.key)} style={{
+                          padding: '9px 14px', textAlign: c.right ? 'right' : 'left',
+                          fontWeight: 600, fontSize: 11, color: sortCol === c.key ? '#185fa5' : '#888',
+                          textTransform: 'uppercase', letterSpacing: '0.05em',
+                          cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none',
+                        }}>
+                          {c.label}<SortIcon col={c.key} />
+                        </th>
+                      ))}
+                      <th style={{ width: 36 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map((t, i) => (
+                      <tr key={t._id || t.id} style={{ borderBottom: i < sorted.length - 1 ? '0.5px solid #f0ede8' : 'none' }}>
+                        {COLS.map(c => {
+                          const raw = t[c.key];
+                          const val = c.fmt ? c.fmt(raw) : (raw || '—');
+                          return (
+                            <td key={c.key} style={{
+                              padding: '9px 14px', textAlign: c.right ? 'right' : 'left',
+                              fontFamily: c.mono ? 'monospace' : undefined, fontSize: c.mono ? 12 : 13,
+                              color: c.muted ? '#aaa' : c.right ? '#185fa5' : '#1a1a1a',
+                              fontWeight: c.right ? 600 : undefined,
+                              whiteSpace: c.key === 'location' ? 'normal' : 'nowrap',
+                            }}>
+                              {val}
+                            </td>
+                          );
+                        })}
+                        <td style={{ padding: '9px 10px', textAlign: 'right' }}>
+                          <button className="btn btn-sm btn-danger" style={{ padding: '3px 8px', fontSize: 11 }}
+                            onClick={() => removeToll(t._id || t.id)}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#f8f7f4', borderTop: '1px solid #e5e3de' }}>
+                      <td colSpan={4} style={{ padding: '8px 14px', fontSize: 12, color: '#888' }}>
+                        {filtered.length} record{filtered.length !== 1 ? 's' : ''}{search ? ' (filtered)' : ''}
+                      </td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, color: '#185fa5' }}>
+                        ${total.toFixed(2)}
+                      </td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

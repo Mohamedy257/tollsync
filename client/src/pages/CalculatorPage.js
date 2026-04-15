@@ -461,8 +461,9 @@ export default function CalculatorPage() {
     a.click();
   };
 
-  const withTolls = results?.trips?.filter(t => t.toll_items?.length > 0) || [];
-  const noTolls = results?.trips?.filter(t => !t.toll_items?.length) || [];
+  const byDateDesc = (a, b) => new Date(b.start_datetime) - new Date(a.start_datetime);
+  const withTolls = (results?.trips?.filter(t => t.toll_items?.length > 0) || []).sort(byDateDesc);
+  const noTolls = (results?.trips?.filter(t => !t.toll_items?.length) || []).sort(byDateDesc);
   const totalLoaded = tolls.reduce((s, t) => s + parseFloat(t.amount), 0);
 
   return (
