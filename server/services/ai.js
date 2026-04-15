@@ -21,7 +21,7 @@ function getTripsPrompt() {
 Return ONLY a raw JSON array, no markdown, no explanation.
 Each object must have:
 - renter_name (string)
-- vehicle (string - make/model or plate if visible)
+- vehicle (string - make/model/year ONLY if explicitly written as text; do NOT visually guess from car photos, return null if not found as text)
 - start_datetime (ISO 8601)
 - end_datetime (ISO 8601)
 - trip_id (string or null)
@@ -159,8 +159,8 @@ Return: { "type": "ezpass", "report_from": "<ISO 8601 date or null>", "report_to
 Rules:
 - Return ONLY raw JSON, no markdown, no explanation.
 - For trips: Today is ${year}-${String(month).padStart(2,'0')}. Use year ${year} for all dates if the year is not shown. Never use an older year like 2020.
-- For trips: "plate" is the license plate number visible on the screenshot (e.g. "ABC1234"), or null if not visible.
-- For trips: "vehicle" is the make/model/year string (e.g. "Nissan Altima 2020").
+- For trips: "plate" is the license plate number that is explicitly written as text in the screenshot (e.g. "ABC1234"), or null if not found as text.
+- For trips: "vehicle" is the make/model/year string ONLY if it is explicitly written as text (e.g. "Nissan Altima 2020"). Do NOT visually identify the vehicle from photos or images of cars — if the vehicle name is not written as readable text, return null.
 - For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if not present). amount must be positive, strip minus signs. Exclude credit card payments and replenishments.
 - For ezpass: location should combine entry plaza, exit plaza, and facility name.
 - For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
@@ -241,8 +241,8 @@ async function parseTextAsTrips(text) {
 Return ONLY a raw JSON array, no markdown, no explanation.
 Each object must have:
 - renter_name (string)
-- vehicle (string - make/model or plate if visible, or null)
-- plate (string - license plate if visible, or null)
+- vehicle (string - make/model/year ONLY if explicitly written as text, or null)
+- plate (string - license plate ONLY if explicitly written as text, or null)
 - start_datetime (ISO 8601 with time)
 - end_datetime (ISO 8601 with time)
 - trip_id (string or null — look for a numeric ID in the subject like "(55545268)" or in the email body)
