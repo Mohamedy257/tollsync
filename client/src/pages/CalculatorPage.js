@@ -129,66 +129,118 @@ function TripCard({ t, reportRange }) {
 
       {/* Expandable report — this is what gets exported */}
       {expanded && (
-        <div ref={gridRef} style={{ background: '#fff', padding: '16px 16px 12px' }}>
-          {/* Report header */}
-          <div style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '2px solid #185fa5' }}>
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: isMobile ? 6 : 0, marginBottom: 10 }}>
-              <p style={{ fontWeight: 700, fontSize: 15, margin: 0, color: '#185fa5' }}>Toll Charge Report</p>
-              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Generated: <strong>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong></p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '3px 0' : '3px 16px' }}>
-              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Renter: <strong>{t.renter_name || 'Unknown'}</strong></p>
-              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip Start: <strong>{fmtDt(t.start_datetime)}</strong></p>
-              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Vehicle: <strong>{t.vehicle || '—'}</strong></p>
-              <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip End: <strong>{fmtDt(t.end_datetime)}</strong></p>
-              {t.plate && <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Plate: <strong style={{ fontFamily: 'monospace' }}>{t.plate}</strong></p>}
-              {t.trip_id && <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Trip #: <strong>{t.trip_id}</strong></p>}
+        <div ref={gridRef} style={{ background: '#fff', fontFamily: 'system-ui, sans-serif' }}>
+
+          {/* ── Header band ── */}
+          <div style={{ background: '#0d3b6e', padding: '14px 18px 12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: 0.2 }}>⚡ TollSync</p>
+                <p style={{ margin: '2px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>Toll Charges</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Generated</p>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#fff', fontWeight: 600 }}>
+                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Toll items */}
+          {/* ── Trip info block ── */}
+          <div style={{ background: '#f0f4fa', borderBottom: '1px solid #d0daea', padding: '10px 18px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '4px 0' : '4px 16px' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Renter</p>
+                <p style={{ margin: '1px 0 0', fontSize: 13, fontWeight: 600, color: '#111' }}>{t.renter_name || 'Unknown'}</p>
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Vehicle</p>
+                <p style={{ margin: '1px 0 0', fontSize: 13, fontWeight: 600, color: '#111' }}>{t.vehicle || '—'}{t.plate ? <span style={{ fontFamily: 'monospace', fontWeight: 400, color: '#555', marginLeft: 6 }}>· {t.plate}</span> : ''}</p>
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Trip Period</p>
+                <p style={{ margin: '1px 0 0', fontSize: 12, fontWeight: 500, color: '#111' }}>{fmtDt(t.start_datetime)}</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#555' }}>{fmtDt(t.end_datetime)}</p>
+              </div>
+              {t.trip_id && (
+                <div>
+                  <p style={{ margin: 0, fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Trip #</p>
+                  <p style={{ margin: '1px 0 0', fontSize: 13, fontWeight: 600, color: '#111' }}>{t.trip_id}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Transaction table ── */}
           {t.toll_items && t.toll_items.length > 0 ? (
-            <>
+            <div style={{ padding: '0 0 4px' }}>
               {isMobile ? (
-                /* Mobile: one card per toll charge */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                /* Mobile: stacked rows */
+                <div>
                   {t.toll_items.map((ti, i) => (
-                    <div key={i} style={{ background: '#f8f7f4', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ color: '#222', fontWeight: 600 }}>{ti.location || '—'}</span>
-                        <span style={{ fontWeight: 700, color: '#185fa5', fontSize: 14 }}>${parseFloat(ti.amount).toFixed(2)}</span>
+                    <div key={i} style={{ padding: '10px 18px', borderBottom: '0.5px solid #e5e7eb', background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#111', flex: 1, paddingRight: 8 }}>{ti.location || '—'}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0d3b6e', flexShrink: 0 }}>${parseFloat(ti.amount).toFixed(2)}</span>
                       </div>
-                      <div style={{ color: '#666', marginBottom: 2 }}>In: {fmtDt(ti.entry_datetime)}</div>
-                      <div style={{ color: '#666', marginBottom: 2 }}>Out: {fmtDt(ti.exit_datetime)}</div>
-                      <div style={{ color: '#aaa', fontFamily: 'monospace', fontSize: 11 }}>{ti.transponder_id || '—'}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280' }}>
+                        <span>In: {fmtDt(ti.entry_datetime)}</span>
+                        <span style={{ margin: '0 6px' }}>·</span>
+                        <span>Out: {fmtDt(ti.exit_datetime)}</span>
+                      </div>
+                      {ti.transponder_id && <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>{ti.transponder_id}</div>}
                     </div>
                   ))}
                 </div>
               ) : (
-              /* Desktop: grid */
-              <div className="scroll-x">
-                <div style={{ minWidth: 560 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '4px 0 6px', fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e8e8e8' }}>
-                    <span>Transponder</span><span>Location</span><span>Entry</span><span>Exit</span><span style={{ textAlign: 'right' }}>Amount</span>
-                  </div>
-                  {t.toll_items.map((ti, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 160px 160px 80px', gap: '4px 12px', padding: '7px 0', borderBottom: '0.5px solid #f0ede8', fontSize: 12, alignItems: 'start' }}>
-                      <span style={{ color: '#444', fontFamily: 'monospace', fontSize: 11 }}>{ti.transponder_id || '—'}</span>
-                      <span style={{ color: '#222' }}>{ti.location || '—'}</span>
-                      <span style={{ color: '#666' }}>{fmtDt(ti.entry_datetime)}</span>
-                      <span style={{ color: '#666' }}>{fmtDt(ti.exit_datetime)}</span>
-                      <span style={{ fontWeight: 600, textAlign: 'right', color: '#222' }}>${parseFloat(ti.amount).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                /* Desktop: full table */
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#1e4d8c' }}>
+                      {['Transponder ID', 'Entry Date & Time', 'Exit Date & Time', 'Location', 'Amount'].map(h => (
+                        <th key={h} style={{
+                          padding: '7px 14px', textAlign: h === 'Amount' ? 'right' : 'left',
+                          fontSize: 10, fontWeight: 700, color: '#fff',
+                          textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                        }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {t.toll_items.map((ti, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f0f4fa', borderBottom: '0.5px solid #d0daea' }}>
+                        <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: '#374151', whiteSpace: 'nowrap' }}>{ti.transponder_id || '—'}</td>
+                        <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDt(ti.entry_datetime)}</td>
+                        <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDt(ti.exit_datetime)}</td>
+                        <td style={{ padding: '8px 14px', color: '#111' }}>{ti.location || '—'}</td>
+                        <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, color: '#0d3b6e', whiteSpace: 'nowrap' }}>${parseFloat(ti.amount).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#0d3b6e' }}>
+                      <td colSpan={4} style={{ padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Total Charges — {t.toll_count} transaction{t.toll_count !== 1 ? 's' : ''}
+                      </td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 15, fontWeight: 800, color: '#fff' }}>
+                        ${parseFloat(t.total_tolls).toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 10, fontSize: 14, fontWeight: 700, color: '#185fa5' }}>
-                Total: ${parseFloat(t.total_tolls).toFixed(2)}
-              </div>
-            </>
+              {isMobile && (
+                <div style={{ background: '#0d3b6e', padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Total — {t.toll_count} transaction{t.toll_count !== 1 ? 's' : ''}
+                  </span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>${parseFloat(t.total_tolls).toFixed(2)}</span>
+                </div>
+              )}
+            </div>
           ) : (
-            <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', padding: '16px 0' }}>No toll charges for this trip.</p>
+            <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', padding: '20px 0' }}>No toll charges for this trip.</p>
           )}
         </div>
       )}
