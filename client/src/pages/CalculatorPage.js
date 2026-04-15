@@ -354,6 +354,7 @@ export default function CalculatorPage() {
     setVehicleSelections({}); setTransponderInputs({}); setPlateInputs({});
     setVehicleNameInputs({}); setYmmDraft({}); setSaveError('');
     setVehicles(v => v.filter(x => !x.auto_added || x.transponder_id));
+    setUploadResults([]); setUploadError('');
   };
 
   const deleteTrip = async (id) => {
