@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import CalculatorPage from './pages/CalculatorPage';
 import VehiclesPage from './pages/VehiclesPage';
 import IntegrationsPage from './pages/IntegrationsPage';
+import EzPassPage from './pages/EzPassPage';
 import './index.css';
 
 function ProtectedRoute({ children }) {
@@ -27,6 +28,7 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><CalculatorPage /></ProtectedRoute>} />
       <Route path="/vehicles" element={<ProtectedRoute><VehiclesPage /></ProtectedRoute>} />
       <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
+      <Route path="/tolls" element={<ProtectedRoute><EzPassPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
