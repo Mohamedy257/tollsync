@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import api from '../api/client';
 import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
@@ -226,6 +227,7 @@ export default function CalculatorPage() {
   const [editDates, setEditDates] = useState({});
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const navigate = useNavigate();
   const fileRef = useRef();
   const cameraRef = useRef();
   const autoCalcRef = useRef(false);
@@ -648,6 +650,72 @@ export default function CalculatorPage() {
           </div>
         )}
       </div>
+
+      {/* ── Onboarding steps (shown only when no trips yet) ── */}
+      {trips.length === 0 && !results && (() => {
+        const steps = [
+          {
+            n: 1, icon: '📸', title: 'Upload trip screenshots',
+            desc: 'Take a screenshot of your Turo trip list and upload it above.',
+            done: false, active: true, action: null,
+          },
+          {
+            n: 2, icon: '🛣️', title: 'Upload your EZ-Pass statement',
+            desc: tolls.length > 0
+              ? `${tolls.length} toll record${tolls.length !== 1 ? 's' : ''} already loaded.`
+              : 'Go to Toll Records and upload your EZ-Pass PDF, CSV, or screenshots.',
+            done: tolls.length > 0, active: false,
+            action: { label: tolls.length > 0 ? 'View records' : 'Go to Toll Records', path: '/tolls' },
+          },
+          {
+            n: 3, icon: '⚡', title: 'Calculate tolls',
+            desc: 'Once trips and toll records are loaded, hit Calculate.',
+            done: false, active: false, action: null,
+          },
+        ];
+        return (
+          <div style={{ marginBottom: 20 }}>
+            {steps.map((s, i) => (
+              <div key={s.n} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 14,
+                padding: '14px 0',
+                borderBottom: i < steps.length - 1 ? '0.5px solid #f0ede8' : 'none',
+                opacity: s.active || s.done ? 1 : 0.38,
+              }}>
+                {/* Step circle */}
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+                  background: s.done ? '#eaf3de' : s.active ? '#185fa5' : '#f0ede8',
+                  color: s.done ? '#3b6d11' : s.active ? '#fff' : '#aaa',
+                  fontWeight: 700,
+                }}>
+                  {s.done ? '✓' : s.n}
+                </div>
+
+                {/* Text */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, fontSize: 14, margin: '2px 0 3px', color: s.active || s.done ? '#1a1a1a' : '#aaa' }}>
+                    {s.icon} {s.title}
+                  </p>
+                  <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{s.desc}</p>
+                </div>
+
+                {/* Action */}
+                {s.action && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ flexShrink: 0, ...(s.done ? {} : { background: '#185fa5', color: '#fff', borderColor: 'transparent' }) }}
+                    onClick={() => navigate(s.action.path)}
+                  >
+                    {s.action.label}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Loaded data summary */}
       {(trips.length > 0 || tolls.length > 0) && (

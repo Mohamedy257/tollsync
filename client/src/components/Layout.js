@@ -6,7 +6,6 @@ const NAV = [
   { path: '/', icon: '⚡', label: 'Calculator' },
   { path: '/tolls', icon: '🛣️', label: 'Toll Records' },
   { path: '/vehicles', icon: '🚗', label: 'Vehicles' },
-  { path: '/integrations', icon: '🔗', label: 'Integrations' },
 ];
 
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
