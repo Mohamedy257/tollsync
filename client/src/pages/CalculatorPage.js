@@ -379,6 +379,7 @@ export default function CalculatorPage() {
   };
 
   const [savingAll, setSavingAll] = useState(false);
+  const [savingOne, setSavingOne] = useState({}); // vehicleId → true
   const [saveError, setSaveError] = useState('');
 
   // Resolves a single vehicle — pure API call, no loadAll
@@ -435,6 +436,25 @@ export default function CalculatorPage() {
     } finally { setSavingAll(false); }
   };
 
+  const saveOneVehicle = async (vehicleId) => {
+    setSavingOne(s => ({ ...s, [vehicleId]: true }));
+    setSaveError('');
+    try {
+      await resolveOneVehicle(vehicleId);
+      setTransponderInputs(s => { const n = { ...s }; delete n[vehicleId]; return n; });
+      setPlateInputs(s => { const n = { ...s }; delete n[vehicleId]; return n; });
+      setVehicleSelections(s => { const n = { ...s }; delete n[vehicleId]; return n; });
+      setYmmDraft(s => { const n = { ...s }; delete n[vehicleId]; return n; });
+      const { trips: tr, tolls: tl, vehicles: veh } = await loadAll();
+      if (tr.length > 0 && tl.length > 0 && veh.filter(x => !x.transponder_id).length === 0) {
+        autoCalcRef.current = true;
+      }
+    } catch (err) {
+      setSaveError(err?.response?.data?.error || err.message || 'Failed to save vehicle');
+    } finally {
+      setSavingOne(s => { const n = { ...s }; delete n[vehicleId]; return n; });
+    }
+  };
 
   const exportCSV = () => {
     if (!results?.trips) return;
@@ -778,7 +798,7 @@ export default function CalculatorPage() {
       {/* Vehicle details card */}
       {missingTransponders.length > 0 && (() => {
         const anyHasCandidates = missingTransponders.some(v => v.candidates && v.candidates.some(c => c.transponder_id));
-        const cols = anyHasCandidates ? '220px 140px 160px 180px' : '220px 160px 180px';
+        const cols = anyHasCandidates ? '220px 140px 160px 180px 80px' : '220px 160px 180px 80px';
 
         const saveDisabled = savingAll || missingTransponders.some(v => {
           const hc = v.candidates && v.candidates.some(c => c.transponder_id);
@@ -1024,6 +1044,14 @@ export default function CalculatorPage() {
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>EZ-Pass transponder</p>
                       {renderTransponder(v)}
                     </div>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ alignSelf: 'flex-start' }}
+                      disabled={savingOne[v.id] || savingAll}
+                      onClick={() => saveOneVehicle(v.id)}
+                    >
+                      {savingOne[v.id] ? <><span className="spinner" /> Saving...</> : 'Save'}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1035,6 +1063,7 @@ export default function CalculatorPage() {
                   {anyHasCandidates && <span>Which car</span>}
                   <span>License Plate</span>
                   <span>EZ-Pass Transponder</span>
+                  <span />
                 </div>
                 {missingTransponders.map((v, idx) => (
                   <div key={v.id} style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 12px', padding: '12px 16px', borderBottom: idx < missingTransponders.length - 1 ? '0.5px solid #f0e8c0' : 'none', alignItems: 'start' }}>
@@ -1042,6 +1071,15 @@ export default function CalculatorPage() {
                     {anyHasCandidates && <div>{renderWhichCar(v) || <span style={{ fontSize: 11, color: '#ccc' }}>—</span>}</div>}
                     <div>{renderPlate(v)}</div>
                     <div>{renderTransponder(v)}</div>
+                    <div style={{ paddingTop: 2 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        disabled={savingOne[v.id] || savingAll}
+                        onClick={() => saveOneVehicle(v.id)}
+                      >
+                        {savingOne[v.id] ? <span className="spinner" /> : 'Save'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </>
