@@ -469,41 +469,24 @@ export default function CalculatorPage() {
     <div>
       {/* Hero banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #185fa5 0%, #1a6ec0 50%, #1577d4 100%)',
-        borderRadius: 16,
-        padding: isMobile ? '20px 20px 22px' : '28px 32px 30px',
-        marginBottom: 24,
-        position: 'relative',
+        background: 'linear-gradient(135deg, #185fa5 0%, #1577d4 100%)',
+        borderRadius: 14,
+        padding: '14px 18px',
+        marginBottom: 20,
         overflow: 'hidden',
+        position: 'relative',
       }}>
-        {/* Decorative circles */}
-        <div style={{ position: 'absolute', top: -28, right: -28, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -40, right: 60, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 12, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-            ⚡
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: isMobile ? 20 : 24, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px' }}>TollSync</h2>
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>Rental toll calculator</p>
-          </div>
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
+        {/* Row 1: icon + title + subtitle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 18 }}>⚡</span>
+          <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>TollSync</span>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginLeft: 2 }}>Rental toll calculator</span>
         </div>
-
-        <p style={{ margin: 0, fontSize: isMobile ? 13 : 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55, maxWidth: 480 }}>
-          Upload rental trip screenshots and EZ-Pass statements — files are detected and matched automatically.
-        </p>
-
-        <div style={{ display: 'flex', gap: 20, marginTop: 16, flexWrap: 'wrap' }}>
-          {[
-            { icon: '📸', label: 'Trip screenshots' },
-            { icon: '📄', label: 'EZ-Pass PDFs & CSVs' },
-            { icon: '⚡', label: 'Auto-matched tolls' },
-          ].map(({ icon, label }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 14 }}>{icon}</span>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{label}</span>
-            </div>
+        {/* Row 2: feature chips */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          {['📸 Trip screenshots', '📄 EZ-Pass PDFs & CSVs', '⚡ Auto-matched tolls'].map(label => (
+            <span key={label} style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>{label}</span>
           ))}
         </div>
       </div>
