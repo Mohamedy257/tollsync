@@ -392,7 +392,10 @@ export default function CalculatorPage() {
   const resolveOneVehicle = async (vehicleId) => {
     const v = vehicles.find(veh => veh.id === vehicleId);
     const hasCandidates = v?.candidates && v.candidates.some(c => c.transponder_id);
-    const defaultSel = hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null;
+    const registered = vehicles.filter(rv => rv.transponder_id);
+    const defaultSel = hasCandidates
+      ? v.candidates.find(c => c.transponder_id)?.id
+      : (!v?.name && registered.length > 0 ? registered[0].id : null);
     const sel = vehicleSelections[vehicleId] ?? defaultSel;
     const plate = (plateInputs[vehicleId] || '').trim().toUpperCase();
     const transponder = (transponderInputs[vehicleId] || '').trim();
@@ -807,9 +810,7 @@ export default function CalculatorPage() {
         const cols = anyHasCandidates ? '220px 140px 160px 180px 80px' : '220px 160px 180px 80px';
 
         const saveDisabled = savingAll || missingTransponders.some(v => {
-          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
-          const defaultSel = hc ? v.candidates.find(c => c.transponder_id)?.id : null;
-          const sel = vehicleSelections[v.id] ?? defaultSel;
+          const sel = getEffectiveSel(v);
           if (sel && sel !== 'new') return false; // user picked an existing vehicle — no transponder needed
           if (!v.name) {
             const draft = ymmDraft[v.id] || {};
@@ -823,11 +824,19 @@ export default function CalculatorPage() {
         // All registered vehicles for the blank-name picker
         const registeredVehicles = vehicles.filter(rv => rv.transponder_id);
 
-        // Returns true when the user has selected an existing registered vehicle
-        const isExistingSelected = (v) => {
+        // Compute the effective default selection for a vehicle —
+        // mirrors the same logic used in renderYMM / renderWhichCar
+        const getEffectiveSel = (v) => {
           const hc = v.candidates && v.candidates.some(c => c.transponder_id);
-          const defaultSel = hc ? v.candidates.find(c => c.transponder_id)?.id : null;
-          const sel = vehicleSelections[v.id] ?? defaultSel;
+          const defaultSel = hc
+            ? v.candidates.find(c => c.transponder_id)?.id
+            : (!v.name && registeredVehicles.length > 0 ? registeredVehicles[0].id : null);
+          return vehicleSelections[v.id] ?? defaultSel;
+        };
+
+        // Returns true when an existing registered vehicle is selected (or defaulted to)
+        const isExistingSelected = (v) => {
+          const sel = getEffectiveSel(v);
           return !!(sel && sel !== 'new');
         };
 
@@ -836,9 +845,8 @@ export default function CalculatorPage() {
           if (v.name) return <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>;
 
           // No name detected — let user pick existing registered vehicle or add new via dropdowns
-          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
-          const showDropdowns = !registeredVehicles.length || sel === 'new' || (!sel && !registeredVehicles.length);
+          const sel = getEffectiveSel(v);
+          const showDropdowns = !registeredVehicles.length || sel === 'new';
 
           const draft = ymmDraft[v.id] || {};
           const setDraft = (patch) => setYmmDraft(s => ({ ...s, [v.id]: { ...(s[v.id] || {}), ...patch } }));
@@ -944,8 +952,8 @@ export default function CalculatorPage() {
 
         const renderWhichCar = (v) => {
           const hasCandidates = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hasCandidates ? v.candidates.find(c => c.transponder_id)?.id : null);
           if (!hasCandidates) return null;
+          const sel = getEffectiveSel(v);
           const whichCarTrips = trips.filter(t => t.vehicle_id === v.id);
           const whichCarRenters = [...new Set(whichCarTrips.map(t => t.renter_name).filter(Boolean))];
           return (
@@ -975,9 +983,7 @@ export default function CalculatorPage() {
         };
 
         const renderPlate = (v) => {
-          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
-          // User selected an existing registered vehicle (via candidates or blank-name picker)
+          const sel = getEffectiveSel(v);
           const selectedExisting = sel && sel !== 'new' ? vehicles.find(rv => rv.id === sel) : null;
           if (selectedExisting) return <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#555' }}>{selectedExisting.plate || '—'}</span>;
           const needsPlate = !v.plate;
@@ -998,8 +1004,7 @@ export default function CalculatorPage() {
         };
 
         const renderTransponder = (v) => {
-          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
-          const sel = vehicleSelections[v.id] ?? (hc ? v.candidates.find(c => c.transponder_id)?.id : null);
+          const sel = getEffectiveSel(v);
           const selectedExisting = sel && sel !== 'new' ? vehicles.find(rv => rv.id === sel) : null;
           if (selectedExisting) return <span style={{ fontSize: 11, color: '#aaa' }}>Uses {selectedExisting.name}'s transponder</span>;
           const sameYmmRegistered = vehicles.filter(rv => rv.id !== v.id && rv.transponder_id && v.name && rv.name.toLowerCase() === v.name.toLowerCase());
