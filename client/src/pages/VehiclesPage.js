@@ -8,8 +8,8 @@ export default function VehiclesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState(null);   // vehicle being edited
-  const [editForm, setEditForm] = useState({});        // draft for that vehicle
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const [savingId, setSavingId] = useState(null);
 
   useEffect(() => { load(); }, []);
@@ -69,12 +69,11 @@ export default function VehiclesPage() {
   const fg = { marginBottom: 8 };
   const lbl = { fontSize: 12, color: '#666', marginBottom: 3, display: 'block', fontWeight: 500 };
 
-  const VehicleRow = ({ v }) => {
-    const isEditing = editingId === v.id;
-
-    if (isEditing) {
+  // Render inline to avoid re-mounting when parent state changes (which would kill input focus)
+  const renderVehicle = (v) => {
+    if (editingId === v.id) {
       return (
-        <div style={{ padding: '14px 0', borderBottom: '0.5px solid #f0ede8' }}>
+        <div key={v.id} style={{ padding: '14px 0', borderBottom: '0.5px solid #f0ede8' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px 12px', marginBottom: 10 }}>
             <div style={fg}>
               <label style={lbl}>Nickname</label>
@@ -160,7 +159,7 @@ export default function VehiclesPage() {
         <>
           <p className="section-title" style={{ color: '#854f0b' }}>⚠️ Missing transponder ID</p>
           <div className="card" style={{ borderColor: '#f0c060', marginBottom: 12 }}>
-            {noTransponder.map(v => <VehicleRow key={v.id} v={v} />)}
+            {noTransponder.map(v => renderVehicle(v))}
           </div>
         </>
       )}
@@ -169,7 +168,7 @@ export default function VehiclesPage() {
         <>
           <p className="section-title">Registered vehicles</p>
           <div className="card" style={{ marginBottom: 12 }}>
-            {withTransponder.map(v => <VehicleRow key={v.id} v={v} />)}
+            {withTransponder.map(v => renderVehicle(v))}
           </div>
         </>
       )}
