@@ -53,6 +53,15 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
   res.json({ results });
 });
 
+// DELETE /api/ezpass/file/:filename — delete all records from a specific source file
+router.delete('/file/:filename', async (req, res) => {
+  const result = await TollTransaction.deleteMany({
+    host_id: req.hostId,
+    source_file: req.params.filename,
+  });
+  res.json({ deleted: result.deletedCount });
+});
+
 // DELETE /api/ezpass/:id
 router.delete('/:id', async (req, res) => {
   await TollTransaction.deleteOne({ _id: req.params.id, host_id: req.hostId });

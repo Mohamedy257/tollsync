@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../api/client';
 
 function fmtDt(iso) {
@@ -17,7 +17,6 @@ const COLS = [
   { key: 'exit_datetime',  label: 'Exit Date & Time',  fmt: fmtDt },
   { key: 'location',       label: 'Location' },
   { key: 'amount',         label: 'Amount', right: true, fmt: v => `$${parseFloat(v).toFixed(2)}` },
-  { key: 'source_file',    label: 'Source File', muted: true },
 ];
 
 export default function EzPassPage() {
@@ -25,8 +24,9 @@ export default function EzPassPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortCol, setSortCol] = useState('exit_datetime');
-  const [sortDir, setSortDir] = useState(-1); // -1 = desc, 1 = asc
+  const [sortDir, setSortDir] = useState(-1);
   const [search, setSearch] = useState('');
+  const [deletingFile, setDeletingFile] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
@@ -57,6 +57,16 @@ export default function EzPassPage() {
     catch { setError('Failed to clear records'); }
   };
 
+  const deleteFile = async (filename) => {
+    if (!window.confirm(`Delete all tolls from "${filename}"? This cannot be undone.`)) return;
+    setDeletingFile(filename);
+    try {
+      await api.delete(`/ezpass/file/${encodeURIComponent(filename)}`);
+      setTolls(t => t.filter(x => x.source_file !== filename));
+    } catch { setError('Failed to delete file records'); }
+    finally { setDeletingFile(null); }
+  };
+
   const toggleSort = (key) => {
     if (sortCol === key) setSortDir(d => d * -1);
     else { setSortCol(key); setSortDir(-1); }
@@ -84,6 +94,16 @@ export default function EzPassPage() {
 
   const total = filtered.reduce((s, t) => s + parseFloat(t.amount || 0), 0);
 
+  // Group tolls by source file for the file summary panel
+  const fileGroups = tolls.reduce((acc, t) => {
+    const f = t.source_file || '(unknown)';
+    if (!acc[f]) acc[f] = { count: 0, total: 0 };
+    acc[f].count++;
+    acc[f].total += parseFloat(t.amount || 0);
+    return acc;
+  }, {});
+  const fileNames = Object.keys(fileGroups).sort();
+
   const SortIcon = ({ col }) => {
     if (sortCol !== col) return <span style={{ color: '#ccc', marginLeft: 4, fontSize: 10 }}>↕</span>;
     return <span style={{ marginLeft: 4, fontSize: 10, color: '#185fa5' }}>{sortDir === -1 ? '▼' : '▲'}</span>;
@@ -97,7 +117,7 @@ export default function EzPassPage() {
           <p>All EZ-Pass transactions — re-uploading the same file only adds new records.</p>
         </div>
         {tolls.length > 0 && (
-          <button className="btn btn-danger btn-sm" onClick={clearAll}>Delete tolls</button>
+          <button className="btn btn-danger btn-sm" onClick={clearAll}>Delete all tolls</button>
         )}
       </div>
 
@@ -112,6 +132,38 @@ export default function EzPassPage() {
         </div>
       ) : (
         <>
+          {/* Uploaded files summary */}
+          {fileNames.length > 0 && (
+            <>
+              <p className="section-title">Uploaded files</p>
+              <div className="card" style={{ marginBottom: 16, padding: 0 }}>
+                {fileNames.map((f, i) => (
+                  <div key={f} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px',
+                    borderBottom: i < fileNames.length - 1 ? '0.5px solid #f0ede8' : 'none',
+                  }}>
+                    <span style={{ fontSize: 16 }}>📄</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#888' }}>
+                        {fileGroups[f].count} record{fileGroups[f].count !== 1 ? 's' : ''} · ${fileGroups[f].total.toFixed(2)}
+                      </p>
+                    </div>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      style={{ flexShrink: 0 }}
+                      disabled={deletingFile === f}
+                      onClick={() => deleteFile(f)}
+                    >
+                      {deletingFile === f ? <><span className="spinner" /> Deleting…</> : 'Delete'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {/* Summary + search row */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
             <span className="badge badge-blue">{tolls.length} record{tolls.length !== 1 ? 's' : ''}</span>
@@ -126,9 +178,9 @@ export default function EzPassPage() {
           </div>
 
           {isMobile ? (
-            /* ── Mobile: card per record ── */
+            /* Mobile: card per record */
             <div>
-              {sorted.map((t, i) => (
+              {sorted.map((t) => (
                 <div key={t._id || t.id} className="card" style={{ marginBottom: 8, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>{t.location || '—'}</span>
@@ -151,7 +203,7 @@ export default function EzPassPage() {
               </div>
             </div>
           ) : (
-            /* ── Desktop: full table ── */
+            /* Desktop: full table */
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div className="scroll-x">
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -180,7 +232,7 @@ export default function EzPassPage() {
                             <td key={c.key} style={{
                               padding: '9px 14px', textAlign: c.right ? 'right' : 'left',
                               fontFamily: c.mono ? 'monospace' : undefined, fontSize: c.mono ? 12 : 13,
-                              color: c.muted ? '#aaa' : c.right ? '#185fa5' : '#1a1a1a',
+                              color: c.right ? '#185fa5' : '#1a1a1a',
                               fontWeight: c.right ? 600 : undefined,
                               whiteSpace: c.key === 'location' ? 'normal' : 'nowrap',
                             }}>
@@ -203,7 +255,7 @@ export default function EzPassPage() {
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, color: '#185fa5' }}>
                         ${total.toFixed(2)}
                       </td>
-                      <td colSpan={2} />
+                      <td />
                     </tr>
                   </tfoot>
                 </table>

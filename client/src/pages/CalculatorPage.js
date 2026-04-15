@@ -379,11 +379,6 @@ export default function CalculatorPage() {
     setResults(null);
   };
 
-  const clearTolls = async () => {
-    if (!window.confirm('Clear all toll transactions?')) return;
-    await api.delete('/ezpass'); setTolls([]); setResults(null);
-  };
-
   const [savingAll, setSavingAll] = useState(false);
   const [savingOne, setSavingOne] = useState({}); // vehicleId → true
   const [saveError, setSaveError] = useState('');
@@ -793,12 +788,11 @@ export default function CalculatorPage() {
             </div>
           )}
           {tolls.length > 0 && (
-            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', gap: 10 }}>
+            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '8px 12px' }}>
               <span style={{ fontSize: 13 }}>
                 <span className="badge badge-green" style={{ marginRight: 6 }}>{tolls.length}</span>
                 toll{tolls.length !== 1 ? 's' : ''} · <strong>${totalLoaded.toFixed(2)}</strong>
               </span>
-              <button className="btn btn-sm btn-danger" onClick={clearTolls}>Clear</button>
             </div>
           )}
         </div>
