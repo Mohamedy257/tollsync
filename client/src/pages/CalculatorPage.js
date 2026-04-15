@@ -817,6 +817,14 @@ export default function CalculatorPage() {
         // All registered vehicles for the blank-name picker
         const registeredVehicles = vehicles.filter(rv => rv.transponder_id);
 
+        // Returns true when the user has selected an existing registered vehicle
+        const isExistingSelected = (v) => {
+          const hc = v.candidates && v.candidates.some(c => c.transponder_id);
+          const defaultSel = hc ? v.candidates.find(c => c.transponder_id)?.id : null;
+          const sel = vehicleSelections[v.id] ?? defaultSel;
+          return !!(sel && sel !== 'new');
+        };
+
         // Shared field renderers
         const renderYMM = (v) => {
           if (v.name) return <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>🚗 {v.name}</p>;
@@ -1036,14 +1044,18 @@ export default function CalculatorPage() {
                         {renderWhichCar(v)}
                       </div>
                     )}
-                    <div>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>License plate</p>
-                      {renderPlate(v)}
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>EZ-Pass transponder</p>
-                      {renderTransponder(v)}
-                    </div>
+                    {!isExistingSelected(v) && (
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>License plate</p>
+                        {renderPlate(v)}
+                      </div>
+                    )}
+                    {!isExistingSelected(v) && (
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>EZ-Pass transponder</p>
+                        {renderTransponder(v)}
+                      </div>
+                    )}
                     <button
                       className="btn btn-primary btn-sm"
                       style={{ alignSelf: 'flex-start' }}
@@ -1069,8 +1081,8 @@ export default function CalculatorPage() {
                   <div key={v.id} style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 12px', padding: '12px 16px', borderBottom: idx < missingTransponders.length - 1 ? '0.5px solid #f0e8c0' : 'none', alignItems: 'start' }}>
                     <div>{renderYMM(v)}{renderRenterDates(v)}</div>
                     {anyHasCandidates && <div>{renderWhichCar(v) || <span style={{ fontSize: 11, color: '#ccc' }}>—</span>}</div>}
-                    <div>{renderPlate(v)}</div>
-                    <div>{renderTransponder(v)}</div>
+                    <div>{!isExistingSelected(v) && renderPlate(v)}</div>
+                    <div>{!isExistingSelected(v) && renderTransponder(v)}</div>
                     <div style={{ paddingTop: 2 }}>
                       <button
                         className="btn btn-primary btn-sm"
