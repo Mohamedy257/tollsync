@@ -37,48 +37,29 @@ function TripCard({ t, reportRange }) {
     if (!gridRef.current) return;
     setExporting(true);
 
-    const isMobile = window.innerWidth < 768;
-    // Open window synchronously inside the user-gesture handler so mobile browsers allow it
-    const win = isMobile ? window.open('', '_blank') : null;
+    const filename = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
 
     try {
       const canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
-      const dataUrl = canvas.toDataURL('image/png');
 
-      if (isMobile && win) {
-        win.document.write(
-          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">` +
-          `<title>Toll summary</title>` +
-          `<style>
-            *{box-sizing:border-box;margin:0;padding:0}
-            body{background:#111;min-height:100vh;display:flex;flex-direction:column;}
-            .bar{position:sticky;top:0;z-index:10;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);
-              display:flex;align-items:center;gap:12px;padding:12px 16px;}
-            .back{background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:99px;
-              padding:7px 16px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
-            .hint{color:rgba(255,255,255,0.55);font-size:12px;}
-            .img-wrap{display:flex;justify-content:center;padding:12px;}
-            img{max-width:100%;height:auto;border-radius:4px;}
-          </style></head>` +
-          `<body>` +
-          `<div class="bar">` +
-          `<button class="back" onclick="window.close()">&#8592; Back</button>` +
-          `<span class="hint">Long-press image to save</span>` +
-          `</div>` +
-          `<div class="img-wrap"><img src="${dataUrl}" /></div>` +
-          `</body></html>`
-        );
-        win.document.close();
-      } else {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
-        a.click();
+      // Try Web Share API first (iOS/Android "Save Image" / share sheet)
+      if (navigator.share && navigator.canShare) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Toll Charges' });
+          return;
+        }
       }
-    } catch {
-      if (win) win.close();
-    }
-    finally { setExporting(false); }
+
+      // Desktop fallback: trigger download
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = filename;
+      a.click();
+    } catch (err) {
+      // User cancelled share — not an error
+    } finally { setExporting(false); }
   };
 
   // Check if trip extends outside EZ-Pass report range
@@ -248,7 +229,7 @@ function TripCard({ t, reportRange }) {
       {expanded && (
         <div style={{ padding: '8px 16px 12px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f0ede8' }}>
           <button className="btn btn-sm" onClick={exportImage} disabled={exporting}>
-            {exporting ? <><span className="spinner" /> Exporting...</> : '🖼 Export as image'}
+            {exporting ? <><span className="spinner" /> Saving...</> : '⬇️ Save image'}
           </button>
         </div>
       )}
@@ -281,7 +262,6 @@ export default function CalculatorPage() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const navigate = useNavigate();
   const fileRef = useRef();
-  const cameraRef = useRef();
   const autoCalcRef = useRef(false);
 
   useEffect(() => {
@@ -603,16 +583,6 @@ export default function CalculatorPage() {
               📁 &nbsp; Choose from library
             </label>
 
-            {/* Take photo — same pattern with capture */}
-            <label
-              className="btn"
-              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12, cursor: 'pointer' }}
-            >
-              <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
-                onChange={e => { setShowActionSheet(false); handleFiles(e.target.files); }} />
-              📷 &nbsp; Take photo
-            </label>
-
             {/* Paste from clipboard */}
             {navigator.clipboard?.read && (
               <button
@@ -652,16 +622,6 @@ export default function CalculatorPage() {
 
       {/* Single upload zone */}
       <div className="card">
-        {/* Hidden camera input (mobile only) */}
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: 'none' }}
-          onChange={e => handleFiles(e.target.files)}
-        />
-
         <label
           className={`upload-zone${dragging ? ' upload-zone-drag' : ''}`}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -695,7 +655,7 @@ export default function CalculatorPage() {
                 {isMobile
                   ? <>
                       <p className="upload-label">Tap to add files</p>
-                      <p className="upload-hint">Choose from library, take photo, or paste</p>
+                      <p className="upload-hint">Choose from library or paste</p>
                     </>
                   : <>
                       <p className="upload-label">Drop files, click to browse, or paste (⌘V)</p>
