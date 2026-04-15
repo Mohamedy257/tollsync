@@ -13,18 +13,17 @@ router.get('/', async (req, res) => {
 
 // POST /api/vehicles
 router.post('/', async (req, res) => {
-  const { name, plate, transponder_id } = req.body;
-  if (!name) return res.status(400).json({ error: 'name is required' });
-  const existing = await Vehicle.findOne({
-    host_id: req.hostId,
-    name: { $regex: new RegExp(`^${name}$`, 'i') },
-  });
-  if (existing) return res.status(200).json({ vehicle: existing });
+  const { name, nickname, year, make, model, plate, transponder_id, vin } = req.body;
+  const ymmName = name || [year, make, model].filter(Boolean).join(' ') || '';
+  if (!ymmName) return res.status(400).json({ error: 'Vehicle name or YMM is required' });
   const vehicle = await Vehicle.create({
     host_id: req.hostId,
-    name,
+    name: ymmName,
+    nickname: nickname ? nickname.trim() : '',
+    year: year || '', make: make || '', model: model || '',
     plate: plate ? plate.toUpperCase() : '',
     transponder_id: transponder_id ? transponder_id.replace(/\s/g, '') : '',
+    vin: vin ? vin.trim().toUpperCase() : '',
   });
   res.status(201).json({ vehicle });
 });
@@ -33,10 +32,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const vehicle = await Vehicle.findOne({ _id: req.params.id, host_id: req.hostId });
   if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
-  const { name, plate, transponder_id } = req.body;
-  if (name) vehicle.name = name;
+  const { name, nickname, year, make, model, plate, transponder_id, vin } = req.body;
+  if (name !== undefined) vehicle.name = name;
+  if (nickname !== undefined) vehicle.nickname = nickname.trim();
+  if (year !== undefined) vehicle.year = year;
+  if (make !== undefined) vehicle.make = make;
+  if (model !== undefined) vehicle.model = model;
   if (plate) vehicle.plate = plate.toUpperCase();
   if (transponder_id !== undefined) vehicle.transponder_id = transponder_id.replace(/\s/g, '');
+  if (vin !== undefined) vehicle.vin = vin.trim().toUpperCase();
   await vehicle.save();
   res.json({ vehicle });
 });

@@ -3,7 +3,7 @@ import api from '../api/client';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState([]);
-  const [form, setForm] = useState({ name: '', plate: '', transponder_id: '' });
+  const [form, setForm] = useState({ nickname: '', name: '', plate: '', transponder_id: '', vin: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [editingTransponder, setEditingTransponder] = useState({});
@@ -22,11 +22,11 @@ export default function VehiclesPage() {
 
   const add = async e => {
     e.preventDefault();
-    if (!form.name) { setError('Vehicle name is required'); return; }
+    if (!form.name) { setError('Vehicle name (YMM) is required'); return; }
     setSaving(true); setError('');
     try {
       await api.post('/vehicles', form);
-      setForm({ name: '', plate: '', transponder_id: '' });
+      setForm({ nickname: '', name: '', plate: '', transponder_id: '', vin: '' });
       load();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add vehicle');
@@ -70,7 +70,8 @@ export default function VehiclesPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: '#faeeda', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🚗</div>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 500 }}>{v.name}</p>
+                    <p style={{ fontWeight: 600 }}>{v.nickname || v.name}</p>
+                    {v.nickname && <p style={{ fontSize: 12, color: '#888' }}>{v.name}</p>}
                     {v.plate && <p style={{ fontSize: 12, color: '#888' }}>Plate: {v.plate}</p>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
                       <input
@@ -107,10 +108,12 @@ export default function VehiclesPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: '#f0ede8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🚗</div>
                   <div>
-                    <p style={{ fontWeight: 500 }}>{v.name}</p>
+                    <p style={{ fontWeight: 600 }}>{v.nickname || v.name}</p>
+                    {v.nickname && <p style={{ fontSize: 12, color: '#555' }}>{v.name}</p>}
                     <p style={{ fontSize: 12, color: '#888' }}>
                       {v.plate && <>Plate: {v.plate} &nbsp;·&nbsp; </>}
                       Transponder: <span style={{ fontFamily: 'monospace' }}>{v.transponder_id}</span>
+                      {v.vin && <> &nbsp;·&nbsp; VIN: <span style={{ fontFamily: 'monospace' }}>{v.vin}</span></>}
                     </p>
                   </div>
                 </div>
@@ -125,18 +128,26 @@ export default function VehiclesPage() {
         <p style={{ fontWeight: 500, marginBottom: 14 }}>Add a vehicle manually</p>
         {error && <div className="alert alert-error">{error}</div>}
         <form onSubmit={add}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid-2" style={{ marginBottom: 10 }}>
             <div className="form-group" style={{ margin: 0 }}>
-              <label>Make &amp; model</label>
+              <label>Nickname <span style={{ color: '#e24b4a' }}>*</span></label>
+              <input className="form-control" name="nickname" placeholder="e.g. Blue Nissan" value={form.nickname} onChange={handle} />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Make, model &amp; year <span style={{ color: '#e24b4a' }}>*</span></label>
               <input className="form-control" name="name" placeholder="Nissan Altima 2020" value={form.name} onChange={handle} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label>License plate (optional)</label>
+              <label>License plate <span style={{ color: '#e24b4a' }}>*</span></label>
               <input className="form-control" name="plate" placeholder="ABC1234" value={form.plate} onChange={handle} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label>EZ-Pass transponder ID</label>
+              <label>EZ-Pass transponder ID <span style={{ color: '#e24b4a' }}>*</span></label>
               <input className="form-control" name="transponder_id" placeholder="10613822" value={form.transponder_id} onChange={handle} />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>VIN <span style={{ color: '#aaa', fontWeight: 400 }}>(optional)</span></label>
+              <input className="form-control" name="vin" placeholder="17-character VIN" style={{ fontFamily: 'monospace' }} value={form.vin} onChange={handle} />
             </div>
           </div>
           <button className="btn btn-primary" type="submit" disabled={saving}>

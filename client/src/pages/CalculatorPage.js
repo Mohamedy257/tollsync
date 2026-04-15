@@ -829,7 +829,8 @@ export default function CalculatorPage() {
                   <input type="radio" name={`vymm-${v.id}`} value={rv.id}
                     checked={sel === rv.id}
                     onChange={() => setVehicleSelections(s => ({ ...s, [v.id]: rv.id }))} />
-                  <span style={{ fontWeight: 500 }}>{rv.name}</span>
+                  <span style={{ fontWeight: 500 }}>{rv.nickname || rv.name}</span>
+                  {rv.nickname && <span style={{ fontSize: 11, color: '#888' }}>{rv.name}</span>}
                   {rv.plate && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#888' }}>{rv.plate}</span>}
                 </label>
               ))}

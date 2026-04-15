@@ -7,6 +7,7 @@ import CalculatorPage from './pages/CalculatorPage';
 import VehiclesPage from './pages/VehiclesPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import EzPassPage from './pages/EzPassPage';
+import SetupWizard from './pages/SetupWizard';
 import './index.css';
 
 function ProtectedRoute({ children }) {
@@ -17,6 +18,8 @@ function ProtectedRoute({ children }) {
     </div>
   );
   if (!host) return <Navigate to="/login" replace />;
+  // New users (setup_complete === false) must complete the wizard first
+  if (host.setup_complete === false) return <SetupWizard />;
   return <Layout>{children}</Layout>;
 }
 

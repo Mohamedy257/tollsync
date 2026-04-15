@@ -38,8 +38,13 @@ export function AuthProvider({ children }) {
     setHost(null);
   };
 
+  const completeSetup = async () => {
+    const res = await api.post('/auth/complete-setup');
+    setHost(res.data.host);
+  };
+
   return (
-    <AuthContext.Provider value={{ host, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ host, loading, login, register, logout, completeSetup }}>
       {children}
     </AuthContext.Provider>
   );

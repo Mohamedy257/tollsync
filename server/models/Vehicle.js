@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
   host_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Host', required: true, index: true },
-  name: { type: String, default: '' },
+  name: { type: String, default: '' },       // YMM string — used for AI matching
+  nickname: { type: String, default: '' },   // user-friendly label shown in UI
+  year: { type: String, default: '' },
+  make: { type: String, default: '' },
+  model: { type: String, default: '' },
   plate: { type: String, default: '' },
   transponder_id: { type: String, default: '' },
+  vin: { type: String, default: '' },
   auto_added: { type: Boolean, default: false },
   candidates: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
