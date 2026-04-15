@@ -803,18 +803,6 @@ export default function CalculatorPage() {
         const anyHasCandidates = missingTransponders.some(v => v.candidates && v.candidates.some(c => c.transponder_id));
         const cols = anyHasCandidates ? '220px 140px 160px 180px 80px' : '220px 160px 180px 80px';
 
-        const saveDisabled = savingAll || missingTransponders.some(v => {
-          const sel = getEffectiveSel(v);
-          if (sel && sel !== 'new') return false; // user picked an existing vehicle — no transponder needed
-          if (!v.name) {
-            const draft = ymmDraft[v.id] || {};
-            const makeName = draft.make === 'Other' ? (draft.freeformMake || '').trim() : (draft.make || '');
-            const modelName = draft.model === 'Other' ? (draft.freeformModel || '').trim() : (draft.model || '');
-            if (!draft.year || !makeName || !modelName) return true;
-          }
-          return !transponderInputs[v.id];
-        });
-
         // All registered vehicles for the blank-name picker
         const registeredVehicles = vehicles.filter(rv => rv.transponder_id);
 
@@ -833,6 +821,18 @@ export default function CalculatorPage() {
           const sel = getEffectiveSel(v);
           return !!(sel && sel !== 'new');
         };
+
+        const saveDisabled = savingAll || missingTransponders.some(v => {
+          const sel = getEffectiveSel(v);
+          if (sel && sel !== 'new') return false; // user picked an existing vehicle — no transponder needed
+          if (!v.name) {
+            const draft = ymmDraft[v.id] || {};
+            const makeName = draft.make === 'Other' ? (draft.freeformMake || '').trim() : (draft.make || '');
+            const modelName = draft.model === 'Other' ? (draft.freeformModel || '').trim() : (draft.model || '');
+            if (!draft.year || !makeName || !modelName) return true;
+          }
+          return !transponderInputs[v.id];
+        });
 
         // Shared field renderers
         const renderYMM = (v) => {
