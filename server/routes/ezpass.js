@@ -1,6 +1,5 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const auth = require('../middleware/auth');
 const TollTransaction = require('../models/TollTransaction');
 const { parseFileWithAI } = require('../services/ai');
@@ -8,10 +7,22 @@ const { parseFileWithAI } = require('../services/ai');
 const router = express.Router();
 router.use(auth);
 
+// Use memory storage so file bytes are available directly as buffer.buffer,
+// avoiding any disk I/O issues that can produce empty files.
 const upload = multer({
-  dest: 'uploads/ezpass/',
-  limits: { fileSize: 20 * 1024 * 1024 }
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
 });
+
+function resolveMimeType(file) {
+  const name = (file.originalname || '').toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.csv')) return 'text/csv';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.webp')) return 'image/webp';
+  return file.mimetype || 'application/octet-stream';
+}
 
 // GET /api/ezpass
 router.get('/', async (req, res) => {
@@ -26,8 +37,9 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
 
   const results = [];
   for (const file of files) {
+    const mimeType = resolveMimeType(file);
     try {
-      const parsed = await parseFileWithAI(file.path, file.mimetype, 'ezpass');
+      const parsed = await parseFileWithAI(file.buffer, mimeType, 'ezpass');
       const inserted = [];
       for (const toll of parsed) {
         if ((!toll.entry_datetime && !toll.exit_datetime) || !toll.amount) continue;
@@ -46,8 +58,6 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
     } catch (err) {
       console.error('EZPass parse error:', err.message);
       results.push({ file: file.originalname, error: err.message });
-    } finally {
-      fs.unlink(file.path, () => {});
     }
   }
   res.json({ results });

@@ -1,5 +1,4 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const fs = require('fs');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -31,10 +30,10 @@ If the screenshot does not show a year, you MUST use ${year} — never guess an 
 Double-check: all dates must have year ${year} unless the file explicitly states a different year.`;
 }
 
-async function parseFileWithAI(filePath, mimeType, type) {
+async function parseFileWithAI(fileBuffer, mimeType, type) {
   const prompt = type === 'trips' ? getTripsPrompt() : EZPASS_PROMPT;
-  const fileData = fs.readFileSync(filePath);
-  const b64 = fileData.toString('base64');
+  const b64 = fileBuffer.toString('base64');
+  if (!b64) throw new Error('File is empty or could not be read');
 
   let content;
   if (mimeType === 'application/pdf') {
@@ -166,10 +165,10 @@ Rules:
 - For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
 }
 
-async function parseFileAutoDetect(filePath, mimeType) {
+async function parseFileAutoDetect(fileBuffer, mimeType) {
   const prompt = buildAutoDetectPrompt();
-  const fileData = fs.readFileSync(filePath);
-  const b64 = fileData.toString('base64');
+  const b64 = fileBuffer.toString('base64');
+  if (!b64) throw new Error('File is empty or could not be read');
 
   let content;
   if (mimeType === 'application/pdf') {
@@ -209,8 +208,8 @@ async function parseFileAutoDetect(filePath, mimeType) {
 async function parseMultipleImagesAutoDetect(fileItems) {
   const prompt = buildAutoDetectPrompt();
   const content = [];
-  for (const { path, mimeType } of fileItems) {
-    const b64 = fs.readFileSync(path).toString('base64');
+  for (const { buffer, mimeType } of fileItems) {
+    const b64 = buffer.toString('base64');
     content.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: b64 } });
   }
   content.push({ type: 'text', text: prompt });

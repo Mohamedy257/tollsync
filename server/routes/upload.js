@@ -1,6 +1,5 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const auth = require('../middleware/auth');
 const Vehicle = require('../models/Vehicle');
 const Trip = require('../models/Trip');
@@ -12,7 +11,7 @@ const router = express.Router();
 router.use(auth);
 
 const upload = multer({
-  dest: 'uploads/auto/',
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
 });
 
@@ -47,7 +46,7 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
   if (allImages && files.length > 1) {
     try {
       const result = await parseMultipleImagesAutoDetect(
-        files.map(f => ({ path: f.path, mimeType: f.mimetype }))
+        files.map(f => ({ buffer: f.buffer, mimeType: f.mimetype }))
       );
       // Treat the combined result as if it came from the first file
       parsed = [{ file: files[0], result, error: null }];
@@ -60,17 +59,14 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
       for (let i = 1; i < files.length; i++) {
         parsed.push({ file: files[i], result: null, error: null, skip: true });
       }
-    } finally {
-      files.forEach(f => fs.unlink(f.path, () => {}));
     }
   } else {
     // Parse all files in parallel — AI calls are independent
     parsed = await Promise.all(
       files.map(file =>
-        parseFileAutoDetect(file.path, file.mimetype)
+        parseFileAutoDetect(file.buffer, file.mimetype)
           .then(result => ({ file, result, error: null }))
           .catch(err => ({ file, result: null, error: err }))
-          .finally(() => fs.unlink(file.path, () => {}))
       )
     );
   }
