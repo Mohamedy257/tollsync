@@ -97,7 +97,7 @@ export default function EzPassPage() {
           <p>All EZ-Pass transactions — re-uploading the same file only adds new records.</p>
         </div>
         {tolls.length > 0 && (
-          <button className="btn btn-danger btn-sm" onClick={clearAll}>Clear all</button>
+          <button className="btn btn-danger btn-sm" onClick={clearAll}>Delete tolls</button>
         )}
       </div>
 
