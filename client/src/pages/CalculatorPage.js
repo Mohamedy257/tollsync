@@ -104,6 +104,14 @@ function TripCard({ t, reportRange }) {
             <p style={{ fontSize: 18, fontWeight: 700, color: '#185fa5', margin: 0 }}>${parseFloat(t.total_tolls).toFixed(2)}</p>
             <p style={{ fontSize: 11, color: '#aaa', margin: 0 }}>{t.toll_count} charge{t.toll_count !== 1 ? 's' : ''}</p>
           </div>
+          <button
+            className="btn btn-sm"
+            style={{ flexShrink: 0 }}
+            onClick={e => { e.stopPropagation(); exportImage(e); }}
+            disabled={exporting}
+          >
+            {exporting ? <><span className="spinner" /> Saving...</> : '⬇️ Save'}
+          </button>
           <span style={{ fontSize: 11, color: '#ccc' }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
@@ -210,13 +218,6 @@ function TripCard({ t, reportRange }) {
         </div>
       )}
 
-      {expanded && (
-        <div style={{ padding: '8px 16px 12px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f0ede8' }}>
-          <button className="btn btn-sm" onClick={exportImage} disabled={exporting}>
-            {exporting ? <><span className="spinner" /> Saving...</> : '⬇️ Save image'}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

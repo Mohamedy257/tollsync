@@ -1,6 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/client';
 
+function MultiSelect({ label, icon, options, selected, setSelected, open, setOpen }) {
+  if (!options.length) return null;
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        className="btn btn-sm"
+        style={{ gap: 5, background: selected.length ? '#e8f0fb' : undefined, color: selected.length ? '#185fa5' : undefined, borderColor: selected.length ? '#185fa5' : undefined }}
+        onClick={() => setOpen(o => !o)}
+      >
+        {icon} {label}{selected.length ? ` (${selected.length})` : ''}
+        <span style={{ fontSize: 9, color: '#aaa' }}>▼</span>
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100,
+            background: '#fff', border: '1px solid #e5e3de', borderRadius: 10,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 200, maxHeight: 240, overflowY: 'auto',
+            padding: '6px 0',
+          }}>
+            {options.map(opt => (
+              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
+                onClick={e => e.stopPropagation()}>
+                <input type="checkbox" checked={selected.includes(opt)}
+                  onChange={() => setSelected(s => s.includes(opt) ? s.filter(x => x !== opt) : [...s, opt])} />
+                <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{opt}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function fmtDt(iso) {
   if (!iso) return '—';
   try {
@@ -29,6 +65,8 @@ export default function EzPassPage() {
   const [deletingFile, setDeletingFile] = useState(null);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterTransponders, setFilterTransponders] = useState([]);
+  const [transponderDropOpen, setTransponderDropOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
@@ -74,6 +112,9 @@ export default function EzPassPage() {
     else { setSortCol(key); setSortDir(-1); }
   };
 
+  // Unique transponder IDs in the data
+  const existingTransponders = [...new Set(tolls.map(t => t.transponder_id).filter(Boolean))].sort();
+
   // Unique dates (YYYY-MM-DD) that actually appear in the data
   const existingDates = [...new Set(
     tolls.map(t => {
@@ -83,6 +124,7 @@ export default function EzPassPage() {
   )].sort();
 
   const filtered = tolls.filter(t => {
+    if (filterTransponders.length && !filterTransponders.includes(t.transponder_id)) return false;
     if (search) {
       const q = search.toLowerCase();
       const matches = (
@@ -185,42 +227,55 @@ export default function EzPassPage() {
           )}
 
           {/* Summary + filters row */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-            <span className="badge badge-blue">
-              {(filterDateFrom || filterDateTo) ? `${filtered.length} / ` : ''}{tolls.length} record{tolls.length !== 1 ? 's' : ''}
-            </span>
-            <span style={{ fontSize: 13, color: '#555' }}>Total: <strong>${total.toFixed(2)}</strong></span>
-
-            {/* Date filters using only dates that exist in the data */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>From</label>
-              <select className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 'auto' }}
-                value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}>
-                <option value="">All dates</option>
-                {existingDates.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>To</label>
-              <select className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 'auto' }}
-                value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}>
-                <option value="">All dates</option>
-                {existingDates.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-              {(filterDateFrom || filterDateTo) && (
-                <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
-                  onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}>
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <input
-              className="form-control"
-              style={{ fontSize: 13, padding: '5px 10px', width: isMobile ? '100%' : 200, marginLeft: isMobile ? 0 : 'auto' }}
-              placeholder="Search transponder, location…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+          {(() => {
+            const hasFilters = filterTransponders.length || filterDateFrom || filterDateTo || search;
+            return (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+                  <span className="badge badge-blue">
+                    {hasFilters ? `${filtered.length} / ` : ''}{tolls.length} record{tolls.length !== 1 ? 's' : ''}
+                  </span>
+                  <span style={{ fontSize: 13, color: '#555' }}>Total: <strong>${total.toFixed(2)}</strong></span>
+                  <input
+                    className="form-control"
+                    style={{ fontSize: 13, padding: '5px 10px', width: isMobile ? '100%' : 200, marginLeft: isMobile ? 0 : 'auto' }}
+                    placeholder="Search location…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <MultiSelect
+                    label="Transponder" icon="📡"
+                    options={existingTransponders}
+                    selected={filterTransponders}
+                    setSelected={setFilterTransponders}
+                    open={transponderDropOpen}
+                    setOpen={setTransponderDropOpen}
+                  />
+                  {/* Date filters using only dates that exist in the data */}
+                  <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>From</label>
+                  <select className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 'auto' }}
+                    value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}>
+                    <option value="">All dates</option>
+                    {existingDates.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>To</label>
+                  <select className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 'auto' }}
+                    value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}>
+                    <option value="">All dates</option>
+                    {existingDates.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  {hasFilters && (
+                    <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
+                      onClick={() => { setFilterTransponders([]); setFilterDateFrom(''); setFilterDateTo(''); setSearch(''); }}>
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {isMobile ? (
             /* Mobile: card per record */
@@ -244,7 +299,7 @@ export default function EzPassPage() {
                 </div>
               ))}
               <div style={{ fontSize: 12, color: '#888', textAlign: 'right', marginTop: 8 }}>
-                {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo) ? ' (filtered)' : ''} · Total <strong style={{ color: '#185fa5' }}>${total.toFixed(2)}</strong>
+                {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo || filterTransponders.length) ? ' (filtered)' : ''} · Total <strong style={{ color: '#185fa5' }}>${total.toFixed(2)}</strong>
               </div>
             </div>
           ) : (
@@ -295,7 +350,7 @@ export default function EzPassPage() {
                   <tfoot>
                     <tr style={{ background: '#f8f7f4', borderTop: '1px solid #e5e3de' }}>
                       <td colSpan={4} style={{ padding: '8px 14px', fontSize: 12, color: '#888' }}>
-                        {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo) ? ' (filtered)' : ''}
+                        {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo || filterTransponders.length) ? ' (filtered)' : ''}
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, color: '#185fa5' }}>
                         ${total.toFixed(2)}

@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/client';
+import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
 
-const EMPTY_FORM = { nickname: '', name: '', plate: '', transponder_id: '', vin: '' };
+const EMPTY_FORM = { nickname: '', plate: '', transponder_id: '', vin: '' };
+const EMPTY_YMM = { year: '', make: '', model: '' };
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [ymm, setYmm] = useState(EMPTY_YMM);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -21,15 +24,20 @@ export default function VehiclesPage() {
     } catch { setError('Failed to load vehicles'); }
   };
 
-  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handle = e => {
+    const val = e.target.name === 'plate' ? e.target.value.toUpperCase() : e.target.value;
+    setForm(f => ({ ...f, [e.target.name]: val }));
+  };
 
   const add = async e => {
     e.preventDefault();
-    if (!form.name) { setError('Vehicle name (YMM) is required'); return; }
+    if (!ymm.make || !ymm.model || !ymm.year) { setError('Year, make, and model are required'); return; }
+    const name = `${ymm.make} ${ymm.model} ${ymm.year}`;
     setSaving(true); setError('');
     try {
-      await api.post('/vehicles', form);
+      await api.post('/vehicles', { ...form, name });
       setForm(EMPTY_FORM);
+      setYmm(EMPTY_YMM);
       load();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add vehicle');
@@ -183,13 +191,34 @@ export default function VehiclesPage() {
                 value={form.nickname} onChange={handle} />
             </div>
             <div>
-              <label style={lbl}>Make, model &amp; year <span style={{ color: '#e24b4a' }}>*</span></label>
-              <input className="form-control" name="name" placeholder="Nissan Altima 2020"
-                value={form.name} onChange={handle} />
+              <label style={lbl}>Year <span style={{ color: '#e24b4a' }}>*</span></label>
+              <select className="form-control" value={ymm.year}
+                onChange={e => setYmm(y => ({ ...y, year: e.target.value }))}>
+                <option value="">Select year</option>
+                {CAR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Make <span style={{ color: '#e24b4a' }}>*</span></label>
+              <select className="form-control" value={ymm.make}
+                onChange={e => setYmm(y => ({ ...y, make: e.target.value, model: '' }))}>
+                <option value="">Select make</option>
+                {CAR_MAKES.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Model <span style={{ color: '#e24b4a' }}>*</span></label>
+              <select className="form-control" value={ymm.model}
+                onChange={e => setYmm(y => ({ ...y, model: e.target.value }))}
+                disabled={!ymm.make}>
+                <option value="">Select model</option>
+                {(CAR_MODELS[ymm.make] || []).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
             <div>
               <label style={lbl}>License plate <span style={{ color: '#e24b4a' }}>*</span></label>
               <input className="form-control" name="plate" placeholder="ABC1234"
+                style={{ textTransform: 'uppercase' }}
                 value={form.plate} onChange={handle} />
             </div>
             <div>
