@@ -67,17 +67,19 @@ async function parseFileWithAI(fileBuffer, mimeType, type) {
   return JSON.parse(clean.slice(start, end + 1));
 }
 
-// Deterministic code-based matching using vehicle_id → transponder
+// Deterministic code-based matching using vehicle_id → transponder, with plate fallback
 function matchTollsToTrips(vehicles, trips, tolls) {
-  // Build vehicle_id → transponder map
-  const vehicleTransponderMap = {};
-  for (const v of vehicles) {
-    if (v.transponder) vehicleTransponderMap[v.id] = v.transponder.replace(/\s/g, '');
-  }
-  // Build transponder → vehicle_id map
+  // Build transponder → vehicle_id map (primary match)
   const transponderToVehicleId = {};
   for (const v of vehicles) {
-    if (v.transponder) transponderToVehicleId[v.transponder.replace(/\s/g, '')] = v.id;
+    const t = (v.transponder || '').replace(/\s/g, '');
+    if (t) transponderToVehicleId[t] = v.id;
+  }
+  // Build plate → vehicle_id map (fallback: some EZ-Pass entries use plate-based tolling)
+  const plateToVehicleId = {};
+  for (const v of vehicles) {
+    const p = (v.plate || '').replace(/\s/g, '').toUpperCase();
+    if (p) plateToVehicleId[p] = v.id;
   }
 
   const tripResults = trips.map(t => ({
@@ -97,9 +99,14 @@ function matchTollsToTrips(vehicles, trips, tolls) {
     if (isNaN(tollMs)) { unmatchedTolls.push(toll); continue; }
 
     const tollTransponder = (toll.transponder_id || '').replace(/\s/g, '');
-    const matchedVehicleId = transponderToVehicleId[tollTransponder];
+    // 1. Try transponder match
+    let matchedVehicleId = transponderToVehicleId[tollTransponder];
+    // 2. Fallback: treat the transponder field as a plate number (pay-by-plate tolling)
+    if (!matchedVehicleId) {
+      matchedVehicleId = plateToVehicleId[tollTransponder.toUpperCase()] || null;
+    }
 
-    // If vehicles are registered and this transponder isn't one of them, skip
+    // If vehicles are registered and neither transponder nor plate matched, skip
     if (vehicles.length > 0 && !matchedVehicleId) {
       unmatchedTolls.push(toll);
       continue;

@@ -107,7 +107,7 @@ router.get('/', async (req, res) => {
         toll_items: toll_items.length ? toll_items : null,
       };
     })
-    .sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime));
+    .sort((a, b) => new Date(b.end_datetime) - new Date(a.end_datetime));
 
   const unmatched_tolls = tolls.filter(t => !matchedTollIds.has(t.id));
   const total_matched = tripRows.reduce((sum, t) => sum + t.total_tolls, 0);

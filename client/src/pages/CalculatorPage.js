@@ -519,9 +519,29 @@ export default function CalculatorPage() {
     a.click();
   };
 
-  const byDateDesc = (a, b) => new Date(b.start_datetime) - new Date(a.start_datetime);
-  const withTolls = (results?.trips?.filter(t => t.toll_items?.length > 0) || []).sort(byDateDesc);
-  const noTolls = (results?.trips?.filter(t => !t.toll_items?.length) || []).sort(byDateDesc);
+  const [filterGuests, setFilterGuests] = useState([]);
+  const [filterVehicles, setFilterVehicles] = useState([]);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [guestDropOpen, setGuestDropOpen] = useState(false);
+  const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
+
+  const byEndDateDesc = (a, b) => new Date(b.end_datetime) - new Date(a.end_datetime);
+
+  const allTrips = results?.trips || [];
+  const allGuests = [...new Set(allTrips.map(t => t.renter_name).filter(Boolean))].sort();
+  const allVehicles = [...new Set(allTrips.map(t => t.vehicle).filter(Boolean))].sort();
+
+  const filteredTrips = allTrips.filter(t => {
+    if (filterGuests.length && !filterGuests.includes(t.renter_name)) return false;
+    if (filterVehicles.length && !filterVehicles.includes(t.vehicle)) return false;
+    if (filterDateFrom && t.end_datetime && new Date(t.end_datetime) < new Date(filterDateFrom)) return false;
+    if (filterDateTo && t.start_datetime && new Date(t.start_datetime) > new Date(filterDateTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(byEndDateDesc);
+  const noTolls = filteredTrips.filter(t => !t.toll_items?.length).sort(byEndDateDesc);
   const totalLoaded = tolls.reduce((s, t) => s + parseFloat(t.amount), 0);
 
   return (
@@ -1163,6 +1183,77 @@ export default function CalculatorPage() {
               </p>
             </div>
           </div>
+
+          {/* ── Filters ── */}
+          {allTrips.length > 0 && (() => {
+            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo;
+            const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#e8f0fb', color: '#185fa5', borderRadius: 99, fontSize: 12, fontWeight: 600, padding: '3px 10px' };
+
+            const MultiSelect = ({ label, options, selected, setSelected, open, setOpen, icon }) => {
+              if (!options.length) return null;
+              return (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className="btn btn-sm"
+                    style={{ gap: 5, background: selected.length ? '#e8f0fb' : undefined, color: selected.length ? '#185fa5' : undefined, borderColor: selected.length ? '#185fa5' : undefined }}
+                    onClick={() => { setOpen(o => !o); }}
+                  >
+                    {icon} {label}{selected.length ? ` (${selected.length})` : ''}
+                    <span style={{ fontSize: 9, color: '#aaa' }}>▼</span>
+                  </button>
+                  {open && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+                      <div style={{
+                        position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100,
+                        background: '#fff', border: '1px solid #e5e3de', borderRadius: 10,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 200, maxHeight: 240, overflowY: 'auto',
+                        padding: '6px 0',
+                      }}>
+                        {options.map(opt => (
+                          <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
+                            onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={selected.includes(opt)}
+                              onChange={() => setSelected(s => s.includes(opt) ? s.filter(x => x !== opt) : [...s, opt])} />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <MultiSelect label="Guest" icon="👤" options={allGuests} selected={filterGuests} setSelected={setFilterGuests} open={guestDropOpen} setOpen={setGuestDropOpen} />
+                  <MultiSelect label="Vehicle" icon="🚗" options={allVehicles} selected={filterVehicles} setSelected={setFilterVehicles} open={vehicleDropOpen} setOpen={setVehicleDropOpen} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="date" className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 140 }}
+                      value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+                      placeholder="From" title="Trip end date from" />
+                    <span style={{ fontSize: 12, color: '#aaa' }}>–</span>
+                    <input type="date" className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 140 }}
+                      value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+                      placeholder="To" title="Trip start date to" />
+                  </div>
+                  {hasFilters && (
+                    <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
+                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); }}>
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+                {hasFilters && (
+                  <p style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                    Showing {filteredTrips.length} of {allTrips.length} trips
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {withTolls.length > 0 && (
             <>
