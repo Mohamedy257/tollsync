@@ -21,7 +21,7 @@ function fmtDate(iso) {
   } catch { return iso; }
 }
 
-function TripCard({ t, reportRange }) {
+function TripCard({ t, reportRange, vehicles }) {
   const gridRef = useRef();
   const [exporting, setExporting] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -62,6 +62,10 @@ function TripCard({ t, reportRange }) {
     } finally { setExporting(false); }
   };
 
+  // Resolve vehicle display name: prefer linked vehicle's YMM, fall back to trip.vehicle
+  const linkedVehicle = t.vehicle_id && vehicles ? vehicles.find(v => v.id === t.vehicle_id) : null;
+  const vehicleName = linkedVehicle ? linkedVehicle.name : (t.vehicle || '—');
+
   // Check if trip extends outside EZ-Pass report range
   let coverageWarning = null;
   if (reportRange) {
@@ -92,7 +96,7 @@ function TripCard({ t, reportRange }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 600, margin: 0 }}>{t.renter_name || 'Unknown renter'}</p>
           <p style={{ fontSize: 12, color: '#888', marginTop: 2, marginBottom: 0 }}>
-            {t.vehicle || '—'}
+            {vehicleName}
           </p>
           <p style={{ fontSize: 11, color: '#aaa', marginTop: 1, marginBottom: 0 }}>
             {fmtDt(t.start_datetime)} → {fmtDt(t.end_datetime)}
@@ -129,7 +133,7 @@ function TripCard({ t, reportRange }) {
               </div>
               <div>
                 <p style={{ margin: 0, fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Vehicle</p>
-                <p style={{ margin: '1px 0 0', fontSize: 13, fontWeight: 600, color: '#111' }}>{t.vehicle || '—'}{t.plate ? <span style={{ fontFamily: 'monospace', fontWeight: 400, color: '#555', marginLeft: 6 }}>· {t.plate}</span> : ''}</p>
+                <p style={{ margin: '1px 0 0', fontSize: 13, fontWeight: 600, color: '#111' }}>{vehicleName}{t.plate ? <span style={{ fontFamily: 'monospace', fontWeight: 400, color: '#555', marginLeft: 6 }}>· {t.plate}</span> : ''}</p>
               </div>
               <div>
                 <p style={{ margin: 0, fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Trip Period</p>
@@ -1159,7 +1163,7 @@ export default function CalculatorPage() {
             <>
               <p className="section-title">Trips with toll charges</p>
               {withTolls.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} />
+                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
               ))}
             </>
           )}
@@ -1168,7 +1172,7 @@ export default function CalculatorPage() {
             <>
               <p className="section-title" style={{ marginTop: '1.5rem' }}>Trips with no tolls</p>
               {noTolls.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} />
+                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
               ))}
             </>
           )}

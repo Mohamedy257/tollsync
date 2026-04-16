@@ -99,6 +99,7 @@ router.get('/', async (req, res) => {
         trip_db_id: trip.id,
         renter_name: trip.renter_name,
         vehicle: trip.vehicle,
+        vehicle_id: trip.vehicle_id?.toString() || null,
         start_datetime: trip.start_datetime,
         end_datetime: trip.end_datetime,
         trip_id: trip.trip_id,
