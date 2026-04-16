@@ -112,22 +112,6 @@ function TripCard({ t, reportRange }) {
       {expanded && (
         <div ref={gridRef} style={{ background: '#fff', fontFamily: 'system-ui, sans-serif' }}>
 
-          {/* ── Header band ── */}
-          <div style={{ background: '#0d3b6e', padding: '14px 18px 12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: 16, color: '#fff', letterSpacing: 0.2 }}>⚡ TollSync</p>
-                <p style={{ margin: '2px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>Toll Charges</p>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Generated</p>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#fff', fontWeight: 600 }}>
-                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* ── Trip info block ── */}
           <div style={{ background: '#f0f4fa', borderBottom: '1px solid #d0daea', padding: '10px 18px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '4px 0' : '4px 16px' }}>
@@ -257,9 +241,9 @@ export default function CalculatorPage() {
   const [vehicleSelections, setVehicleSelections] = useState({}); // vehicleId → candidateId or 'new'
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [calcNeeded, setCalcNeeded] = useState(true); // true on mount → calc on first load
   const navigate = useNavigate();
   const fileRef = useRef();
-  const autoCalcRef = useRef(false);
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -294,13 +278,13 @@ export default function CalculatorPage() {
   const missingTransponders = vehicles.filter(v => !v.transponder_id);
   const canCalculate = trips.length > 0 && tolls.length > 0 && missingTransponders.length === 0;
 
-  // Auto-calc when ready
+  // Auto-calc whenever data changes and conditions are met
   useEffect(() => {
-    if (autoCalcRef.current && canCalculate && !calculating) {
-      autoCalcRef.current = false;
+    if (calcNeeded && canCalculate && !calculating) {
+      setCalcNeeded(false);
       calculate();
     }
-  }, [canCalculate, calculating, calculate]);
+  }, [calcNeeded, canCalculate, calculating, calculate]);
 
   // Convert HEIC/HEIF (iPhone camera format) to JPEG via canvas.
   // iOS Safari can decode HEIC natively via createImageBitmap even though
@@ -341,11 +325,8 @@ export default function CalculatorPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setUploadResults(res.data.results);
-      const { trips: tr, tolls: tl, vehicles: veh } = await loadAll();
-      const missing = veh.filter(v => !v.transponder_id);
-      if (tr.length > 0 && tl.length > 0 && missing.length === 0) {
-        autoCalcRef.current = true;
-      }
+      await loadAll();
+      setCalcNeeded(true);
     } catch (err) {
       setUploadError(err.response?.data?.error || 'Upload failed');
     } finally {
@@ -430,10 +411,8 @@ export default function CalculatorPage() {
       setVehicleNameInputs({});
       setVehicleSelections({});
       setYmmDraft({});
-      const { trips: tr, tolls: tl, vehicles: veh } = await loadAll();
-      if (tr.length > 0 && tl.length > 0 && veh.filter(x => !x.transponder_id).length === 0) {
-        autoCalcRef.current = true;
-      }
+      await loadAll();
+      setCalcNeeded(true);
     } finally { setSavingAll(false); }
   };
 
@@ -446,10 +425,8 @@ export default function CalculatorPage() {
       setPlateInputs(s => { const n = { ...s }; delete n[vehicleId]; return n; });
       setVehicleSelections(s => { const n = { ...s }; delete n[vehicleId]; return n; });
       setYmmDraft(s => { const n = { ...s }; delete n[vehicleId]; return n; });
-      const { trips: tr, tolls: tl, vehicles: veh } = await loadAll();
-      if (tr.length > 0 && tl.length > 0 && veh.filter(x => !x.transponder_id).length === 0) {
-        autoCalcRef.current = true;
-      }
+      await loadAll();
+      setCalcNeeded(true);
     } catch (err) {
       setSaveError(err?.response?.data?.error || err.message || 'Failed to save vehicle');
     } finally {
@@ -689,8 +666,8 @@ export default function CalculatorPage() {
             action: { label: tolls.length > 0 ? 'View records' : 'Go to Toll Records', path: '/tolls' },
           },
           {
-            n: 3, icon: '⚡', title: 'Calculate tolls',
-            desc: 'Once trips and toll records are loaded, hit Calculate.',
+            n: 3, icon: '⚡', title: 'Results load automatically',
+            desc: 'Once trips and toll records are loaded, results calculate automatically.',
             done: false, active: false, action: null,
           },
         ];
@@ -742,19 +719,21 @@ export default function CalculatorPage() {
       {(trips.length > 0 || tolls.length > 0) && (
         <div className="data-summary" style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-start' }}>
           {trips.length > 0 && (
-            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '8px 12px' }}>
+            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '8px 12px', gap: 10, alignItems: 'center' }}>
               <span style={{ fontSize: 13 }}>
                 <span className="badge badge-blue" style={{ marginRight: 6 }}>{trips.length}</span>
                 trip{trips.length !== 1 ? 's' : ''}
               </span>
+              <button className="btn btn-sm" onClick={() => navigate('/trips')}>View</button>
             </div>
           )}
           {tolls.length > 0 && (
-            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '8px 12px' }}>
+            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '8px 12px', gap: 10, alignItems: 'center' }}>
               <span style={{ fontSize: 13 }}>
                 <span className="badge badge-green" style={{ marginRight: 6 }}>{tolls.length}</span>
                 toll{tolls.length !== 1 ? 's' : ''} · <strong>${totalLoaded.toFixed(2)}</strong>
               </span>
+              <button className="btn btn-sm" onClick={() => navigate('/tolls')}>View</button>
             </div>
           )}
         </div>
@@ -1079,23 +1058,12 @@ export default function CalculatorPage() {
         );
       })()}
 
-      {/* Calculate button */}
-      <div style={{ marginBottom: 20 }}>
-        <button
-          className="btn btn-primary"
-          style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: 15 }}
-          onClick={calculate}
-          disabled={calculating || !canCalculate}
-        >
-          {calculating
-            ? <><span className="spinner" /> Calculating...</>
-            : missingTransponders.length > 0
-              ? '⚡ Calculate tolls — enter transponder IDs above'
-              : '⚡ Calculate tolls'
-          }
-        </button>
-        {calcError && <div className="alert alert-error" style={{ marginTop: 8 }}>{calcError}</div>}
-      </div>
+      {calculating && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, color: '#888', fontSize: 13 }}>
+          <span className="spinner" /> Calculating...
+        </div>
+      )}
+      {calcError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{calcError}</div>}
 
       {/* Results */}
       {!calculating && results && (
