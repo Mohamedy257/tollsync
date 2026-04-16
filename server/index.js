@@ -28,9 +28,13 @@ const allowedOrigins = IS_PROD
   : ['http://localhost:3000'];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
+// Stripe webhook needs raw body — must be before express.json()
+app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/billing', require('./routes/billing'));
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/vehicles', require('./routes/vehicles'));
 app.use('/api/trips', require('./routes/trips'));
 app.use('/api/ezpass', require('./routes/ezpass'));

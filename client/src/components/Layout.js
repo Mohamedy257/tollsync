@@ -100,6 +100,16 @@ export default function Layout({ children }) {
         <div className="sidebar-footer">
           <p className="host-name">{host?.name || 'Host'}</p>
           <p className="host-email">{host?.email}</p>
+          {host?.is_admin && (
+            <button className="nav-item" style={{ width: '100%', marginBottom: 4, fontSize: 12 }}
+              onClick={() => navigate('/admin')}>
+              ⚙️ Admin
+            </button>
+          )}
+          <button className="nav-item" style={{ width: '100%', marginBottom: 4, fontSize: 12 }}
+            onClick={() => navigate('/subscribe')}>
+            💳 Billing
+          </button>
           <button className="logout-btn" onClick={handleLogout}>Sign out</button>
         </div>
       </aside>
@@ -169,6 +179,16 @@ export default function Layout({ children }) {
             <span className="bottom-nav-label">{n.label}</span>
           </button>
         ))}
+        <button className={`bottom-nav-item ${location.pathname === '/subscribe' ? 'active' : ''}`} onClick={() => navigate('/subscribe')}>
+          <span className="bottom-nav-icon">💳</span>
+          <span className="bottom-nav-label">Billing</span>
+        </button>
+        {host?.is_admin && (
+          <button className={`bottom-nav-item ${location.pathname === '/admin' ? 'active' : ''}`} onClick={() => navigate('/admin')}>
+            <span className="bottom-nav-icon">⚙️</span>
+            <span className="bottom-nav-label">Admin</span>
+          </button>
+        )}
         <button className="bottom-nav-item" onClick={handleLogout}>
           <span className="bottom-nav-icon">👤</span>
           <span className="bottom-nav-label">Sign out</span>

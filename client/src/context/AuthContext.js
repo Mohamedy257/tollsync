@@ -43,8 +43,21 @@ export function AuthProvider({ children }) {
     setHost(res.data.host);
   };
 
+  // Call after returning from Stripe to refresh subscription status
+  const refreshHost = async () => {
+    try {
+      const res = await api.get('/auth/me');
+      setHost(res.data.host);
+      return res.data.host;
+    } catch { return null; }
+  };
+
+  const isSubscribed = host && (
+    host.is_admin || host.subscription_status === 'active' || host.subscription_status === 'trialing'
+  );
+
   return (
-    <AuthContext.Provider value={{ host, loading, login, register, logout, completeSetup }}>
+    <AuthContext.Provider value={{ host, loading, login, register, logout, completeSetup, refreshHost, isSubscribed }}>
       {children}
     </AuthContext.Provider>
   );
