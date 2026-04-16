@@ -13,7 +13,11 @@
       "Bash(python3 -c \"import cairosvg\")",
       "Bash(rsvg-convert -w 192 -h 192 /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon.svg -o /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon-192.png)",
       "Bash(rsvg-convert -w 512 -h 512 /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon.svg -o /Users/mohamedyousif/Downloads/turo-toll-calc/client/public/icon-512.png)",
-      "Bash(node -e \"require\\('./server/routes/upload'\\)\")"
+      "Bash(node -e \"require\\('./server/routes/upload'\\)\")",
+      "Bash(node --check /Users/mohamedyousif/Downloads/turo-toll-calc/server/routes/ezpass.js)",
+      "Bash(node --check server/index.js)",
+      "Bash(node --check /Users/mohamedyousif/Downloads/turo-toll-calc/server/routes/upload.js)",
+      "Bash(node --check /Users/mohamedyousif/Downloads/turo-toll-calc/server/services/ai.js)"
     ]
   }
 }
