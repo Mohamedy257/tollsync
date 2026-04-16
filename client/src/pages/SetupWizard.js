@@ -257,7 +257,7 @@ export default function SetupWizard() {
           <div style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700, margin: '0 0 6px' }}>Add your vehicles</h2>
             <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>
-              Add each car you host on Turo. TollSync uses this to match toll charges to the right trips.
+              Add each car you host. TollSync uses this to match toll charges to the right trips.
             </p>
           </div>
         )}

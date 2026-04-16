@@ -16,7 +16,7 @@ const STATUS_COLORS = {
 
 export default function AdminPage() {
   const [config, setConfig] = useState(null);
-  const [form, setForm] = useState({ name: '', description: '', price_cents: '' });
+  const [form, setForm] = useState({ name: '', description: '', price_cents: '', trial_days: 0 });
   const [subscribers, setSubscribers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -36,6 +36,7 @@ export default function AdminPage() {
         name: cfgRes.data.name || '',
         description: cfgRes.data.description || '',
         price_cents: cfgRes.data.price_cents || 1000,
+        trial_days: cfgRes.data.trial_days ?? 0,
       });
       setSubscribers(subRes.data.subscribers);
     } catch (err) {
@@ -51,6 +52,7 @@ export default function AdminPage() {
         name: form.name,
         description: form.description,
         price_cents: parseInt(form.price_cents, 10),
+        trial_days: parseInt(form.trial_days, 10) || 0,
       });
       setConfig(res.data.plan || res.data.config);
       setSaveMsg('Saved successfully');
@@ -122,6 +124,11 @@ export default function AdminPage() {
               <label style={lbl}>Price (cents) — e.g. 1000 = $10.00</label>
               <input className="form-control" type="number" min="1" value={form.price_cents}
                 onChange={e => setForm(f => ({ ...f, price_cents: e.target.value }))} />
+            </div>
+            <div>
+              <label style={lbl}>Free trial days — 0 = no trial</label>
+              <input className="form-control" type="number" min="0" value={form.trial_days}
+                onChange={e => setForm(f => ({ ...f, trial_days: e.target.value }))} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={lbl}>Description</label>

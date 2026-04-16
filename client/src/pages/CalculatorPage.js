@@ -659,7 +659,7 @@ export default function CalculatorPage() {
         const steps = [
           {
             n: 1, icon: '📸', title: 'Upload trip screenshots',
-            desc: 'Go to Trips and upload screenshots or PDFs of your Turo trip list.',
+            desc: 'Go to Trips and upload screenshots or PDFs of your trip list.',
             done: false, active: true, action: { label: 'Go to Trips', path: '/trips' },
           },
           {

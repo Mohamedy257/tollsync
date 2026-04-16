@@ -70,6 +70,7 @@ export default function SubscribePage() {
   }
 
   const price = plan ? `$${(plan.price_cents / 100).toFixed(2)}/mo` : '$10.00/mo';
+  const trialDays = plan?.trial_days || 0;
   const alreadySubscribed = isSubscribed && !host?.is_admin;
 
   return (
@@ -78,7 +79,7 @@ export default function SubscribePage() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <p style={{ fontSize: 28, fontWeight: 800, color: '#185fa5', margin: 0 }}>⚡ TollSync</p>
-          <p style={{ color: '#888', margin: '4px 0 0', fontSize: 14 }}>Turo toll calculator</p>
+          <p style={{ color: '#888', margin: '4px 0 0', fontSize: 14 }}>Rental toll calculator</p>
         </div>
 
         {alreadySubscribed ? (
@@ -102,8 +103,13 @@ export default function SubscribePage() {
           <div className="card" style={{ padding: 28 }}>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 6px' }}>{plan?.name || 'TollSync Pro'}</p>
-              <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>{plan?.description || 'Unlimited toll calculations for Turo hosts'}</p>
+              <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>{plan?.description || 'Unlimited toll calculations for rental hosts'}</p>
               <p style={{ fontSize: 36, fontWeight: 800, color: '#185fa5', margin: 0 }}>{price}</p>
+              {trialDays > 0 && (
+                <p style={{ fontSize: 13, color: '#3b6d11', fontWeight: 600, margin: '6px 0 0' }}>
+                  {trialDays}-day free trial included
+                </p>
+              )}
             </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -128,7 +134,7 @@ export default function SubscribePage() {
               onClick={subscribe}
               disabled={loading}
             >
-              {loading ? <><span className="spinner" /> Loading...</> : `Subscribe for ${price}`}
+              {loading ? <><span className="spinner" /> Loading...</> : trialDays > 0 ? `Start ${trialDays}-day free trial` : `Subscribe for ${price}`}
             </button>
 
             <p style={{ textAlign: 'center', fontSize: 12, color: '#aaa', marginTop: 12 }}>

@@ -16,8 +16,9 @@ router.get('/plan', async (req, res) => {
     const plan = await PlanConfig.findOne() || {};
     res.json({
       name: plan.name || 'TollSync Pro',
-      description: plan.description || 'Unlimited toll calculations for Turo hosts',
+      description: plan.description || 'Unlimited toll calculations for rental hosts',
       price_cents: plan.price_cents || 1000,
+      trial_days: plan.trial_days ?? 0,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -62,13 +63,18 @@ router.post('/checkout', auth, async (req, res) => {
     if (!priceId) return res.status(400).json({ error: 'No Stripe price configured. Add STRIPE_PRICE_ID to env or configure from Admin panel.' });
 
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-    const session = await stripe.checkout.sessions.create({
+    const trialDays = plan?.trial_days || 0;
+    const sessionParams = {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${clientUrl}/?subscribed=1`,
       cancel_url: `${clientUrl}/subscribe`,
-    });
+    };
+    if (trialDays > 0) {
+      sessionParams.subscription_data = { trial_period_days: trialDays };
+    }
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.json({ url: session.url });
   } catch (err) {

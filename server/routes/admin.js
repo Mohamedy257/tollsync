@@ -28,6 +28,7 @@ router.get('/config', requireAdmin, async (req, res) => {
       name: plan.name || 'TollSync Pro',
       description: plan.description || '',
       price_cents: plan.price_cents || 1000,
+      trial_days: plan.trial_days ?? 0,
       stripe_price_id: plan.stripe_price_id || process.env.STRIPE_PRICE_ID || null,
       stripe_product_id: plan.stripe_product_id || null,
     });
@@ -39,7 +40,7 @@ router.get('/config', requireAdmin, async (req, res) => {
 // PUT /api/admin/config — update plan; creates new Stripe price if price changed
 router.put('/config', requireAdmin, async (req, res) => {
   try {
-    const { name, description, price_cents } = req.body;
+    const { name, description, price_cents, trial_days } = req.body;
     const existing = await PlanConfig.findOne();
     const stripe = getStripe();
 
@@ -73,6 +74,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         name: name || 'TollSync Pro',
         description: description || '',
         price_cents: newPriceCents || existing?.price_cents || 1000,
+        trial_days: trial_days !== undefined ? parseInt(trial_days, 10) : (existing?.trial_days ?? 0),
         stripe_price_id,
         stripe_product_id,
       },
