@@ -53,15 +53,20 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
   res.json({ results });
 });
 
-// PATCH /api/trips/:id — update start/end datetime
+// PATCH /api/trips/:id — update start/end datetime and/or vehicle_id
 router.patch('/:id', async (req, res) => {
-  const trip = await Trip.findOne({ _id: req.params.id, host_id: req.hostId });
-  if (!trip) return res.status(404).json({ error: 'Trip not found' });
-  const { start_datetime, end_datetime } = req.body;
-  if (start_datetime) trip.start_datetime = start_datetime;
-  if (end_datetime) trip.end_datetime = end_datetime;
-  await trip.save();
-  res.json({ trip });
+  try {
+    const trip = await Trip.findOne({ _id: req.params.id, host_id: req.hostId });
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const { start_datetime, end_datetime, vehicle_id } = req.body;
+    if (start_datetime) trip.start_datetime = start_datetime;
+    if (end_datetime) trip.end_datetime = end_datetime;
+    if (vehicle_id !== undefined) trip.vehicle_id = vehicle_id || null;
+    await trip.save();
+    res.json({ trip });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE /api/trips/:id

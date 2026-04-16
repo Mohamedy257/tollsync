@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 const NAV = [
   { path: '/', icon: '⚡', label: 'Calculator' },
+  { path: '/trips', icon: '📋', label: 'Trips' },
   { path: '/tolls', icon: '🛣️', label: 'Toll Records' },
   { path: '/vehicles', icon: '🚗', label: 'Vehicles' },
 ];

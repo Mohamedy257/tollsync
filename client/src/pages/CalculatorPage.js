@@ -255,9 +255,6 @@ export default function CalculatorPage() {
   const [vehicleNameInputs, setVehicleNameInputs] = useState({}); // legacy / fallback
   const [ymmDraft, setYmmDraft] = useState({}); // vehicleId → { year, make, model, freeformMake, freeformModel }
   const [vehicleSelections, setVehicleSelections] = useState({}); // vehicleId → candidateId or 'new'
-  const [tripsExpanded, setTripsExpanded] = useState(true);
-  const [editingTrip, setEditingTrip] = useState(null);
-  const [editDates, setEditDates] = useState({});
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const navigate = useNavigate();
@@ -378,38 +375,6 @@ export default function CalculatorPage() {
     return () => window.removeEventListener('paste', handler);
   }, [handleFiles]);
 
-  const clearTrips = async () => {
-    if (!window.confirm('Clear all trips?')) return;
-    await api.delete('/trips');
-    await api.delete('/vehicles/auto-unresolved');
-    setTrips([]); setResults(null);
-    setVehicleSelections({}); setTransponderInputs({}); setPlateInputs({});
-    setVehicleNameInputs({}); setYmmDraft({}); setSaveError('');
-    setVehicles(v => v.filter(x => !x.auto_added || x.transponder_id));
-    setUploadResults([]); setUploadError('');
-  };
-
-  const deleteTrip = async (id) => {
-    await api.delete(`/trips/${id}`);
-    setTrips(t => t.filter(x => x.id !== id));
-    setResults(null);
-  };
-
-  const saveTripDates = async (id) => {
-    const dates = editDates[id];
-    if (!dates) return;
-    const confirmed = window.confirm(
-      'You are manually adjusting trip dates.\n\nThis may cause tolls to overlap with another trip and produce inaccurate results.\n\nAre you sure you want to continue?'
-    );
-    if (!confirmed) return;
-    const body = {};
-    if (dates.start) body.start_datetime = new Date(dates.start).toISOString();
-    if (dates.end) body.end_datetime = new Date(dates.end).toISOString();
-    const res = await api.patch(`/trips/${id}`, body);
-    setTrips(t => t.map(x => x.id === id ? { ...x, ...res.data.trip } : x));
-    setEditingTrip(null);
-    setResults(null);
-  };
 
   const [savingAll, setSavingAll] = useState(false);
   const [savingOne, setSavingOne] = useState({}); // vehicleId → true
@@ -712,8 +677,8 @@ export default function CalculatorPage() {
         const steps = [
           {
             n: 1, icon: '📸', title: 'Upload trip screenshots',
-            desc: 'Take a screenshot of your Turo trip list and upload it above.',
-            done: false, active: true, action: null,
+            desc: 'Go to Trips and upload screenshots or PDFs of your Turo trip list.',
+            done: false, active: true, action: { label: 'Go to Trips', path: '/trips' },
           },
           {
             n: 2, icon: '🛣️', title: 'Upload your EZ-Pass statement',
@@ -777,46 +742,11 @@ export default function CalculatorPage() {
       {(trips.length > 0 || tolls.length > 0) && (
         <div className="data-summary" style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-start' }}>
           {trips.length > 0 && (
-            <div className="card" style={{ flex: 1, padding: '10px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: tripsExpanded ? 10 : 0 }}>
-                <span style={{ fontSize: 13, cursor: 'pointer' }} onClick={() => setTripsExpanded(e => !e)}>
-                  <span className="badge badge-blue" style={{ marginRight: 6 }}>{trips.length}</span>
-                  trip{trips.length !== 1 ? 's' : ''} <span style={{ color: '#ccc', fontSize: 11 }}>{tripsExpanded ? '▲' : '▼'}</span>
-                </span>
-                <button className="btn btn-sm btn-danger" onClick={clearTrips}>Clear all</button>
-              </div>
-              {tripsExpanded && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {trips.map(t => (
-                    <div key={t.id} style={{ fontSize: 12, display: 'flex', alignItems: 'flex-start', gap: 8, paddingTop: 6, borderTop: '0.5px solid #f0ede8' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600 }}>{t.renter_name || 'Unknown'} <span style={{ fontWeight: 400, color: '#888' }}>· {t.vehicle || '—'}</span></div>
-                        {editingTrip === t.id ? (
-                          <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <input type="datetime-local" className="form-control" style={{ fontSize: 11, padding: '3px 6px', width: 175 }}
-                              value={editDates[t.id]?.start || t.start_datetime?.slice(0, 16) || ''}
-                              onChange={e => setEditDates(s => ({ ...s, [t.id]: { ...s[t.id], start: e.target.value } }))} />
-                            <span style={{ color: '#aaa' }}>→</span>
-                            <input type="datetime-local" className="form-control" style={{ fontSize: 11, padding: '3px 6px', width: 175 }}
-                              value={editDates[t.id]?.end || t.end_datetime?.slice(0, 16) || ''}
-                              onChange={e => setEditDates(s => ({ ...s, [t.id]: { ...s[t.id], end: e.target.value } }))} />
-                            <button className="btn btn-sm btn-primary" onClick={() => saveTripDates(t.id)}>Save</button>
-                            <button className="btn btn-sm" onClick={() => setEditingTrip(null)}>Cancel</button>
-                          </div>
-                        ) : (
-                          <div style={{ color: '#888', marginTop: 2 }}>
-                            {fmtDt(t.start_datetime)} → {fmtDt(t.end_datetime)}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                        <button className="btn btn-sm" onClick={() => { setEditingTrip(t.id); setEditDates(s => ({ ...s, [t.id]: { start: t.start_datetime?.slice(0,16), end: t.end_datetime?.slice(0,16) } })); }}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => deleteTrip(t.id)}>✕</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="card" style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: '8px 12px' }}>
+              <span style={{ fontSize: 13 }}>
+                <span className="badge badge-blue" style={{ marginRight: 6 }}>{trips.length}</span>
+                trip{trips.length !== 1 ? 's' : ''}
+              </span>
             </div>
           )}
           {tolls.length > 0 && (
@@ -1173,7 +1103,7 @@ export default function CalculatorPage() {
           <div className="metrics">
             <div className="metric">
               <p className="metric-label">Total toll charges</p>
-              <p className="metric-value">${parseFloat(results.total_matched || 0).toFixed(2)}</p>
+              <p className="metric-value">${filteredTrips.reduce((s, t) => s + (t.total_tolls || 0), 0).toFixed(2)}</p>
             </div>
             <div className="metric">
               <p className="metric-label">Trips with tolls</p>
@@ -1230,14 +1160,15 @@ export default function CalculatorPage() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <MultiSelect label="Guest" icon="👤" options={allGuests} selected={filterGuests} setSelected={setFilterGuests} open={guestDropOpen} setOpen={setGuestDropOpen} />
                   <MultiSelect label="Vehicle" icon="🚗" options={allVehicles} selected={filterVehicles} setSelected={setFilterVehicles} open={vehicleDropOpen} setOpen={setVehicleDropOpen} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>From</label>
                     <input type="date" className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 140 }}
                       value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-                      placeholder="From" title="Trip end date from" />
-                    <span style={{ fontSize: 12, color: '#aaa' }}>–</span>
+                      title="Trip end date from" />
+                    <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>To</label>
                     <input type="date" className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 140 }}
                       value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-                      placeholder="To" title="Trip start date to" />
+                      title="Trip start date to" />
                   </div>
                   {hasFilters && (
                     <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}

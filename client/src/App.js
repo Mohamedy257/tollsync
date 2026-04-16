@@ -7,6 +7,7 @@ import CalculatorPage from './pages/CalculatorPage';
 import VehiclesPage from './pages/VehiclesPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import EzPassPage from './pages/EzPassPage';
+import TripsPage from './pages/TripsPage';
 import SetupWizard from './pages/SetupWizard';
 import './index.css';
 
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="/vehicles" element={<ProtectedRoute><VehiclesPage /></ProtectedRoute>} />
       <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
       <Route path="/tolls" element={<ProtectedRoute><EzPassPage /></ProtectedRoute>} />
+      <Route path="/trips" element={<ProtectedRoute><TripsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
