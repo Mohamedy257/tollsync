@@ -69,18 +69,9 @@ async function parseFileWithAI(fileBuffer, mimeType, type) {
 
 // Deterministic code-based matching using vehicle_id → transponder, with plate fallback
 function matchTollsToTrips(vehicles, trips, tolls) {
-  // Build transponder → vehicle_id map (primary match)
-  const transponderToVehicleId = {};
-  for (const v of vehicles) {
-    const t = (v.transponder || '').replace(/\s/g, '');
-    if (t) transponderToVehicleId[t] = v.id;
-  }
-  // Build plate → vehicle_id map (fallback: some EZ-Pass entries use plate-based tolling)
-  const plateToVehicleId = {};
-  for (const v of vehicles) {
-    const p = (v.plate || '').replace(/\s/g, '').toUpperCase();
-    if (p) plateToVehicleId[p] = v.id;
-  }
+  // Index vehicles by id for fast lookup
+  const vehicleById = {};
+  for (const v of vehicles) vehicleById[v.id] = v;
 
   const tripResults = trips.map(t => ({
     ...t,
@@ -89,56 +80,57 @@ function matchTollsToTrips(vehicles, trips, tolls) {
     toll_items: [],
   }));
 
-  const unmatchedTolls = [];
+  // Track which tolls have already been assigned so no toll is double-counted
+  const assignedTollIds = new Set();
 
-  for (const toll of tolls) {
-    const matchTime = toll.exit_datetime || toll.entry_datetime;
-    if (!matchTime) { unmatchedTolls.push(toll); continue; }
+  // Process trips in chronological order — earlier trips get priority when
+  // two trips for the same vehicle overlap in time.
+  const orderedTrips = [...tripResults].sort(
+    (a, b) => new Date(a.start_datetime) - new Date(b.start_datetime)
+  );
 
-    const tollMs = new Date(matchTime).getTime();
-    if (isNaN(tollMs)) { unmatchedTolls.push(toll); continue; }
+  for (const trip of orderedTrips) {
+    const vehicle = vehicleById[trip.vehicle_id];
+    if (!vehicle) continue;
 
-    const tollTransponder = (toll.transponder_id || '').replace(/\s/g, '');
-    // 1. Try transponder match
-    let matchedVehicleId = transponderToVehicleId[tollTransponder];
-    // 2. Fallback: treat the transponder field as a plate number (pay-by-plate tolling)
-    if (!matchedVehicleId) {
-      matchedVehicleId = plateToVehicleId[tollTransponder.toUpperCase()] || null;
+    const transponder = (vehicle.transponder || '').replace(/\s/g, '');
+    const plate = (vehicle.plate || '').replace(/\s/g, '').toUpperCase();
+    if (!transponder && !plate) continue; // vehicle has no identifiers yet
+
+    const tripStart = new Date(trip.start_datetime).getTime();
+    const tripEnd = new Date(trip.end_datetime).getTime();
+    if (isNaN(tripStart) || isNaN(tripEnd)) continue;
+
+    for (const toll of tolls) {
+      if (assignedTollIds.has(toll.toll_db_id)) continue;
+
+      const matchTime = toll.exit_datetime || toll.entry_datetime;
+      if (!matchTime) continue;
+      const tollMs = new Date(matchTime).getTime();
+      if (isNaN(tollMs) || tollMs < tripStart || tollMs > tripEnd) continue;
+
+      // Match by transponder AND/OR plate — both are checked for every trip
+      const tollKey = (toll.transponder_id || '').replace(/\s/g, '');
+      const byTransponder = transponder && tollKey === transponder;
+      const byPlate = plate && tollKey.toUpperCase() === plate;
+      if (!byTransponder && !byPlate) continue;
+
+      assignedTollIds.add(toll.toll_db_id);
+      const result = tripResults.find(r => r.trip_db_id === trip.trip_db_id);
+      result.toll_items.push({
+        toll_db_id: toll.toll_db_id,
+        entry_datetime: toll.entry_datetime,
+        exit_datetime: toll.exit_datetime,
+        location: toll.location,
+        amount: toll.amount,
+        transponder_id: toll.transponder_id,
+      });
+      result.total_tolls = +(result.total_tolls + toll.amount).toFixed(2);
+      result.toll_count++;
     }
-
-    // If vehicles are registered and neither transponder nor plate matched, skip
-    if (vehicles.length > 0 && !matchedVehicleId) {
-      unmatchedTolls.push(toll);
-      continue;
-    }
-
-    // Find candidate trips within datetime window, restricted to the matched vehicle
-    let candidates = tripResults.filter(t => {
-      const start = new Date(t.start_datetime).getTime();
-      const end = new Date(t.end_datetime).getTime();
-      if (tollMs < start || tollMs > end) return false;
-      // If this toll has a known vehicle, only match trips assigned to that vehicle
-      if (matchedVehicleId) return t.vehicle_id === matchedVehicleId;
-      return true;
-    });
-
-    if (!candidates.length) { unmatchedTolls.push(toll); continue; }
-
-    candidates.sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
-    const trip = candidates[0];
-
-    trip.toll_items.push({
-      toll_db_id: toll.toll_db_id,
-      entry_datetime: toll.entry_datetime,
-      exit_datetime: toll.exit_datetime,
-      location: toll.location,
-      amount: toll.amount,
-      transponder_id: toll.transponder_id,
-    });
-    trip.total_tolls = +(trip.total_tolls + toll.amount).toFixed(2);
-    trip.toll_count++;
   }
 
+  const unmatchedTolls = tolls.filter(t => !assignedTollIds.has(t.toll_db_id));
   const total_matched = tripResults.reduce((s, t) => s + t.total_tolls, 0);
   const total_unmatched = unmatchedTolls.reduce((s, t) => s + t.amount, 0);
 
