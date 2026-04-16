@@ -27,6 +27,8 @@ export default function EzPassPage() {
   const [sortDir, setSortDir] = useState(-1);
   const [search, setSearch] = useState('');
   const [deletingFile, setDeletingFile] = useState(null);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
@@ -72,14 +74,32 @@ export default function EzPassPage() {
     else { setSortCol(key); setSortDir(-1); }
   };
 
+  // Unique dates (YYYY-MM-DD) that actually appear in the data
+  const existingDates = [...new Set(
+    tolls.map(t => {
+      const dt = t.exit_datetime || t.entry_datetime;
+      return dt ? dt.slice(0, 10) : null;
+    }).filter(Boolean)
+  )].sort();
+
   const filtered = tolls.filter(t => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (t.transponder_id || '').toLowerCase().includes(q) ||
-      (t.location || '').toLowerCase().includes(q) ||
-      (t.source_file || '').toLowerCase().includes(q)
-    );
+    if (search) {
+      const q = search.toLowerCase();
+      const matches = (
+        (t.transponder_id || '').toLowerCase().includes(q) ||
+        (t.location || '').toLowerCase().includes(q) ||
+        (t.source_file || '').toLowerCase().includes(q)
+      );
+      if (!matches) return false;
+    }
+    if (filterDateFrom || filterDateTo) {
+      const dt = t.exit_datetime || t.entry_datetime;
+      const dateStr = dt ? dt.slice(0, 10) : null;
+      if (!dateStr) return false;
+      if (filterDateFrom && dateStr < filterDateFrom) return false;
+      if (filterDateTo && dateStr > filterDateTo) return false;
+    }
+    return true;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -164,13 +184,38 @@ export default function EzPassPage() {
             </>
           )}
 
-          {/* Summary + search row */}
+          {/* Summary + filters row */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-            <span className="badge badge-blue">{tolls.length} record{tolls.length !== 1 ? 's' : ''}</span>
+            <span className="badge badge-blue">
+              {(filterDateFrom || filterDateTo) ? `${filtered.length} / ` : ''}{tolls.length} record{tolls.length !== 1 ? 's' : ''}
+            </span>
             <span style={{ fontSize: 13, color: '#555' }}>Total: <strong>${total.toFixed(2)}</strong></span>
+
+            {/* Date filters using only dates that exist in the data */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>From</label>
+              <select className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 'auto' }}
+                value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}>
+                <option value="">All dates</option>
+                {existingDates.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>To</label>
+              <select className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 'auto' }}
+                value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}>
+                <option value="">All dates</option>
+                {existingDates.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+              {(filterDateFrom || filterDateTo) && (
+                <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
+                  onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}>
+                  Clear
+                </button>
+              )}
+            </div>
+
             <input
               className="form-control"
-              style={{ fontSize: 13, padding: '5px 10px', width: isMobile ? '100%' : 220, marginLeft: isMobile ? 0 : 'auto' }}
+              style={{ fontSize: 13, padding: '5px 10px', width: isMobile ? '100%' : 200, marginLeft: isMobile ? 0 : 'auto' }}
               placeholder="Search transponder, location…"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -199,7 +244,7 @@ export default function EzPassPage() {
                 </div>
               ))}
               <div style={{ fontSize: 12, color: '#888', textAlign: 'right', marginTop: 8 }}>
-                {filtered.length} record{filtered.length !== 1 ? 's' : ''}{search ? ' (filtered)' : ''} · Total <strong style={{ color: '#185fa5' }}>${total.toFixed(2)}</strong>
+                {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo) ? ' (filtered)' : ''} · Total <strong style={{ color: '#185fa5' }}>${total.toFixed(2)}</strong>
               </div>
             </div>
           ) : (
@@ -250,7 +295,7 @@ export default function EzPassPage() {
                   <tfoot>
                     <tr style={{ background: '#f8f7f4', borderTop: '1px solid #e5e3de' }}>
                       <td colSpan={4} style={{ padding: '8px 14px', fontSize: 12, color: '#888' }}>
-                        {filtered.length} record{filtered.length !== 1 ? 's' : ''}{search ? ' (filtered)' : ''}
+                        {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo) ? ' (filtered)' : ''}
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, color: '#185fa5' }}>
                         ${total.toFixed(2)}

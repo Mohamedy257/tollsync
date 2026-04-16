@@ -11,6 +11,42 @@ function fmtDt(iso) {
   } catch { return iso; }
 }
 
+function MultiSelect({ label, icon, options, selected, setSelected, open, setOpen }) {
+  if (!options.length) return null;
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        className="btn btn-sm"
+        style={{ gap: 5, background: selected.length ? '#e8f0fb' : undefined, color: selected.length ? '#185fa5' : undefined, borderColor: selected.length ? '#185fa5' : undefined }}
+        onClick={() => setOpen(o => !o)}
+      >
+        {icon} {label}{selected.length ? ` (${selected.length})` : ''}
+        <span style={{ fontSize: 9, color: '#aaa' }}>▼</span>
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100,
+            background: '#fff', border: '1px solid #e5e3de', borderRadius: 10,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 200, maxHeight: 240, overflowY: 'auto',
+            padding: '6px 0',
+          }}>
+            {options.map(opt => (
+              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
+                onClick={e => e.stopPropagation()}>
+                <input type="checkbox" checked={selected.includes(opt)}
+                  onChange={() => setSelected(s => s.includes(opt) ? s.filter(x => x !== opt) : [...s, opt])} />
+                {opt}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function TripsPage() {
   const [trips, setTrips] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -20,6 +56,15 @@ export default function TripsPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [savingId, setSavingId] = useState(null);
+
+  // Filters
+  const [filterGuests, setFilterGuests] = useState([]);
+  const [filterVehicles, setFilterVehicles] = useState([]);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [guestDropOpen, setGuestDropOpen] = useState(false);
+  const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
+
   const fileRef = useRef();
 
   const load = useCallback(async () => {
@@ -86,7 +131,6 @@ export default function TripsPage() {
       };
       const res = await api.patch(`/trips/${id}`, body);
       const updated = res.data.trip;
-      // Find the matching vehicle name for display
       const veh = vehicles.find(v => v.id === (editForm.vehicle_id || null));
       setTrips(t => t.map(x => x.id === id ? {
         ...x,
@@ -102,11 +146,31 @@ export default function TripsPage() {
     } finally { setSavingId(null); }
   };
 
-  // Sort trips by end date descending
   const sortedTrips = [...trips].sort((a, b) => new Date(b.end_datetime) - new Date(a.end_datetime));
 
-  const registeredVehicles = vehicles.filter(v => v.transponder_id);
+  // Filter options derived from data
+  const allGuests = [...new Set(trips.map(t => t.renter_name).filter(Boolean))].sort();
+  const allVehicleNames = [...new Set(trips.map(t => {
+    const linked = t.vehicle_id ? vehicles.find(v => v.id === t.vehicle_id) : null;
+    return linked ? (linked.nickname || linked.name) : (t.vehicle || null);
+  }).filter(Boolean))].sort();
 
+  const filteredTrips = sortedTrips.filter(t => {
+    if (filterGuests.length && !filterGuests.includes(t.renter_name)) return false;
+    if (filterVehicles.length) {
+      const linked = t.vehicle_id ? vehicles.find(v => v.id === t.vehicle_id) : null;
+      const vName = linked ? (linked.nickname || linked.name) : (t.vehicle || '');
+      if (!filterVehicles.includes(vName)) return false;
+    }
+    if (filterDateFrom && t.end_datetime && new Date(t.end_datetime) < new Date(filterDateFrom)) return false;
+    if (filterDateTo && t.start_datetime && new Date(t.start_datetime) > new Date(filterDateTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo;
+  const clearFilters = () => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); };
+
+  const registeredVehicles = vehicles.filter(v => v.transponder_id);
   const lbl = { fontSize: 12, color: '#666', marginBottom: 3, display: 'block', fontWeight: 500 };
 
   return (
@@ -158,10 +222,31 @@ export default function TripsPage() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <p style={{ fontWeight: 500, margin: 0 }}>Trips</p>
-            <span className="badge badge-blue">{trips.length} trip{trips.length !== 1 ? 's' : ''}</span>
+            <span className="badge badge-blue">
+              {hasFilters ? `${filteredTrips.length} / ` : ''}{trips.length} trip{trips.length !== 1 ? 's' : ''}
+            </span>
           </div>
 
-          {sortedTrips.map(t => {
+          {/* Filter bar */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+            <MultiSelect label="Guest" icon="👤" options={allGuests} selected={filterGuests} setSelected={setFilterGuests} open={guestDropOpen} setOpen={setGuestDropOpen} />
+            <MultiSelect label="Vehicle" icon="🚗" options={allVehicleNames} selected={filterVehicles} setSelected={setFilterVehicles} open={vehicleDropOpen} setOpen={setVehicleDropOpen} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>From</label>
+              <input type="date" className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 140 }}
+                value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+              <label style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>To</label>
+              <input type="date" className="form-control" style={{ fontSize: 12, padding: '5px 8px', width: 140 }}
+                value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+            </div>
+            {hasFilters && (
+              <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }} onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          {filteredTrips.map(t => {
             if (editingId === t.id) {
               return (
                 <div key={t.id} style={{ padding: '14px 0', borderBottom: '0.5px solid #f0ede8' }}>
@@ -200,7 +285,6 @@ export default function TripsPage() {
               );
             }
 
-            // Look up the vehicle by vehicle_id for display
             const linkedVehicle = t.vehicle_id ? vehicles.find(v => v.id === t.vehicle_id) : null;
             const vehicleDisplay = linkedVehicle ? (linkedVehicle.nickname || linkedVehicle.name) : (t.vehicle || '—');
 
@@ -225,6 +309,10 @@ export default function TripsPage() {
               </div>
             );
           })}
+
+          {filteredTrips.length === 0 && (
+            <p style={{ fontSize: 13, color: '#aaa', textAlign: 'center', padding: '16px 0' }}>No trips match the current filters.</p>
+          )}
         </div>
       )}
 
