@@ -31,8 +31,7 @@ export default function SubscribePage() {
         const updated = await refreshHost();
         if (updated?.subscription_status === 'active' || updated?.subscription_status === 'trialing') {
           clearInterval(poll);
-          setRefreshing(false);
-          navigate('/');
+          window.location.href = '/';
         } else if (attempts >= 10) {
           clearInterval(poll);
           setRefreshing(false);
