@@ -5,9 +5,16 @@ const PlanConfig = require('../models/PlanConfig');
 
 const router = express.Router();
 
-function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not configured');
-  return require('stripe')(process.env.STRIPE_SECRET_KEY);
+async function getStripe() {
+  const plan = await PlanConfig.findOne();
+  const key = plan?.stripe_secret_key || process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe secret key not configured. Set it in Admin > Stripe Configuration.');
+  return require('stripe')(key);
+}
+
+async function getWebhookSecret() {
+  const plan = await PlanConfig.findOne();
+  return plan?.stripe_webhook_secret || process.env.STRIPE_WEBHOOK_SECRET;
 }
 
 // GET /api/billing/plan — public plan info
@@ -41,7 +48,7 @@ router.get('/status', auth, async (req, res) => {
 // POST /api/billing/checkout — create Stripe checkout session
 router.post('/checkout', auth, async (req, res) => {
   try {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const host = await Host.findById(req.hostId);
 
     // Get or create Stripe customer
@@ -60,7 +67,7 @@ router.post('/checkout', auth, async (req, res) => {
     // Resolve active price ID
     const plan = await PlanConfig.findOne();
     const priceId = plan?.stripe_price_id || process.env.STRIPE_PRICE_ID;
-    if (!priceId) return res.status(400).json({ error: 'No Stripe price configured. Add STRIPE_PRICE_ID to env or configure from Admin panel.' });
+    if (!priceId) return res.status(400).json({ error: 'No Stripe price configured. Set it in Admin > Stripe Configuration.' });
 
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     const trialDays = plan?.trial_days || 0;
@@ -68,7 +75,7 @@ router.post('/checkout', auth, async (req, res) => {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${clientUrl}/?subscribed=1`,
+      success_url: `${clientUrl}/subscribe?subscribed=1`,
       cancel_url: `${clientUrl}/subscribe`,
     };
     if (trialDays > 0) {
@@ -86,7 +93,7 @@ router.post('/checkout', auth, async (req, res) => {
 // POST /api/billing/portal — Stripe customer portal
 router.post('/portal', auth, async (req, res) => {
   try {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const host = await Host.findById(req.hostId);
     if (!host.stripe_customer_id) return res.status(400).json({ error: 'No billing account found' });
 
@@ -104,12 +111,18 @@ router.post('/portal', auth, async (req, res) => {
 
 // POST /api/billing/webhook — Stripe webhook (raw body, mounted before json middleware)
 router.post('/webhook', async (req, res) => {
-  const stripe = getStripe();
   const sig = req.headers['stripe-signature'];
+  const webhookSecret = await getWebhookSecret();
+  if (!webhookSecret) {
+    console.error('Webhook secret not configured');
+    return res.status(400).send('Webhook secret not configured');
+  }
+
+  const stripe = await getStripe();
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);

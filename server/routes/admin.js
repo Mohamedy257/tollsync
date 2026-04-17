@@ -15,9 +15,11 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
-function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not configured');
-  return require('stripe')(process.env.STRIPE_SECRET_KEY);
+async function getStripe() {
+  const plan = await PlanConfig.findOne();
+  const key = plan?.stripe_secret_key || process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe secret key not configured. Set it in Admin > Stripe Configuration.');
+  return require('stripe')(key);
 }
 
 // GET /api/admin/config
@@ -31,6 +33,10 @@ router.get('/config', requireAdmin, async (req, res) => {
       trial_days: plan.trial_days ?? 0,
       stripe_price_id: plan.stripe_price_id || process.env.STRIPE_PRICE_ID || null,
       stripe_product_id: plan.stripe_product_id || null,
+      // Never expose actual key values — only whether they're set
+      stripe_secret_key_set: !!(plan.stripe_secret_key || process.env.STRIPE_SECRET_KEY),
+      stripe_publishable_key: plan.stripe_publishable_key || process.env.STRIPE_PUBLISHABLE_KEY || '',
+      stripe_webhook_secret_set: !!(plan.stripe_webhook_secret || process.env.STRIPE_WEBHOOK_SECRET),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -40,15 +46,24 @@ router.get('/config', requireAdmin, async (req, res) => {
 // PUT /api/admin/config — update plan; creates new Stripe price if price changed
 router.put('/config', requireAdmin, async (req, res) => {
   try {
-    const { name, description, price_cents, trial_days } = req.body;
+    const { name, description, price_cents, trial_days, stripe_secret_key, stripe_publishable_key, stripe_webhook_secret } = req.body;
     const existing = await PlanConfig.findOne();
-    const stripe = getStripe();
+
+    // Build Stripe key updates (only overwrite if a non-empty value was submitted)
+    const keyUpdates = {};
+    if (stripe_secret_key && stripe_secret_key.trim()) keyUpdates.stripe_secret_key = stripe_secret_key.trim();
+    if (stripe_publishable_key !== undefined) keyUpdates.stripe_publishable_key = stripe_publishable_key.trim();
+    if (stripe_webhook_secret && stripe_webhook_secret.trim()) keyUpdates.stripe_webhook_secret = stripe_webhook_secret.trim();
 
     let stripe_price_id = existing?.stripe_price_id || process.env.STRIPE_PRICE_ID || null;
     let stripe_product_id = existing?.stripe_product_id || null;
     const newPriceCents = parseInt(price_cents, 10);
 
     if (newPriceCents && newPriceCents !== existing?.price_cents) {
+      // Use the incoming secret key if provided, otherwise fall back to existing
+      const secretKey = keyUpdates.stripe_secret_key || existing?.stripe_secret_key || process.env.STRIPE_SECRET_KEY;
+      if (!secretKey) throw new Error('Stripe secret key not configured.');
+      const stripe = require('stripe')(secretKey);
       // Ensure product exists
       if (!stripe_product_id) {
         const product = await stripe.products.create({ name: name || 'TollSync Pro' });
@@ -77,6 +92,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         trial_days: trial_days !== undefined ? parseInt(trial_days, 10) : (existing?.trial_days ?? 0),
         stripe_price_id,
         stripe_product_id,
+        ...keyUpdates,
       },
       { upsert: true, new: true }
     );

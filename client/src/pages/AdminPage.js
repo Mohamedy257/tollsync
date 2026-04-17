@@ -17,9 +17,13 @@ const STATUS_COLORS = {
 export default function AdminPage() {
   const [config, setConfig] = useState(null);
   const [form, setForm] = useState({ name: '', description: '', price_cents: '', trial_days: 0 });
+  const [stripeForm, setStripeForm] = useState({ stripe_secret_key: '', stripe_publishable_key: '', stripe_webhook_secret: '' });
+  const [stripeStatus, setStripeStatus] = useState({ secret_set: false, webhook_set: false });
   const [subscribers, setSubscribers] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [savingStripe, setSavingStripe] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [stripeMsg, setStripeMsg] = useState('');
   const [error, setError] = useState('');
   const [grantingId, setGrantingId] = useState(null);
 
@@ -37,6 +41,11 @@ export default function AdminPage() {
         description: cfgRes.data.description || '',
         price_cents: cfgRes.data.price_cents || 1000,
         trial_days: cfgRes.data.trial_days ?? 0,
+      });
+      setStripeForm(f => ({ ...f, stripe_publishable_key: cfgRes.data.stripe_publishable_key || '' }));
+      setStripeStatus({
+        secret_set: cfgRes.data.stripe_secret_key_set || false,
+        webhook_set: cfgRes.data.stripe_webhook_secret_set || false,
       });
       setSubscribers(subRes.data.subscribers);
     } catch (err) {
@@ -60,6 +69,28 @@ export default function AdminPage() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save');
     } finally { setSaving(false); }
+  };
+
+  const saveStripe = async e => {
+    e.preventDefault();
+    setSavingStripe(true); setStripeMsg(''); setError('');
+    try {
+      const res = await api.put('/admin/config', {
+        stripe_secret_key: stripeForm.stripe_secret_key || undefined,
+        stripe_publishable_key: stripeForm.stripe_publishable_key,
+        stripe_webhook_secret: stripeForm.stripe_webhook_secret || undefined,
+      });
+      const updated = res.data.plan || res.data.config;
+      setStripeStatus({
+        secret_set: !!(updated?.stripe_secret_key || stripeForm.stripe_secret_key),
+        webhook_set: !!(updated?.stripe_webhook_secret || stripeForm.stripe_webhook_secret),
+      });
+      setStripeForm(f => ({ ...f, stripe_secret_key: '', stripe_webhook_secret: '' }));
+      setStripeMsg('Stripe keys saved');
+      setTimeout(() => setStripeMsg(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save Stripe keys');
+    } finally { setSavingStripe(false); }
   };
 
   const grant = async (id) => {
@@ -149,6 +180,57 @@ export default function AdminPage() {
               {saving ? <><span className="spinner" /> Saving...</> : 'Save plan'}
             </button>
             {saveMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{saveMsg}</span>}
+          </div>
+        </form>
+      </div>
+
+      {/* Stripe configuration */}
+      <p className="section-title">Stripe configuration</p>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <form onSubmit={saveStripe}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px 12px', marginBottom: 12 }}>
+            <div>
+              <label style={lbl}>
+                Secret key{' '}
+                {stripeStatus.secret_set && <span style={{ color: '#3b6d11', fontWeight: 600 }}>✓ configured</span>}
+              </label>
+              <input
+                className="form-control" type="password"
+                placeholder={stripeStatus.secret_set ? 'Leave blank to keep existing' : 'sk_live_...'}
+                value={stripeForm.stripe_secret_key}
+                onChange={e => setStripeForm(f => ({ ...f, stripe_secret_key: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label style={lbl}>Publishable key</label>
+              <input
+                className="form-control"
+                placeholder="pk_live_..."
+                value={stripeForm.stripe_publishable_key}
+                onChange={e => setStripeForm(f => ({ ...f, stripe_publishable_key: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label style={lbl}>
+                Webhook secret{' '}
+                {stripeStatus.webhook_set && <span style={{ color: '#3b6d11', fontWeight: 600 }}>✓ configured</span>}
+              </label>
+              <input
+                className="form-control" type="password"
+                placeholder={stripeStatus.webhook_set ? 'Leave blank to keep existing' : 'whsec_...'}
+                value={stripeForm.stripe_webhook_secret}
+                onChange={e => setStripeForm(f => ({ ...f, stripe_webhook_secret: e.target.value }))}
+              />
+            </div>
+          </div>
+          <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+            Keys are stored securely and never exposed in the UI. Leave a key field blank to keep the existing value.
+          </p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn btn-primary btn-sm" type="submit" disabled={savingStripe}>
+              {savingStripe ? <><span className="spinner" /> Saving...</> : 'Save Stripe keys'}
+            </button>
+            {stripeMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{stripeMsg}</span>}
           </div>
         </form>
       </div>
