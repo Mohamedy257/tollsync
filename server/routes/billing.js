@@ -111,7 +111,7 @@ router.get('/verify-session', auth, async (req, res) => {
       host.stripe_customer_id = session.customer;
       host.stripe_subscription_id = sub.id;
       host.subscription_status = sub.status;
-      host.subscription_current_period_end = new Date(sub.current_period_end * 1000);
+      host.subscription_current_period_end = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
       await host.save();
     }
 
@@ -139,7 +139,7 @@ router.post('/sync', auth, async (req, res) => {
       const sub = subscriptions.data[0];
       host.stripe_subscription_id = sub.id;
       host.subscription_status = sub.status;
-      host.subscription_current_period_end = new Date(sub.current_period_end * 1000);
+      host.subscription_current_period_end = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
       await host.save();
     }
 
