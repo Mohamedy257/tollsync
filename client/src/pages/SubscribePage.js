@@ -17,28 +17,32 @@ export default function SubscribePage() {
     api.get('/billing/plan').then(r => setPlan(r.data)).catch(() => {});
   }, []);
 
-  // Handle return from Stripe (?subscribed=1)
+  // Handle return from Stripe (?session_id=...)
   useEffect(() => {
-    if (searchParams.get('subscribed') === '1') {
-      setRefreshing(true);
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          // Sync directly from Stripe so we don't depend on webhooks
-          await api.post('/billing/sync');
-        } catch (_) {}
-        const updated = await refreshHost();
-        if (updated?.subscription_status === 'active' || updated?.subscription_status === 'trialing') {
+    const sessionId = searchParams.get('session_id');
+    if (!sessionId) return;
+
+    setRefreshing(true);
+    let attempts = 0;
+
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await api.get(`/billing/verify-session?session_id=${sessionId}`);
+        if (res.data.subscription_status === 'active' || res.data.subscription_status === 'trialing') {
           clearInterval(poll);
           window.location.href = '/';
-        } else if (attempts >= 10) {
-          clearInterval(poll);
-          setRefreshing(false);
+          return;
         }
-      }, 2000);
-      return () => clearInterval(poll);
-    }
+      } catch (_) {}
+
+      if (attempts >= 8) {
+        clearInterval(poll);
+        setRefreshing(false);
+      }
+    }, 2000);
+
+    return () => clearInterval(poll);
   }, []); // eslint-disable-line
 
   const subscribe = async () => {

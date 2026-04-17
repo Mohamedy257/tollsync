@@ -75,7 +75,7 @@ router.post('/checkout', auth, async (req, res) => {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${clientUrl}/subscribe?subscribed=1`,
+      success_url: `${clientUrl}/subscribe?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${clientUrl}/subscribe`,
     };
     if (trialDays > 0) {
@@ -86,6 +86,38 @@ router.post('/checkout', auth, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error('Checkout error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/billing/verify-session?session_id=... — verify checkout session and activate subscription
+router.get('/verify-session', auth, async (req, res) => {
+  try {
+    const { session_id } = req.query;
+    if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
+
+    const stripe = await getStripe();
+    const session = await stripe.checkout.sessions.retrieve(session_id, {
+      expand: ['subscription'],
+    });
+
+    if (session.payment_status !== 'paid' && session.status !== 'complete') {
+      return res.json({ subscription_status: 'none' });
+    }
+
+    const host = await Host.findById(req.hostId);
+    const sub = session.subscription;
+    if (sub) {
+      host.stripe_customer_id = session.customer;
+      host.stripe_subscription_id = sub.id;
+      host.subscription_status = sub.status;
+      host.subscription_current_period_end = new Date(sub.current_period_end * 1000);
+      await host.save();
+    }
+
+    res.json({ subscription_status: host.subscription_status });
+  } catch (err) {
+    console.error('Verify session error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
