@@ -34,11 +34,20 @@ export default function SubscribePage() {
           window.location.href = '/';
           return;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.error('Verify session error:', err.response?.data || err.message);
+        if (err.response?.data?.error) {
+          setError(err.response.data.error);
+          clearInterval(poll);
+          setRefreshing(false);
+          return;
+        }
+      }
 
       if (attempts >= 8) {
         clearInterval(poll);
         setRefreshing(false);
+        setError('Could not confirm your subscription. Please contact support or try again.');
       }
     }, 2000);
 
@@ -69,9 +78,10 @@ export default function SubscribePage() {
 
   if (refreshing) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#faf9f7' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#faf9f7', padding: 24 }}>
         <span className="spinner spinner-lg" style={{ marginBottom: 16 }} />
         <p style={{ color: '#555', fontSize: 15 }}>Activating your subscription...</p>
+        {error && <p style={{ color: '#e24b4a', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 360 }}>{error}</p>}
       </div>
     );
   }
