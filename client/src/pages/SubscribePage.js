@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
+
 export default function SubscribePage() {
-  const { host, isSubscribed, refreshHost } = useAuth();
+  const { host, isSubscribed, refreshHost, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [plan, setPlan] = useState(null);
@@ -144,9 +145,17 @@ export default function SubscribePage() {
         )}
 
         {host && (
-          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#aaa' }}>
-            Signed in as {host.email}
-          </p>
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <p style={{ fontSize: 13, color: '#aaa', margin: '0 0 10px' }}>
+              Signed in as {host.email}
+            </p>
+            <button
+              onClick={() => { logout(); navigate('/login'); }}
+              style={{ background: 'none', border: 'none', color: '#aaa', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Sign out
+            </button>
+          </div>
         )}
       </div>
     </div>
