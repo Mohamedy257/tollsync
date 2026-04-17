@@ -104,6 +104,48 @@ router.put('/config', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/create-price — force create a Stripe price from current plan settings
+router.post('/create-price', requireAdmin, async (req, res) => {
+  try {
+    const existing = await PlanConfig.findOne();
+    const secretKey = existing?.stripe_secret_key || process.env.STRIPE_SECRET_KEY;
+    if (!secretKey) return res.status(400).json({ error: 'Stripe secret key not configured.' });
+
+    const stripe = require('stripe')(secretKey);
+    const priceCents = existing?.price_cents || 1000;
+    const name = existing?.name || 'TollSync Pro';
+
+    let stripe_product_id = existing?.stripe_product_id || null;
+    if (!stripe_product_id) {
+      const product = await stripe.products.create({ name });
+      stripe_product_id = product.id;
+    }
+
+    // Archive existing price if any
+    if (existing?.stripe_price_id) {
+      await stripe.prices.update(existing.stripe_price_id, { active: false }).catch(() => {});
+    }
+
+    const price = await stripe.prices.create({
+      product: stripe_product_id,
+      unit_amount: priceCents,
+      currency: 'usd',
+      recurring: { interval: 'month' },
+    });
+
+    const plan = await PlanConfig.findOneAndUpdate(
+      {},
+      { stripe_price_id: price.id, stripe_product_id },
+      { upsert: true, new: true }
+    );
+
+    res.json({ stripe_price_id: plan.stripe_price_id });
+  } catch (err) {
+    console.error('Create price error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/subscribers
 router.get('/subscribers', requireAdmin, async (req, res) => {
   try {

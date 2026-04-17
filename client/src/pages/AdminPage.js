@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [subscribers, setSubscribers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savingStripe, setSavingStripe] = useState(false);
+  const [creatingPrice, setCreatingPrice] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [stripeMsg, setStripeMsg] = useState('');
   const [error, setError] = useState('');
@@ -91,6 +92,18 @@ export default function AdminPage() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save Stripe keys');
     } finally { setSavingStripe(false); }
+  };
+
+  const createPrice = async () => {
+    setCreatingPrice(true); setError(''); setSaveMsg('');
+    try {
+      const res = await api.post('/admin/create-price');
+      setConfig(c => ({ ...c, stripe_price_id: res.data.stripe_price_id }));
+      setSaveMsg('Stripe price created successfully');
+      setTimeout(() => setSaveMsg(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create Stripe price');
+    } finally { setCreatingPrice(false); }
   };
 
   const grant = async (id) => {
@@ -168,12 +181,21 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {config?.stripe_price_id && (
-            <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-              Active Stripe price: <code style={{ fontFamily: 'monospace' }}>{config.stripe_price_id}</code>
-              {' '}— changing the price will create a new Stripe price and archive the old one.
-            </p>
-          )}
+          <div style={{ marginBottom: 12 }}>
+            {config?.stripe_price_id ? (
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+                Active Stripe price: <code style={{ fontFamily: 'monospace' }}>{config.stripe_price_id}</code>
+                {' '}— changing the price will create a new Stripe price and archive the old one.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#fff8e6', borderRadius: 8, border: '1px solid #f5d97a' }}>
+                <span style={{ fontSize: 12, color: '#7a5c00' }}>No Stripe price configured.</span>
+                <button type="button" className="btn btn-sm" onClick={createPrice} disabled={creatingPrice}>
+                  {creatingPrice ? <><span className="spinner" /> Creating...</> : 'Create price in Stripe'}
+                </button>
+              </div>
+            )}
+          </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <button className="btn btn-primary btn-sm" type="submit" disabled={saving}>
