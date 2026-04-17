@@ -80,13 +80,15 @@ export default function AdminPage() {
         stripe_secret_key: stripeForm.stripe_secret_key || undefined,
         stripe_publishable_key: stripeForm.stripe_publishable_key,
         stripe_webhook_secret: stripeForm.stripe_webhook_secret || undefined,
+        stripe_price_id: stripeForm.stripe_price_id || undefined,
       });
       const updated = res.data.plan || res.data.config;
       setStripeStatus({
         secret_set: !!(updated?.stripe_secret_key || stripeForm.stripe_secret_key),
         webhook_set: !!(updated?.stripe_webhook_secret || stripeForm.stripe_webhook_secret),
       });
-      setStripeForm(f => ({ ...f, stripe_secret_key: '', stripe_webhook_secret: '' }));
+      if (stripeForm.stripe_price_id) setConfig(c => ({ ...c, stripe_price_id: stripeForm.stripe_price_id }));
+      setStripeForm(f => ({ ...f, stripe_secret_key: '', stripe_webhook_secret: '', stripe_price_id: '' }));
       setStripeMsg('Stripe keys saved');
       setTimeout(() => setStripeMsg(''), 3000);
     } catch (err) {
@@ -231,6 +233,19 @@ export default function AdminPage() {
                 value={stripeForm.stripe_publishable_key}
                 onChange={e => setStripeForm(f => ({ ...f, stripe_publishable_key: e.target.value }))}
               />
+            </div>
+            <div>
+              <label style={lbl}>
+                Price ID{' '}
+                {config?.stripe_price_id && <span style={{ color: '#3b6d11', fontWeight: 600 }}>✓ configured</span>}
+              </label>
+              <input
+                className="form-control"
+                placeholder={config?.stripe_price_id || 'price_...'}
+                value={stripeForm.stripe_price_id || ''}
+                onChange={e => setStripeForm(f => ({ ...f, stripe_price_id: e.target.value }))}
+              />
+              <p style={{ fontSize: 11, color: '#aaa', margin: '3px 0 0' }}>Paste from Stripe dashboard, or use "Create price" below.</p>
             </div>
             <div>
               <label style={lbl}>

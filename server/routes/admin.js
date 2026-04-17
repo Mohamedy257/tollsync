@@ -46,7 +46,7 @@ router.get('/config', requireAdmin, async (req, res) => {
 // PUT /api/admin/config — update plan; creates new Stripe price if price changed
 router.put('/config', requireAdmin, async (req, res) => {
   try {
-    const { name, description, price_cents, trial_days, stripe_secret_key, stripe_publishable_key, stripe_webhook_secret } = req.body;
+    const { name, description, price_cents, trial_days, stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId } = req.body;
     const existing = await PlanConfig.findOne();
 
     // Build Stripe key updates (only overwrite if a non-empty value was submitted)
@@ -54,12 +54,14 @@ router.put('/config', requireAdmin, async (req, res) => {
     if (stripe_secret_key && stripe_secret_key.trim()) keyUpdates.stripe_secret_key = stripe_secret_key.trim();
     if (stripe_publishable_key !== undefined) keyUpdates.stripe_publishable_key = stripe_publishable_key.trim();
     if (stripe_webhook_secret && stripe_webhook_secret.trim()) keyUpdates.stripe_webhook_secret = stripe_webhook_secret.trim();
+    if (manualPriceId && manualPriceId.trim()) keyUpdates.stripe_price_id = manualPriceId.trim();
 
-    let stripe_price_id = existing?.stripe_price_id || process.env.STRIPE_PRICE_ID || null;
+    let stripe_price_id = keyUpdates.stripe_price_id || existing?.stripe_price_id || process.env.STRIPE_PRICE_ID || null;
     let stripe_product_id = existing?.stripe_product_id || null;
     const newPriceCents = parseInt(price_cents, 10);
 
-    if (newPriceCents && newPriceCents !== existing?.price_cents) {
+    // Only auto-create price if price_cents changed AND no manual price ID was provided
+    if (newPriceCents && newPriceCents !== existing?.price_cents && !keyUpdates.stripe_price_id) {
       // Use the incoming secret key if provided, otherwise fall back to existing
       const secretKey = keyUpdates.stripe_secret_key || existing?.stripe_secret_key || process.env.STRIPE_SECRET_KEY;
       if (!secretKey) throw new Error('Stripe secret key not configured.');
@@ -83,6 +85,7 @@ router.put('/config', requireAdmin, async (req, res) => {
       stripe_price_id = price.id;
     }
 
+    const { stripe_price_id: _ignored, ...restKeyUpdates } = keyUpdates;
     const plan = await PlanConfig.findOneAndUpdate(
       {},
       {
@@ -92,7 +95,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         trial_days: trial_days !== undefined ? parseInt(trial_days, 10) : (existing?.trial_days ?? 0),
         stripe_price_id,
         stripe_product_id,
-        ...keyUpdates,
+        ...restKeyUpdates,
       },
       { upsert: true, new: true }
     );
