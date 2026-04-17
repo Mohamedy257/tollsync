@@ -3,6 +3,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
 
+
 const EMPTY_VEHICLE = () => ({
   nickname: '', year: '', make: '', model: '', freeformMake: '', freeformModel: '',
   plate: '', transponder_id: '', vin: '',
@@ -143,6 +144,7 @@ function isVehicleValid(v) {
 const STEPS = [
   { n: 1, label: 'Your vehicles' },
   { n: 2, label: 'EZ-Pass statement' },
+  { n: 3, label: 'Subscribe' },
 ];
 
 export default function SetupWizard() {
@@ -155,12 +157,19 @@ export default function SetupWizard() {
   const [uploadDone, setUploadDone] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [finishing, setFinishing] = useState(false);
+  const [plan, setPlan] = useState(null);
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribeError, setSubscribeError] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
+  }, []);
+
+  useEffect(() => {
+    api.get('/billing/plan').then(r => setPlan(r.data)).catch(() => {});
   }, []);
 
   const updateVehicle = (idx, patch) =>
@@ -206,9 +215,19 @@ export default function SetupWizard() {
     } finally { setUploading(false); }
   };
 
-  const finish = async () => {
-    setFinishing(true);
-    await completeSetup();
+  const finish = () => setStep(3);
+
+  const subscribe = async () => {
+    setSubscribing(true); setSubscribeError('');
+    try {
+      // Complete setup first so account is ready after Stripe redirect
+      await completeSetup();
+      const res = await api.post('/billing/checkout');
+      window.location.href = res.data.url;
+    } catch (err) {
+      setSubscribeError(err.response?.data?.error || 'Failed to start checkout');
+      setSubscribing(false);
+    }
   };
 
   // bottom padding: sticky button height + safe area
@@ -269,6 +288,14 @@ export default function SetupWizard() {
             </p>
           </div>
         )}
+        {step === 3 && (
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700, margin: '0 0 6px' }}>Activate your subscription</h2>
+            <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>
+              One plan, everything included.
+            </p>
+          </div>
+        )}
 
         {/* Step 1 — vehicles */}
         {step === 1 && (
@@ -303,6 +330,40 @@ export default function SetupWizard() {
           </>
         )}
 
+        {/* Step 3 — subscribe */}
+        {step === 3 && (
+          <div className="card" style={{ padding: 24, marginBottom: 12 }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 4px' }}>{plan?.name || 'TollSync Pro'}</p>
+              <p style={{ color: '#888', fontSize: 13, margin: '0 0 14px' }}>{plan?.description || 'Unlimited toll calculations for rental hosts'}</p>
+              <p style={{ fontSize: 34, fontWeight: 800, color: '#185fa5', margin: 0 }}>
+                ${((plan?.price_cents || 1000) / 100).toFixed(2)}/mo
+              </p>
+              {plan?.trial_days > 0 && (
+                <p style={{ fontSize: 13, color: '#3b6d11', fontWeight: 600, margin: '6px 0 0' }}>
+                  {plan.trial_days}-day free trial included
+                </p>
+              )}
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {['Unlimited trip calculations', 'AI-powered file parsing', 'Multi-vehicle support', 'EZ-Pass matching', 'Exportable toll reports'].map(f => (
+                <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#333' }}>
+                  <span style={{ color: '#3b6d11', fontWeight: 700 }}>✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            {subscribeError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{subscribeError}</div>}
+            {!isMobile && (
+              <button className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15 }}
+                disabled={subscribing} onClick={subscribe}>
+                {subscribing ? <><span className="spinner" /> Starting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : 'Subscribe now'}
+              </button>
+            )}
+            <p style={{ textAlign: 'center', fontSize: 11, color: '#aaa', marginTop: 10 }}>Secure payment via Stripe · Cancel anytime</p>
+          </div>
+        )}
+
         {/* Step 2 — toll upload */}
         {step === 2 && (
           <>
@@ -335,12 +396,12 @@ export default function SetupWizard() {
               <>
                 <button className="btn btn-primary"
                   style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginBottom: 10 }}
-                  disabled={finishing} onClick={finish}>
-                  {finishing ? <><span className="spinner" /> Starting...</> : uploadDone ? 'Go to TollSync →' : 'Finish setup →'}
+                  onClick={finish}>
+                  Next →
                 </button>
                 {!uploadDone && (
                   <button className="btn" style={{ width: '100%', justifyContent: 'center', color: '#888' }}
-                    disabled={finishing} onClick={finish}>
+                    onClick={finish}>
                     Skip for now
                   </button>
                 )}
@@ -369,17 +430,24 @@ export default function SetupWizard() {
             <>
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
-                disabled={finishing} onClick={finish}>
-                {finishing ? <><span className="spinner" /> Starting...</> : uploadDone ? 'Go to TollSync →' : 'Finish setup →'}
+                onClick={finish}>
+                {uploadDone ? 'Next →' : 'Next →'}
               </button>
               {!uploadDone && (
                 <button className="btn"
                   style={{ width: '100%', justifyContent: 'center', padding: '10px', color: '#888' }}
-                  disabled={finishing} onClick={finish}>
+                  onClick={finish}>
                   Skip for now
                 </button>
               )}
             </>
+          )}
+          {step === 3 && (
+            <button className="btn btn-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
+              disabled={subscribing} onClick={subscribe}>
+              {subscribing ? <><span className="spinner" /> Starting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : 'Subscribe now'}
+            </button>
           )}
         </div>
       )}
