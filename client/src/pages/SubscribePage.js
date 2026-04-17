@@ -21,10 +21,13 @@ export default function SubscribePage() {
   useEffect(() => {
     if (searchParams.get('subscribed') === '1') {
       setRefreshing(true);
-      // Poll for subscription status to become active (webhook may take a moment)
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts++;
+        try {
+          // Sync directly from Stripe so we don't depend on webhooks
+          await api.post('/billing/sync');
+        } catch (_) {}
         const updated = await refreshHost();
         if (updated?.subscription_status === 'active' || updated?.subscription_status === 'trialing') {
           clearInterval(poll);

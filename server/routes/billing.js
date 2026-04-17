@@ -90,6 +90,34 @@ router.post('/checkout', auth, async (req, res) => {
   }
 });
 
+// POST /api/billing/sync — pull latest subscription state from Stripe and update DB
+router.post('/sync', auth, async (req, res) => {
+  try {
+    const host = await Host.findById(req.hostId);
+    if (!host.stripe_customer_id) return res.json({ subscription_status: host.subscription_status || 'none' });
+
+    const stripe = await getStripe();
+    const subscriptions = await stripe.subscriptions.list({
+      customer: host.stripe_customer_id,
+      limit: 1,
+      status: 'all',
+    });
+
+    if (subscriptions.data.length > 0) {
+      const sub = subscriptions.data[0];
+      host.stripe_subscription_id = sub.id;
+      host.subscription_status = sub.status;
+      host.subscription_current_period_end = new Date(sub.current_period_end * 1000);
+      await host.save();
+    }
+
+    res.json({ subscription_status: host.subscription_status });
+  } catch (err) {
+    console.error('Sync error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/billing/portal — Stripe customer portal
 router.post('/portal', auth, async (req, res) => {
   try {
