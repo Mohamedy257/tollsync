@@ -11,14 +11,33 @@ const EMPTY_VEHICLE = () => ({
 
 const label = { fontSize: 13, color: '#555', marginBottom: 4, display: 'block', fontWeight: 500 };
 const req = <span style={{ color: '#e24b4a' }}>*</span>;
+const errStyle = { border: '1.5px solid #e24b4a' };
+const errMsg = (msg) => <p style={{ fontSize: 11, color: '#e24b4a', marginTop: 3 }}>{msg}</p>;
 
-function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile }) {
+function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitted }) {
   const models = v.make && v.make !== 'Other' ? (CAR_MODELS[v.make] || []) : [];
   const set = patch => onChange(idx, patch);
 
+  const makeName = v.make === 'Other' ? v.freeformMake.trim() : v.make;
+  const modelName = v.make === 'Other'
+    ? v.freeformModel.trim()
+    : v.model === 'Other' ? v.freeformModel.trim() : v.model;
+
+  const err = submitted ? {
+    nickname: !v.nickname.trim(),
+    year: !v.year,
+    make: !v.make,
+    freeformMake: v.make === 'Other' && !v.freeformMake.trim(),
+    model: v.make && v.make !== 'Other' && !v.model,
+    freeformModel: (v.make === 'Other' || v.model === 'Other') && !v.freeformModel.trim(),
+    plate: !v.plate.trim(),
+    transponder_id: !v.transponder_id.trim(),
+  } : {};
+
   return (
     <div style={{
-      background: '#fff', borderRadius: 14, border: '0.5px solid #e5e3de',
+      background: '#fff', borderRadius: 14,
+      border: submitted && !isVehicleValid(v) ? '1.5px solid #e24b4a' : '0.5px solid #e5e3de',
       padding: isMobile ? '16px' : '20px', marginBottom: 12, position: 'relative',
     }}>
       {showRemove && (
@@ -36,83 +55,90 @@ function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile }) {
 
       {/* Nickname */}
       <div className="form-group">
-        <label style={label}>Nickname {req}</label>
+        <label style={{ ...label, color: err.nickname ? '#e24b4a' : '#555' }}>Nickname {req}</label>
         <input className="form-control" placeholder="e.g. Blue Nissan, Family SUV"
-          style={{ fontSize: 16 }} // 16px prevents iOS zoom
+          style={{ fontSize: 16, ...(err.nickname ? errStyle : {}) }}
           value={v.nickname}
           onChange={e => set({ nickname: e.target.value })} />
-        <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
-          This is how you'll identify the car later
-        </p>
+        {err.nickname ? errMsg('Nickname is required') : (
+          <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>This is how you'll identify the car later</p>
+        )}
       </div>
 
       {/* Year */}
       <div className="form-group">
-        <label style={label}>Year {req}</label>
-        <select className="form-control" style={{ fontSize: 16 }}
+        <label style={{ ...label, color: err.year ? '#e24b4a' : '#555' }}>Year {req}</label>
+        <select className="form-control" style={{ fontSize: 16, ...(err.year ? errStyle : {}) }}
           value={v.year} onChange={e => set({ year: e.target.value })}>
           <option value="">Select year</option>
           {CAR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        {err.year && errMsg('Year is required')}
       </div>
 
       {/* Make */}
       <div className="form-group">
-        <label style={label}>Make {req}</label>
-        <select className="form-control" style={{ fontSize: 16 }}
+        <label style={{ ...label, color: err.make ? '#e24b4a' : '#555' }}>Make {req}</label>
+        <select className="form-control" style={{ fontSize: 16, ...(err.make ? errStyle : {}) }}
           value={v.make}
           onChange={e => set({ make: e.target.value, model: '', freeformMake: '', freeformModel: '' })}>
           <option value="">Select make</option>
           {CAR_MAKES.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
+        {err.make && errMsg('Make is required')}
       </div>
 
       {/* Make free-form (Other) */}
       {v.make === 'Other' && (
         <div className="form-group">
-          <label style={label}>Make name {req}</label>
-          <input className="form-control" placeholder="e.g. Tesla" style={{ fontSize: 16 }}
+          <label style={{ ...label, color: err.freeformMake ? '#e24b4a' : '#555' }}>Make name {req}</label>
+          <input className="form-control" placeholder="e.g. Tesla" style={{ fontSize: 16, ...(err.freeformMake ? errStyle : {}) }}
             value={v.freeformMake} onChange={e => set({ freeformMake: e.target.value })} />
+          {err.freeformMake && errMsg('Make name is required')}
         </div>
       )}
 
       {/* Model */}
       {v.make && v.make !== 'Other' && (
         <div className="form-group">
-          <label style={label}>Model {req}</label>
-          <select className="form-control" style={{ fontSize: 16 }}
+          <label style={{ ...label, color: err.model ? '#e24b4a' : '#555' }}>Model {req}</label>
+          <select className="form-control" style={{ fontSize: 16, ...(err.model ? errStyle : {}) }}
             value={v.model} onChange={e => set({ model: e.target.value, freeformModel: '' })}>
             <option value="">Select model</option>
             {models.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
+          {err.model && errMsg('Model is required')}
         </div>
       )}
 
       {/* Model free-form */}
       {((v.make === 'Other') || (v.make && v.model === 'Other')) && (
         <div className="form-group">
-          <label style={label}>Model name {req}</label>
-          <input className="form-control" placeholder="e.g. Model 3" style={{ fontSize: 16 }}
+          <label style={{ ...label, color: err.freeformModel ? '#e24b4a' : '#555' }}>Model name {req}</label>
+          <input className="form-control" placeholder="e.g. Model 3" style={{ fontSize: 16, ...(err.freeformModel ? errStyle : {}) }}
             value={v.freeformModel} onChange={e => set({ freeformModel: e.target.value })} />
+          {err.freeformModel && errMsg('Model name is required')}
         </div>
       )}
 
       {/* Plate */}
       <div className="form-group">
-        <label style={label}>License Plate {req}</label>
+        <label style={{ ...label, color: err.plate ? '#e24b4a' : '#555' }}>License Plate {req}</label>
         <input className="form-control" placeholder="ABC1234"
-          style={{ fontFamily: 'monospace', textTransform: 'uppercase', fontSize: 16, letterSpacing: 1 }}
+          style={{ fontFamily: 'monospace', textTransform: 'uppercase', fontSize: 16, letterSpacing: 1, ...(err.plate ? errStyle : {}) }}
           value={v.plate}
           onChange={e => set({ plate: e.target.value.toUpperCase() })} />
+        {err.plate && errMsg('License plate is required')}
       </div>
 
       {/* Transponder */}
       <div className="form-group">
-        <label style={label}>EZ-Pass Transponder {req}</label>
+        <label style={{ ...label, color: err.transponder_id ? '#e24b4a' : '#555' }}>EZ-Pass Transponder {req}</label>
         <input className="form-control" placeholder="Transponder ID"
-          style={{ fontFamily: 'monospace', fontSize: 16 }}
+          style={{ fontFamily: 'monospace', fontSize: 16, ...(err.transponder_id ? errStyle : {}) }}
           value={v.transponder_id}
           onChange={e => set({ transponder_id: e.target.value })} />
+        {err.transponder_id && errMsg('Transponder ID is required')}
       </div>
 
       {/* VIN */}
@@ -151,6 +177,7 @@ export default function SetupWizard() {
   const { completeSetup } = useAuth();
   const [step, setStep] = useState(1);
   const [vehicles, setVehicles] = useState([EMPTY_VEHICLE()]);
+  const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -180,6 +207,8 @@ export default function SetupWizard() {
   const allValid = vehicles.length > 0 && vehicles.every(isVehicleValid);
 
   const saveVehicles = async () => {
+    setSubmitted(true);
+    if (!allValid) return;
     setSaving(true); setSaveError('');
     try {
       for (const v of vehicles) {
@@ -303,7 +332,7 @@ export default function SetupWizard() {
             {vehicles.map((v, idx) => (
               <VehicleForm key={idx} v={v} idx={idx}
                 onChange={updateVehicle} onRemove={removeVehicle}
-                showRemove={vehicles.length > 1} isMobile={isMobile} />
+                showRemove={vehicles.length > 1} isMobile={isMobile} submitted={submitted} />
             ))}
 
             <button className="btn" style={{ width: '100%', justifyContent: 'center', marginBottom: 8, padding: '11px' }}
@@ -313,17 +342,11 @@ export default function SetupWizard() {
 
             {saveError && <div className="alert alert-error" style={{ marginTop: 8 }}>{saveError}</div>}
 
-            {!allValid && (
-              <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', marginTop: 10 }}>
-                Fill in all required (*) fields to continue
-              </p>
-            )}
-
             {/* Desktop Next button (mobile uses sticky footer) */}
             {!isMobile && (
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginTop: 8 }}
-                disabled={!allValid || saving} onClick={saveVehicles}>
+                disabled={saving} onClick={saveVehicles}>
                 {saving ? <><span className="spinner" /> Saving...</> : 'Next →'}
               </button>
             )}
@@ -422,7 +445,7 @@ export default function SetupWizard() {
           {step === 1 && (
             <button className="btn btn-primary"
               style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
-              disabled={!allValid || saving} onClick={saveVehicles}>
+              disabled={saving} onClick={saveVehicles}>
               {saving ? <><span className="spinner" /> Saving...</> : 'Next →'}
             </button>
           )}
