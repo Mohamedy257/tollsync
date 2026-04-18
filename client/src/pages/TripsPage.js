@@ -352,11 +352,22 @@ export default function TripsPage() {
 
             const linkedVehicle = t.vehicle_id ? vehicles.find(v => v.id === t.vehicle_id) : null;
             const vehicleDisplay = linkedVehicle ? (linkedVehicle.nickname || linkedVehicle.name) : (t.vehicle || '—');
+            const isOngoing = t.end_datetime && new Date(t.end_datetime) > new Date();
 
             return (
               <div className="row-item" key={t.id}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, margin: 0 }}>{t.renter_name || 'Unknown renter'}</p>
+                  <p style={{ fontWeight: 600, margin: 0 }}>
+                    {t.renter_name || 'Unknown renter'}
+                    {isOngoing && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 600,
+                        background: '#e6f4ea', color: '#2d7a3a',
+                        border: '1px solid #b6dfbe', borderRadius: 6,
+                        padding: '1px 6px', verticalAlign: 'middle',
+                      }}>Ongoing</span>
+                    )}
+                  </p>
                   <p style={{ fontSize: 12, color: '#555', margin: '2px 0 0' }}>
                     {vehicleDisplay}
                     {!t.vehicle_id && <span style={{ color: '#f0a500', marginLeft: 6, fontSize: 11 }}>No vehicle linked</span>}
