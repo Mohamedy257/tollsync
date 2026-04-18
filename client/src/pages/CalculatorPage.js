@@ -498,6 +498,7 @@ export default function CalculatorPage() {
   const [filterVehicles, setFilterVehicles] = useState([]);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'ongoing' | 'ended'
   const [guestDropOpen, setGuestDropOpen] = useState(false);
   const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
 
@@ -512,6 +513,13 @@ export default function CalculatorPage() {
     if (filterVehicles.length && !filterVehicles.includes(t.vehicle)) return false;
     if (filterDateFrom && t.end_datetime && new Date(t.end_datetime) < new Date(filterDateFrom)) return false;
     if (filterDateTo && t.start_datetime && new Date(t.start_datetime) > new Date(filterDateTo + 'T23:59:59')) return false;
+    if (filterStatus !== 'all') {
+      const now = new Date();
+      const end = t.end_datetime ? new Date(t.end_datetime) : null;
+      const isOngoing = end && end > now;
+      if (filterStatus === 'ongoing' && !isOngoing) return false;
+      if (filterStatus === 'ended' && isOngoing) return false;
+    }
     return true;
   });
 
@@ -1117,7 +1125,7 @@ export default function CalculatorPage() {
 
           {/* ── Filters ── */}
           {allTrips.length > 0 && (() => {
-            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo;
+            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo || filterStatus !== 'all';
             const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#e8f0fb', color: '#185fa5', borderRadius: 99, fontSize: 12, fontWeight: 600, padding: '3px 10px' };
 
             const MultiSelect = ({ label, options, selected, setSelected, open, setOpen, icon }) => {
@@ -1171,9 +1179,39 @@ export default function CalculatorPage() {
                       value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
                       title="Trip start date to" />
                   </div>
+                  {/* Status toggle */}
+                  <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e3de' }}>
+                    {[
+                      { value: 'all', label: 'All' },
+                      { value: 'ongoing', label: '🟢 Ongoing' },
+                      { value: 'ended', label: 'Ended' },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterStatus(opt.value)}
+                        style={{
+                          padding: '4px 11px',
+                          fontSize: 12,
+                          fontWeight: filterStatus === opt.value ? 700 : 500,
+                          background: filterStatus === opt.value
+                            ? (opt.value === 'ongoing' ? '#e6f4ea' : opt.value === 'ended' ? '#f3f4f6' : '#185fa5')
+                            : '#fff',
+                          color: filterStatus === opt.value
+                            ? (opt.value === 'ongoing' ? '#2d7a3a' : opt.value === 'ended' ? '#6b7280' : '#fff')
+                            : '#555',
+                          border: 'none',
+                          borderRight: opt.value !== 'ended' ? '1px solid #e5e3de' : 'none',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   {hasFilters && (
                     <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
-                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); }}>
+                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); setFilterStatus('all'); }}>
                       Clear filters
                     </button>
                   )}
