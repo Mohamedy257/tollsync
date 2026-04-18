@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
@@ -167,10 +167,110 @@ function isVehicleValid(v) {
   return true;
 }
 
+const TERMS_TEXT = [
+  {
+    title: '1. Acceptance of Terms',
+    body: `By creating an account and using TollSync, you ("User," "Host," or "you") agree to be bound by these Terms and Conditions ("Terms"), our Privacy Policy, and all applicable laws and regulations. If you do not agree with any part of these Terms, you must not access or use TollSync. These Terms constitute a legally binding agreement between you and TollSync ("Company," "we," "us," or "our"). Your continued use of the Service after any modification to these Terms constitutes your acceptance of the updated Terms.`,
+  },
+  {
+    title: '2. Description of Service',
+    body: `TollSync is a software-as-a-service (SaaS) platform designed to assist peer-to-peer vehicle rental hosts in calculating, tracking, and documenting toll charges incurred during rental periods. The Service uses artificial intelligence (AI) and optical character recognition (OCR) technology to parse documents uploaded by users, including but not limited to EZ-Pass statements, trip screenshots, and CSV files. TollSync is an independent service and is not affiliated with, endorsed by, or in any way officially connected to Turo, Inc., any toll authority, state or municipal transportation agency, or any other rental platform.`,
+  },
+  {
+    title: '3. Eligibility',
+    body: `You must be at least 18 years of age to use TollSync. By creating an account, you represent and warrant that you are at least 18 years old, have the legal capacity to enter into binding contracts, are using the Service for lawful purposes only, and that all information you provide during registration is accurate, current, and complete. TollSync reserves the right to suspend or terminate accounts where eligibility requirements are not met.`,
+  },
+  {
+    title: '4. User Accounts & Security',
+    body: `You are responsible for maintaining the confidentiality of your account credentials, including your password. You agree to: (a) provide accurate and complete registration information; (b) notify TollSync immediately of any unauthorized access to or use of your account; (c) ensure that you log out of your account at the end of each session when using shared devices. TollSync is not liable for any loss or damage arising from your failure to comply with these security obligations. You may not transfer your account to another person or entity without prior written consent from TollSync.`,
+  },
+  {
+    title: '5. Subscription & Billing',
+    body: `Access to the full features of TollSync requires an active paid subscription. Subscriptions are billed on a recurring monthly basis and will automatically renew at the end of each billing period unless cancelled. By subscribing, you authorize TollSync (through its payment processor, Stripe) to charge your payment method on a recurring basis. Prices are subject to change with at least 30 days' prior notice. All fees are stated in US Dollars and are exclusive of applicable taxes, which you are solely responsible for paying. TollSync uses Stripe, Inc. as its third-party payment processor. Your payment information is transmitted directly to Stripe and is not stored by TollSync.`,
+  },
+  {
+    title: '6. Free Trials',
+    body: `Where a free trial is offered, it begins on the date you subscribe and ends on the date specified at the time of sign-up. At the end of the free trial period, your subscription will automatically convert to a paid subscription and you will be charged the applicable fee unless you cancel before the trial ends. Only one free trial is available per user, per household, and per payment method. TollSync reserves the right to determine eligibility for free trials and to modify or discontinue trial offers at any time.`,
+  },
+  {
+    title: '7. Cancellation & Refund Policy',
+    body: `You may cancel your subscription at any time through the billing portal accessible from within your account. Upon cancellation, your subscription will remain active until the end of the current billing period. No refunds or credits are provided for partial billing periods, unused features, or any other reason, except where required by applicable law. TollSync reserves the right to issue refunds or credits at its sole discretion. Cancellation does not delete your account or uploaded data immediately; your data will be retained in accordance with our data retention policy.`,
+  },
+  {
+    title: '8. Acceptable Use',
+    body: `You agree to use TollSync only for lawful purposes and in a manner that does not infringe the rights of others. You must not: (a) use the Service to upload, transmit, or store any content that is illegal, harmful, threatening, abusive, harassing, defamatory, or otherwise objectionable; (b) attempt to gain unauthorized access to TollSync systems, servers, or networks; (c) use automated scripts, bots, or other automated means to access the Service without our express written consent; (d) reverse engineer, decompile, disassemble, or otherwise attempt to derive source code from the Service; (e) use the Service in any manner that could disable, damage, or impair the Service or interfere with other users' use; (f) share, resell, or sublicense access to the Service to third parties; or (g) use the Service to engage in fraudulent activities, including submitting false toll charges to renters.`,
+  },
+  {
+    title: '9. Data Accuracy & User Responsibility',
+    body: `You are solely responsible for the accuracy, completeness, and legality of all data you upload to TollSync, including toll statements, trip records, vehicle information, and renter data. TollSync's AI-powered parsing technology may produce errors, misinterpretations, or omissions. YOU ACKNOWLEDGE THAT ALL PARSED RESULTS MUST BE INDEPENDENTLY VERIFIED BY YOU BEFORE USE FOR ANY PURPOSE, INCLUDING BILLING RENTERS. TollSync expressly disclaims any liability arising from your reliance on parsed results without independent verification. It is your responsibility to ensure that any charges passed on to renters are accurate, lawful, and properly documented under the terms of your rental agreement.`,
+  },
+  {
+    title: '10. Renter Billing Compliance',
+    body: `You acknowledge and agree that you are solely responsible for compliance with applicable laws, regulations, and platform policies (including those of Turo, Inc. or any other rental platform) when billing renters for toll charges. TollSync provides a calculation tool only and does not constitute legal advice or authorization to charge renters. You represent that you have the legal right and contractual authority to charge renters for any tolls identified through the Service. TollSync is not responsible for any disputes arising between you and your renters.`,
+  },
+  {
+    title: '11. Intellectual Property',
+    body: `All content, features, and functionality of TollSync — including but not limited to software, text, graphics, logos, icons, and the arrangement thereof — are the exclusive property of TollSync and its licensors and are protected by United States and international copyright, trademark, patent, trade secret, and other intellectual property laws. You are granted a limited, non-exclusive, non-transferable, revocable license to access and use the Service solely for its intended purpose during the term of your subscription. You may not copy, modify, distribute, sell, or lease any part of the Service or its content without our prior written permission.`,
+  },
+  {
+    title: '12. User-Uploaded Content',
+    body: `By uploading content to TollSync (including EZ-Pass statements, screenshots, and other documents), you grant TollSync a limited, non-exclusive, royalty-free license to store, process, and analyze such content solely for the purpose of providing the Service to you. You represent and warrant that you have all necessary rights to upload such content and that doing so does not violate any third-party rights or applicable laws. TollSync does not claim ownership of your uploaded content. You are responsible for ensuring that any personally identifiable information contained in uploaded documents is handled in compliance with applicable privacy laws.`,
+  },
+  {
+    title: '13. Privacy & Data Processing',
+    body: `TollSync collects, stores, and processes personal information in accordance with our Privacy Policy, which is incorporated into these Terms by reference. By using the Service, you consent to the collection and processing of your data as described in the Privacy Policy. We implement industry-standard security measures to protect your data but cannot guarantee absolute security. You acknowledge that transmitting information over the internet carries inherent risks. TollSync does not sell, rent, or share your personal information with third parties for their own marketing purposes. Data may be shared with trusted service providers (such as Stripe and AI processing partners) solely to the extent necessary to provide the Service.`,
+  },
+  {
+    title: '14. Third-Party Services',
+    body: `TollSync integrates with third-party services including Stripe (payment processing) and AI inference providers (document parsing). Your use of these third-party services is subject to their own terms of service and privacy policies. TollSync is not responsible for the acts, omissions, or policies of any third-party service provider. Stripe's services are governed by the Stripe Services Agreement available at stripe.com. TollSync is not responsible for any disruption, outage, or error caused by third-party services.`,
+  },
+  {
+    title: '15. Disclaimer of Warranties',
+    body: `THE SERVICE IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, TOLLSYNC DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. TOLLSYNC DOES NOT WARRANT THAT: (A) THE SERVICE WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE; (B) THE RESULTS OBTAINED FROM THE SERVICE WILL BE ACCURATE OR RELIABLE; (C) ANY ERRORS IN THE SERVICE WILL BE CORRECTED; OR (D) THE SERVICE WILL MEET YOUR REQUIREMENTS.`,
+  },
+  {
+    title: '16. Limitation of Liability',
+    body: `TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL TOLLSYNC, ITS OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, REVENUE, DATA, GOODWILL, OR BUSINESS OPPORTUNITIES, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF OR INABILITY TO USE THE SERVICE, EVEN IF TOLLSYNC HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. IN NO EVENT SHALL TOLLSYNC'S TOTAL CUMULATIVE LIABILITY TO YOU EXCEED THE GREATER OF (A) THE TOTAL FEES PAID BY YOU TO TOLLSYNC IN THE THREE (3) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM, OR (B) ONE HUNDRED US DOLLARS ($100.00). SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF INCIDENTAL OR CONSEQUENTIAL DAMAGES, SO THE ABOVE LIMITATIONS MAY NOT APPLY TO YOU.`,
+  },
+  {
+    title: '17. Indemnification',
+    body: `You agree to defend, indemnify, and hold harmless TollSync and its officers, directors, employees, agents, and licensors from and against any and all claims, damages, obligations, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from: (a) your use of or access to the Service; (b) your violation of these Terms; (c) your violation of any third-party right, including any intellectual property right or privacy right; (d) any claim that content you uploaded to the Service caused damage to a third party; (e) any disputes between you and your renters arising from toll charges generated using the Service; or (f) your violation of any applicable law or regulation. This indemnification obligation will survive termination of these Terms and your use of the Service.`,
+  },
+  {
+    title: '18. Governing Law & Dispute Resolution',
+    body: `These Terms shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law provisions. Any dispute, claim, or controversy arising out of or relating to these Terms or the Service shall first be subject to informal negotiation for a period of 30 days. If the dispute is not resolved through informal negotiation, it shall be submitted to binding arbitration administered by the American Arbitration Association (AAA) under its Consumer Arbitration Rules. Arbitration shall take place on an individual basis; class actions and class arbitrations are not permitted. The arbitrator's award shall be final and binding and may be entered as a judgment in any court of competent jurisdiction. Notwithstanding the foregoing, either party may seek injunctive or other equitable relief in a court of competent jurisdiction.`,
+  },
+  {
+    title: '19. Termination',
+    body: `TollSync reserves the right to suspend or terminate your account and access to the Service at any time, with or without cause, and with or without notice. Grounds for termination include, but are not limited to, violation of these Terms, fraudulent activity, non-payment, or conduct that TollSync determines, in its sole discretion, to be harmful to the Service, other users, or third parties. Upon termination, your right to use the Service will immediately cease. Provisions of these Terms that by their nature should survive termination shall survive, including sections on intellectual property, disclaimer of warranties, limitation of liability, and indemnification.`,
+  },
+  {
+    title: '20. Modifications to the Service',
+    body: `TollSync reserves the right to modify, suspend, or discontinue any aspect of the Service at any time, with or without notice. TollSync shall not be liable to you or any third party for any modification, suspension, or discontinuance of the Service. We will endeavor to provide reasonable advance notice of material changes that significantly affect your use of the Service, but we are not obligated to do so.`,
+  },
+  {
+    title: '21. Changes to These Terms',
+    body: `TollSync reserves the right to update or modify these Terms at any time. When we make material changes, we will notify you by email or by displaying a prominent notice within the Service. The date of the most recent revision will be indicated at the top of this document. Your continued use of the Service after the effective date of any changes constitutes your acceptance of the revised Terms. If you do not agree to the updated Terms, you must stop using the Service and cancel your subscription.`,
+  },
+  {
+    title: '22. Severability',
+    body: `If any provision of these Terms is found to be unlawful, void, or unenforceable for any reason, that provision shall be deemed severable from these Terms and shall not affect the validity and enforceability of the remaining provisions.`,
+  },
+  {
+    title: '23. Entire Agreement',
+    body: `These Terms, together with the Privacy Policy and any other agreements expressly incorporated by reference herein, constitute the entire agreement between you and TollSync relating to the Service and supersede all prior agreements, representations, warranties, and understandings with respect to the Service.`,
+  },
+  {
+    title: '24. Contact Information',
+    body: `If you have any questions about these Terms, please contact us at: TollSync Support · support@tollsync.app. We will endeavor to respond to all inquiries within five (5) business days.`,
+  },
+];
+
 const STEPS = [
   { n: 1, label: 'Your vehicles' },
   { n: 2, label: 'EZ-Pass statement' },
   { n: 3, label: 'Subscribe' },
+  { n: 4, label: 'Terms & Conditions' },
 ];
 
 export default function SetupWizard() {
@@ -183,11 +283,15 @@ export default function SetupWizard() {
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [finishing, setFinishing] = useState(false);
   const [plan, setPlan] = useState(null);
   const [subscribing, setSubscribing] = useState(false);
   const [subscribeError, setSubscribeError] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  // T&C state
+  const [scrolledTerms, setScrolledTerms] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const termsRef = useRef(null);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -197,6 +301,29 @@ export default function SetupWizard() {
 
   useEffect(() => {
     api.get('/billing/plan').then(r => setPlan(r.data)).catch(() => {});
+  }, []);
+
+  // Reset scroll state when entering step 4
+  useEffect(() => {
+    if (step === 4) {
+      setScrolledTerms(false);
+      setAgreedTerms(false);
+      // Give DOM time to render then check if content fits without scrolling
+      setTimeout(() => {
+        const el = termsRef.current;
+        if (el && el.scrollHeight <= el.clientHeight + 10) {
+          setScrolledTerms(true);
+        }
+      }, 100);
+    }
+  }, [step]);
+
+  const handleTermsScroll = useCallback(() => {
+    const el = termsRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) {
+      setScrolledTerms(true);
+    }
   }, []);
 
   const updateVehicle = (idx, patch) =>
@@ -244,12 +371,9 @@ export default function SetupWizard() {
     } finally { setUploading(false); }
   };
 
-  const finish = () => setStep(3);
-
   const subscribe = async () => {
     setSubscribing(true); setSubscribeError('');
     try {
-      // Complete setup first so account is ready after Stripe redirect
       await completeSetup();
       const res = await api.post('/billing/checkout');
       window.location.href = res.data.url;
@@ -262,12 +386,19 @@ export default function SetupWizard() {
   // bottom padding: sticky button height + safe area
   const bottomPad = isMobile ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : '48px';
 
+  const stepHeadings = {
+    1: { title: 'Add your vehicles', sub: 'Add each car you host. TollSync uses this to match toll charges to the right trips.' },
+    2: { title: 'Upload EZ-Pass statement', sub: 'Optional — upload now or anytime later from Toll Records.' },
+    3: { title: 'Activate your subscription', sub: 'One plan, everything included.' },
+    4: { title: 'Terms & Conditions', sub: 'Scroll through and read the full terms before agreeing.' },
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7f4' }}>
       {/* Scrollable content area */}
       <div style={{
         maxWidth: 520, margin: '0 auto',
-        padding: `calc(1.5rem + env(safe-area-inset-top, 0px)) 16px ${bottomPad}`,
+        padding: `calc(1.5rem + env(safe-area-inset-top, 0px)) 16px ${step === 4 ? (isMobile ? 'calc(140px + env(safe-area-inset-bottom, 0px))' : bottomPad) : bottomPad}`,
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
@@ -276,55 +407,35 @@ export default function SetupWizard() {
         </div>
 
         {/* Progress bar */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28, overflowX: 'auto' }}>
           {STEPS.map((s, i) => (
             <React.Fragment key={s.n}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                 <div style={{
-                  width: 32, height: 32, borderRadius: '50%',
+                  width: 30, height: 30, borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700,
+                  fontSize: 12, fontWeight: 700,
                   background: step > s.n ? '#3b6d11' : step === s.n ? '#185fa5' : '#e5e3de',
                   color: step >= s.n ? '#fff' : '#aaa',
                 }}>
                   {step > s.n ? '✓' : s.n}
                 </div>
-                <span style={{ fontSize: 11, color: step === s.n ? '#185fa5' : '#aaa', fontWeight: step === s.n ? 600 : 400 }}>
+                <span style={{ fontSize: 10, color: step === s.n ? '#185fa5' : '#aaa', fontWeight: step === s.n ? 600 : 400, whiteSpace: 'nowrap' }}>
                   {s.label}
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div style={{ flex: 1, height: 2, background: step > s.n ? '#3b6d11' : '#e5e3de', margin: '0 10px', marginBottom: 20 }} />
+                <div style={{ flex: 1, height: 2, background: step > s.n ? '#3b6d11' : '#e5e3de', margin: '0 6px', marginBottom: 20, minWidth: 16 }} />
               )}
             </React.Fragment>
           ))}
         </div>
 
         {/* Step heading */}
-        {step === 1 && (
-          <div style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700, margin: '0 0 6px' }}>Add your vehicles</h2>
-            <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>
-              Add each car you host. TollSync uses this to match toll charges to the right trips.
-            </p>
-          </div>
-        )}
-        {step === 2 && (
-          <div style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700, margin: '0 0 6px' }}>Upload EZ-Pass statement</h2>
-            <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>
-              Optional — upload now or anytime later from Toll Records.
-            </p>
-          </div>
-        )}
-        {step === 3 && (
-          <div style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700, margin: '0 0 6px' }}>Activate your subscription</h2>
-            <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>
-              One plan, everything included.
-            </p>
-          </div>
-        )}
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700, margin: '0 0 6px' }}>{stepHeadings[step].title}</h2>
+          <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>{stepHeadings[step].sub}</p>
+        </div>
 
         {/* Step 1 — vehicles */}
         {step === 1 && (
@@ -342,13 +453,57 @@ export default function SetupWizard() {
 
             {saveError && <div className="alert alert-error" style={{ marginTop: 8 }}>{saveError}</div>}
 
-            {/* Desktop Next button (mobile uses sticky footer) */}
             {!isMobile && (
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginTop: 8 }}
                 disabled={saving} onClick={saveVehicles}>
                 {saving ? <><span className="spinner" /> Saving...</> : 'Next →'}
               </button>
+            )}
+          </>
+        )}
+
+        {/* Step 2 — toll upload */}
+        {step === 2 && (
+          <>
+            {uploadDone ? (
+              <div className="alert alert-success" style={{ marginBottom: 16, fontSize: 14 }}>
+                ✓ EZ-Pass statement uploaded successfully
+              </div>
+            ) : (
+              <div className="card" style={{ marginBottom: 12 }}>
+                <label className="upload-zone" style={{ cursor: uploading ? 'default' : 'pointer', padding: isMobile ? '1.5rem 1rem' : '2rem' }}>
+                  <input type="file" multiple accept=".csv,.pdf,image/*" style={{ display: 'none' }}
+                    onChange={e => handleTollUpload(e.target.files)} />
+                  {uploading ? (
+                    <><span className="spinner" style={{ margin: '0 auto 8px' }} />
+                      <p className="upload-label">Parsing with AI...</p></>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 36, marginBottom: 8 }}>🛣️</div>
+                      <p className="upload-label">{isMobile ? 'Tap to upload EZ-Pass files' : 'Drop files or click to browse'}</p>
+                      <p className="upload-hint">PDF · CSV · Screenshots — multiple files OK</p>
+                    </>
+                  )}
+                </label>
+                {uploadError && <div className="alert alert-error" style={{ marginTop: 8 }}>{uploadError}</div>}
+              </div>
+            )}
+
+            {!isMobile && (
+              <>
+                <button className="btn btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginBottom: 10 }}
+                  onClick={() => setStep(3)}>
+                  Next →
+                </button>
+                {!uploadDone && (
+                  <button className="btn" style={{ width: '100%', justifyContent: 'center', color: '#888' }}
+                    onClick={() => setStep(3)}>
+                    Skip for now
+                  </button>
+                )}
+              </>
             )}
           </>
         )}
@@ -379,57 +534,89 @@ export default function SetupWizard() {
             {!isMobile && (
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15 }}
-                disabled={subscribing} onClick={subscribe}>
-                {subscribing ? <><span className="spinner" /> Starting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : 'Subscribe now'}
+                onClick={() => setStep(4)}>
+                Next →
               </button>
             )}
             <p style={{ textAlign: 'center', fontSize: 11, color: '#aaa', marginTop: 10 }}>Secure payment via Stripe · Cancel anytime</p>
           </div>
         )}
 
-        {/* Step 2 — toll upload */}
-        {step === 2 && (
+        {/* Step 4 — T&C */}
+        {step === 4 && (
           <>
-            {uploadDone ? (
-              <div className="alert alert-success" style={{ marginBottom: 16, fontSize: 14 }}>
-                ✓ EZ-Pass statement uploaded successfully
-              </div>
-            ) : (
-              <div className="card" style={{ marginBottom: 12 }}>
-                <label className="upload-zone" style={{ cursor: uploading ? 'default' : 'pointer', padding: isMobile ? '1.5rem 1rem' : '2rem' }}>
-                  <input type="file" multiple accept=".csv,.pdf,image/*" style={{ display: 'none' }}
-                    onChange={e => handleTollUpload(e.target.files)} />
-                  {uploading ? (
-                    <><span className="spinner" style={{ margin: '0 auto 8px' }} />
-                      <p className="upload-label">Parsing with AI...</p></>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 36, marginBottom: 8 }}>🛣️</div>
-                      <p className="upload-label">{isMobile ? 'Tap to upload EZ-Pass files' : 'Drop files or click to browse'}</p>
-                      <p className="upload-hint">PDF · CSV · Screenshots — multiple files OK</p>
-                    </>
-                  )}
-                </label>
-                {uploadError && <div className="alert alert-error" style={{ marginTop: 8 }}>{uploadError}</div>}
-              </div>
+            {/* Scrollable T&C box */}
+            <div
+              ref={termsRef}
+              onScroll={handleTermsScroll}
+              style={{
+                height: isMobile ? 340 : 420,
+                overflowY: 'auto',
+                border: '1px solid #e5e3de',
+                borderRadius: 12,
+                background: '#fff',
+                padding: '16px 18px',
+                marginBottom: 16,
+                fontSize: 12.5,
+                lineHeight: 1.75,
+                color: '#333',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              <p style={{ fontSize: 11, color: '#aaa', marginBottom: 14 }}>
+                Last updated: April 17, 2026
+              </p>
+              {TERMS_TEXT.map((section) => (
+                <div key={section.title} style={{ marginBottom: 18 }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: '#1a1a1a', margin: '0 0 5px' }}>{section.title}</p>
+                  <p style={{ margin: 0 }}>{section.body}</p>
+                </div>
+              ))}
+              <p style={{ fontSize: 11, color: '#aaa', marginTop: 8 }}>— End of Terms & Conditions —</p>
+            </div>
+
+            {/* Scroll prompt */}
+            {!scrolledTerms && (
+              <p style={{ fontSize: 12, color: '#888', textAlign: 'center', marginBottom: 12 }}>
+                Scroll to the bottom to enable the agreement checkbox
+              </p>
             )}
 
-            {/* Desktop buttons */}
+            {/* Agreement checkbox */}
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '14px 16px',
+              background: scrolledTerms ? '#f8f7f4' : '#f3f4f6',
+              border: `1px solid ${scrolledTerms ? '#d0daea' : '#e5e3de'}`,
+              borderRadius: 10,
+              cursor: scrolledTerms ? 'pointer' : 'not-allowed',
+              transition: 'background 0.2s, border-color 0.2s',
+              marginBottom: 4,
+              opacity: scrolledTerms ? 1 : 0.55,
+            }}>
+              <input
+                type="checkbox"
+                checked={agreedTerms}
+                disabled={!scrolledTerms}
+                onChange={e => setAgreedTerms(e.target.checked)}
+                style={{ marginTop: 2, width: 17, height: 17, flexShrink: 0, cursor: scrolledTerms ? 'pointer' : 'not-allowed' }}
+              />
+              <span style={{ fontSize: 13, color: '#333', lineHeight: 1.55 }}>
+                I have read and agree to the TollSync Terms & Conditions. I understand that TollSync is a calculation tool and that I am responsible for verifying all results before billing renters.
+              </span>
+            </label>
+
+            {subscribeError && <div className="alert alert-error" style={{ marginTop: 10 }}>{subscribeError}</div>}
+
             {!isMobile && (
-              <>
-                <button className="btn btn-primary"
-                  style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginBottom: 10 }}
-                  onClick={finish}>
-                  Next →
-                </button>
-                {!uploadDone && (
-                  <button className="btn" style={{ width: '100%', justifyContent: 'center', color: '#888' }}
-                    onClick={finish}>
-                    Skip for now
-                  </button>
-                )}
-              </>
+              <button className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginTop: 14 }}
+                disabled={!agreedTerms || subscribing}
+                onClick={subscribe}>
+                {subscribing ? <><span className="spinner" /> Starting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : 'Subscribe now'}
+              </button>
             )}
+            <p style={{ textAlign: 'center', fontSize: 11, color: '#aaa', marginTop: 10 }}>Secure payment via Stripe · Cancel anytime</p>
           </>
         )}
       </div>
@@ -453,13 +640,13 @@ export default function SetupWizard() {
             <>
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
-                onClick={finish}>
-                {uploadDone ? 'Next →' : 'Next →'}
+                onClick={() => setStep(3)}>
+                Next →
               </button>
               {!uploadDone && (
                 <button className="btn"
                   style={{ width: '100%', justifyContent: 'center', padding: '10px', color: '#888' }}
-                  onClick={finish}>
+                  onClick={() => setStep(3)}>
                   Skip for now
                 </button>
               )}
@@ -468,9 +655,24 @@ export default function SetupWizard() {
           {step === 3 && (
             <button className="btn btn-primary"
               style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
-              disabled={subscribing} onClick={subscribe}>
-              {subscribing ? <><span className="spinner" /> Starting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : 'Subscribe now'}
+              onClick={() => setStep(4)}>
+              Next →
             </button>
+          )}
+          {step === 4 && (
+            <>
+              {!scrolledTerms && (
+                <p style={{ fontSize: 12, color: '#888', textAlign: 'center', margin: 0 }}>
+                  Scroll through the terms above to continue
+                </p>
+              )}
+              <button className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
+                disabled={!agreedTerms || subscribing}
+                onClick={subscribe}>
+                {subscribing ? <><span className="spinner" /> Starting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : 'Subscribe now'}
+              </button>
+            </>
           )}
         </div>
       )}
