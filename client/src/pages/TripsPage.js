@@ -47,44 +47,40 @@ function MultiSelect({ label, icon, options, selected, setSelected, open, setOpe
   );
 }
 
-function UnmatchedTripRow({ u, vehicles, onResolved, style }) {
-  const [selected, setSelected] = useState('');
+function MissingTransponderRow({ vehicle, onSaved, style }) {
+  const [transponder, setTransponder] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const resolve = async () => {
-    if (!selected) return;
+  const save = async () => {
+    const val = transponder.trim().replace(/\s/g, '');
+    if (!val) return;
     setSaving(true); setError('');
     try {
-      await api.patch(`/trips/${u.trip_id}`, { vehicle_id: selected });
-      onResolved(u.trip_id, selected);
+      await api.put(`/vehicles/${vehicle.id}`, { transponder_id: val });
+      onSaved(vehicle.id, val);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to assign vehicle');
+      setError(err.response?.data?.error || 'Failed to save');
     } finally { setSaving(false); }
   };
 
   return (
     <div style={style}>
-      <p style={{ margin: '0 0 4px', fontWeight: 600, fontSize: 13 }}>
-        {u.renter_name} — <span style={{ fontFamily: 'monospace', color: '#185fa5' }}>{u.plate}</span>
+      <p style={{ margin: '0 0 2px', fontWeight: 600, fontSize: 13 }}>
+        {vehicle.nickname || vehicle.name}
+        {vehicle.plate && <span style={{ fontFamily: 'monospace', color: '#185fa5', marginLeft: 8 }}>{vehicle.plate}</span>}
       </p>
-      <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>{u.vehicle}</p>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <select
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+        <input
           className="form-control"
           style={{ flex: 1, minWidth: 180, fontSize: 13 }}
-          value={selected}
-          onChange={e => setSelected(e.target.value)}
-        >
-          <option value="">Select existing vehicle...</option>
-          {vehicles.map(v => (
-            <option key={v.id} value={v.id}>
-              {v.nickname || v.name}{v.plate ? ` — ${v.plate}` : ''}
-            </option>
-          ))}
-        </select>
-        <button className="btn btn-primary btn-sm" disabled={!selected || saving} onClick={resolve}>
-          {saving ? <span className="spinner" /> : 'Assign'}
+          placeholder="EZPass transponder ID"
+          value={transponder}
+          onChange={e => setTransponder(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && save()}
+        />
+        <button className="btn btn-primary btn-sm" disabled={!transponder.trim() || saving} onClick={save}>
+          {saving ? <span className="spinner" /> : 'Save'}
         </button>
       </div>
       {error && <p style={{ fontSize: 12, color: '#e24b4a', marginTop: 4 }}>{error}</p>}
@@ -97,7 +93,6 @@ export default function TripsPage() {
   const [vehicles, setVehicles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadResults, setUploadResults] = useState([]);
-  const [unmatched, setUnmatched] = useState([]); // trips from CSV needing vehicle assignment
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -136,9 +131,7 @@ export default function TripsPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setUploadResults(res.data.results);
-      const allUnmatched = res.data.results.flatMap(r => r.unmatched || []);
-      if (allUnmatched.length) setUnmatched(prev => [...prev, ...allUnmatched]);
-      load();
+      load(); // will also refresh unmatched from DB
     } catch (err) {
       setError(err.response?.data?.error || 'Upload failed');
     } finally {
@@ -218,7 +211,9 @@ export default function TripsPage() {
   const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo;
   const clearFilters = () => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); };
 
-  const registeredVehicles = vehicles.filter(v => v.transponder_id);
+  // Vehicles that have a plate but no transponder — need user to add it
+  const missingTransponder = vehicles.filter(v => v.plate && !v.transponder_id);
+
   const lbl = { fontSize: 12, color: '#666', marginBottom: 3, display: 'block', fontWeight: 500 };
 
   return (
@@ -266,23 +261,21 @@ export default function TripsPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {/* Unmatched vehicle resolution */}
-      {unmatched.length > 0 && (
+      {/* Vehicles missing transponder ID */}
+      {missingTransponder.length > 0 && (
         <div className="card" style={{ marginBottom: 16, borderLeft: '3px solid #f5a623' }}>
           <p style={{ fontWeight: 700, fontSize: 14, margin: '0 0 4px', color: '#7a5c00' }}>
-            {unmatched.length} trip{unmatched.length !== 1 ? 's' : ''} need vehicle assignment
+            {missingTransponder.length} vehicle{missingTransponder.length !== 1 ? 's' : ''} missing transponder ID
           </p>
           <p style={{ fontSize: 13, color: '#888', margin: '0 0 14px' }}>
-            These trips have plate numbers not matched to a registered vehicle. Assign a vehicle below.
+            Add the EZPass transponder ID so tolls can be matched to these vehicles.
           </p>
-          {unmatched.map((u, i) => (
-            <UnmatchedTripRow
-              key={u.trip_id}
-              u={u}
-              vehicles={registeredVehicles}
-              onResolved={(tripId, vehicleId) => {
-                setTrips(prev => prev.map(t => t.id === tripId ? { ...t, vehicle_id: vehicleId } : t));
-                setUnmatched(prev => prev.filter(x => x.trip_id !== tripId));
+          {missingTransponder.map((v, i) => (
+            <MissingTransponderRow
+              key={v.id}
+              vehicle={v}
+              onSaved={(vehicleId, transponderId) => {
+                setVehicles(prev => prev.map(x => x.id === vehicleId ? { ...x, transponder_id: transponderId } : x));
               }}
               style={{ borderTop: i > 0 ? '0.5px solid #f0ede8' : 'none', paddingTop: i > 0 ? 12 : 0, marginTop: i > 0 ? 12 : 0 }}
             />
@@ -329,7 +322,7 @@ export default function TripsPage() {
                       <select className="form-control" value={editForm.vehicle_id}
                         onChange={e => setEditForm(f => ({ ...f, vehicle_id: e.target.value }))}>
                         <option value="">— Unassigned —</option>
-                        {registeredVehicles.map(v => (
+                        {vehicles.map(v => (
                           <option key={v.id} value={v.id}>{v.nickname || v.name}{v.plate ? ` · ${v.plate}` : ''}</option>
                         ))}
                       </select>

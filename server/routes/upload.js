@@ -193,7 +193,6 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
         }
 
         const inserted = [];
-        const unmatched = []; // trips where no registered vehicle matched by plate
         for (const trip of data) {
           if (!trip.start_datetime || !trip.end_datetime) continue;
 
@@ -217,30 +216,49 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           let vehicle_id = null;
           const myVehicles = await Vehicle.find({ host_id: req.hostId });
 
-          // 1. Exact plate match against registered vehicles (with transponder)
+          // 1. Plate match against any existing vehicle (with or without transponder)
           if (plate) {
-            const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate && v.transponder_id);
-            if (plateMatch) vehicle_id = plateMatch.id;
-          }
-
-          // 2. Name match if no plate match
-          if (!vehicle_id && vehicleName) {
-            const registeredMatches = myVehicles.filter(
-              v => v.name.toLowerCase() === vehicleName.toLowerCase() && v.transponder_id
-            );
-            if (registeredMatches.length === 1) {
-              const existing = registeredMatches[0];
-              const existingPlate = (existing.plate || '').toUpperCase();
-              if (!plate || !existingPlate || plate === existingPlate) {
-                vehicle_id = existing.id;
+            const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate);
+            if (plateMatch) {
+              vehicle_id = plateMatch.id;
+              // Fill in name from CSV if the existing vehicle has none
+              if (vehicleName && !plateMatch.name) {
+                plateMatch.name = vehicleName;
+                await plateMatch.save();
               }
             }
           }
 
-          // 3. If CSV trip (has plate) but no match found — insert without vehicle_id, flag for UI resolution
-          const needsResolution = !vehicle_id && plate;
-          if (needsResolution) {
-            // No auto_added vehicle — user must pick from existing or add new
+          // 2. Name match if no plate match
+          if (!vehicle_id && vehicleName) {
+            const nameMatches = myVehicles.filter(
+              v => v.name.toLowerCase() === vehicleName.toLowerCase()
+            );
+            if (nameMatches.length === 1) {
+              const existing = nameMatches[0];
+              const existingPlate = (existing.plate || '').toUpperCase();
+              if (!plate || !existingPlate || plate === existingPlate) {
+                vehicle_id = existing.id;
+                // Fill in plate from CSV if missing
+                if (plate && !existing.plate) {
+                  existing.plate = plate;
+                  await existing.save();
+                }
+              }
+            }
+          }
+
+          // 3. If still no match and we have a plate — auto-create the vehicle
+          //    User will be prompted to add transponder later if needed
+          if (!vehicle_id && plate) {
+            const newVehicle = await Vehicle.create({
+              host_id: req.hostId,
+              name: vehicleName || plate,
+              plate,
+              transponder_id: '',
+              auto_added: true,
+            });
+            vehicle_id = newVehicle.id;
           } else if (!vehicle_id && !plate && !vehicleName) {
             // No info at all — create blank placeholder
             const newVehicle = await Vehicle.create({
@@ -249,12 +267,10 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
             });
             vehicle_id = newVehicle.id;
           } else if (!vehicle_id && vehicleName) {
-            // Non-CSV or unmatched name — create auto_added placeholder
+            // Name only (AI parsed, no plate) — create placeholder
             const newVehicle = await Vehicle.create({
               host_id: req.hostId, name: vehicleName,
-              plate: plate || '', transponder_id: '', auto_added: true,
-              candidates: myVehicles.filter(v => v.transponder_id)
-                .map(v => ({ id: v.id, name: v.name, plate: v.plate, transponder_id: v.transponder_id })),
+              plate: '', transponder_id: '', auto_added: true,
             });
             vehicle_id = newVehicle.id;
           }
@@ -267,20 +283,10 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
             trip_id: trip.trip_id, source_file: file.originalname,
           });
           inserted.push(record);
-
-          if (needsResolution) {
-            unmatched.push({
-              trip_id: record.id,
-              renter_name: trip.renter_name,
-              vehicle: vehicleName,
-              plate,
-            });
-          }
         }
         results.push({
           file: file.originalname, type: 'trips',
           count: inserted.length,
-          unmatched: unmatched.length ? unmatched : undefined,
         });
 
       } else if (type === 'ezpass') {
