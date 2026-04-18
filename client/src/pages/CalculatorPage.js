@@ -94,7 +94,35 @@ function TripCard({ t, reportRange, vehicles }) {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer', padding: '12px 16px', borderBottom: expanded ? '1px solid #f0ede8' : 'none', gap: 8 }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 600, margin: 0 }}>{t.renter_name || 'Unknown renter'}</p>
+          <p style={{ fontWeight: 600, margin: 0 }}>
+            {t.renter_name || 'Unknown renter'}
+            {(() => {
+              const now = new Date();
+              const end = t.end_datetime ? new Date(t.end_datetime) : null;
+              const start = t.start_datetime ? new Date(t.start_datetime) : null;
+              if (end && end > now) {
+                return (
+                  <span style={{
+                    marginLeft: 8, fontSize: 10, fontWeight: 600,
+                    background: '#e6f4ea', color: '#2d7a3a',
+                    border: '1px solid #b6dfbe', borderRadius: 6,
+                    padding: '1px 6px', verticalAlign: 'middle',
+                  }}>Ongoing</span>
+                );
+              }
+              if (end && end <= now) {
+                return (
+                  <span style={{
+                    marginLeft: 8, fontSize: 10, fontWeight: 600,
+                    background: '#f3f4f6', color: '#6b7280',
+                    border: '1px solid #d1d5db', borderRadius: 6,
+                    padding: '1px 6px', verticalAlign: 'middle',
+                  }}>Ended</span>
+                );
+              }
+              return null;
+            })()}
+          </p>
           <p style={{ fontSize: 12, color: '#888', marginTop: 2, marginBottom: 0 }}>
             {vehicleName}
           </p>
