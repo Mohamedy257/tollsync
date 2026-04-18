@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const pdfParse = require('pdf-parse');
 const auth = require('../middleware/auth');
 const Vehicle = require('../models/Vehicle');
 const Trip = require('../models/Trip');
@@ -27,6 +28,166 @@ function resolveMimeType(file) {
   if (name.endsWith('.webp')) return 'image/webp';
   return file.mimetype || 'application/octet-stream';
 }
+
+// ── E-ZPass PDF parser ──────────────────────────────────────────────────────
+// Parses E-ZPass transaction history PDFs (Virginia and other states).
+// pdf-parse concatenates columns with no separator, so we rely on the
+// fixed line structure emitted by this report type:
+//
+// IAG TOLL row (single datetime):
+//   "DATE IAG TOLL INCOMING "  ← line i
+//   "TRANSACTIONS"              ← line i+1
+//   "TRANSPONDER AGENCY PLAZAS DATE "  ← line i+2 (data line)
+//   "H:MM AM/PM"                ← line i+3 (entry time)
+//   "-AMOUNT BALANCE"           ← line i+4 (amount line)
+//
+// IAG TOLL row (entry + exit):
+//   same as above but lines i+4 = "EXIT_DATE ", i+5 = "H:MM AM/PM", i+6 = amount
+//
+// INTRA AGENCY TOLL row:
+//   "DATE INTRA AGENCY "   ← line i
+//   "TOLL "                 ← line i+1
+//   "TRANSACTIONS"          ← line i+2
+//   data line at i+3, then same structure, possibly followed by facility lines
+//
+// Returns null if the buffer doesn't look like this format.
+async function parseEzpassPDF(buffer) {
+  let text;
+  try {
+    const data = await pdfParse(buffer);
+    text = data.text;
+  } catch (e) {
+    return null;
+  }
+
+  if (!text.includes('E-ZPass') || !text.includes('Transaction')) return null;
+
+  // ── helpers ──
+  function dateToISO(s) {
+    const m = (s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}` : null;
+  }
+  function toISO(dateStr, timeStr) {
+    const d = (dateStr || '').trim();
+    const t = (timeStr || '').trim();
+    const dm = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    const tm = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!dm || !tm) return null;
+    let h = parseInt(tm[1], 10);
+    if (tm[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (tm[3].toUpperCase() === 'AM' && h === 12) h = 0;
+    return `${dm[3]}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}T${String(h).padStart(2,'0')}:${tm[2]}:00`;
+  }
+  const isTime = s => /^\d{1,2}:\d{2}\s*(AM|PM)$/i.test((s || '').trim());
+  const isDate = s => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test((s || '').trim());
+  // Amount line: "-4.00241.57" or "-22.8050.28"
+  const amountVal = s => { const m = (s || '').trim().match(/^-(\d+\.\d{2})\d*\.?\d*$/); return m ? parseFloat(m[1]) : null; };
+
+  // Extract report range from header
+  let report_from = null, report_to = null;
+  const rm = text.match(/From:\s*(\d{1,2}\/\d{1,2}\/\d{4})\s+To:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  if (rm) { report_from = dateToISO(rm[1]); report_to = dateToISO(rm[2]); }
+
+  // Transponder is the first alphanumeric token on the data line (before the agency code)
+  // Agency codes seen in the wild:
+  const AGENCY_RE = /^([A-Z0-9]{5,12})(MdTA|VDOT|NJTP|GSP|ACE|FTE|CFX|DRBA|DRPA|NYSTA|PTC|DelDOT|NFBC|WVTA|CATA|NYSTA)/i;
+
+  const lines = text.split('\n').map(l => l.trim());
+  const tolls = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Skip credit card payments and other non-toll lines
+    if (/CREDIT CARD|REPLENISHMENT/.test(line)) { i++; continue; }
+
+    // Transaction start: date immediately followed by IAG TOLL or INTRA AGENCY
+    const isIAG   = /^\d{1,2}\/\d{1,2}\/\d{4}IAG TOLL/.test(line);
+    const isIntra = /^\d{1,2}\/\d{1,2}\/\d{4}INTRA AGENCY/.test(line);
+    if (!isIAG && !isIntra) { i++; continue; }
+
+    // Offset to the data line (transponder + agency + plazas + entry date)
+    // IAG:   DATE|IAG TOLL INCOMING → TRANSACTIONS → data
+    // INTRA: DATE|INTRA AGENCY → TOLL → TRANSACTIONS → data
+    const dataOffset = isIntra ? 3 : 2;
+    const dataLine = lines[i + dataOffset] || '';
+
+    // Extract transponder from data line
+    const trMatch = dataLine.match(AGENCY_RE);
+    if (!trMatch) { i++; continue; }
+    const transponder_id = trMatch[1].toUpperCase();
+
+    // Extract the entry date from the data line.
+    // Plaza codes are pure alphanumeric (no slashes) and run directly into the date,
+    // e.g. "4825479MdTA9511/4/2026" → plaza 951 + date 1/4/2026.
+    // The greedy \d{1,2} can grab the plaza's trailing digit(s) as the month.
+    // Disambiguation: use the Date Posted (from the header line) — entry date must be ≤ posted date.
+    const postedDateStr = (line.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/) || [])[1];
+    function parseDayMs(s) {
+      const p = (s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      return p ? Date.UTC(+p[3], +p[1] - 1, +p[2]) : NaN;
+    }
+    const postedMs = postedDateStr ? parseDayMs(postedDateStr) : Infinity;
+
+    // Try extracting a date starting 1 or 2 chars before the first slash.
+    function tryDateAt(str, startBack) {
+      const slashIdx = str.indexOf('/');
+      if (slashIdx < startBack) return null;
+      const candidate = str.slice(slashIdx - startBack);
+      const m = candidate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (!m) return null;
+      const mo = +m[1], d = +m[2];
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+      return m[0];
+    }
+    const afterAgency = dataLine.slice(trMatch[0].length);
+    const c1 = tryDateAt(afterAgency, 1); // 1-digit month
+    const c2 = tryDateAt(afterAgency, 2); // 2-digit month
+    let entryDateStr = null;
+    if (c1 && c2) {
+      const ms1 = parseDayMs(c1), ms2 = parseDayMs(c2);
+      // Pick the candidate whose date is ≤ posted date (entry always posted after it happens)
+      const ok1 = ms1 <= postedMs, ok2 = ms2 <= postedMs;
+      if (ok1 && !ok2) entryDateStr = c1;
+      else if (ok2 && !ok1) entryDateStr = c2;
+      else entryDateStr = c1; // both ok or both not: prefer 1-digit (smaller/earlier)
+    } else {
+      entryDateStr = c1 || c2;
+    }
+
+    // Walk forward from data line to collect time / exit date / exit time / amount
+    let j = i + dataOffset + 1;
+    const entryTime = isTime(lines[j]) ? lines[j++] : null;
+
+    let exitDateStr = null, exitTime = null;
+    if (isDate(lines[j])) {
+      exitDateStr = lines[j++].trim();
+      if (isTime(lines[j])) exitTime = lines[j++];
+    }
+
+    // Skip any plaza facility lines until we hit the amount line
+    const MAX_LOOK = 6;
+    let amt = null;
+    for (let k = 0; k < MAX_LOOK; k++) {
+      amt = amountVal(lines[j]);
+      if (amt !== null) { j++; break; }
+      j++;
+    }
+    if (amt === null) { i++; continue; }
+
+    const entry_datetime = toISO(entryDateStr, entryTime);
+    const exit_datetime  = toISO(exitDateStr, exitTime);
+    if (!entry_datetime && !exit_datetime) { i++; continue; }
+
+    tolls.push({ transponder_id, entry_datetime, exit_datetime, location: '', amount: amt });
+    i = j; // resume after the amount line
+  }
+
+  if (!tolls.length) return null;
+  return { type: 'ezpass', report_from, report_to, data: tolls };
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 // ── Earnings CSV parser ─────────────────────────────────────────────────────
 // Parses CSV exports with header: "Reservation ID","Guest","Vehicle",...
@@ -157,11 +318,20 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
     // Parse all files in parallel — AI calls are independent
     // CSVs that match the earnings export format are parsed natively (no AI)
     parsed = await Promise.all(
-      files.map(file => {
+      files.map(async file => {
+        // 1. Earnings CSV — native parse, no AI
         if (file.mimetype === 'text/csv') {
           const csvResult = parseEarningsCSV(file.buffer);
-          if (csvResult) return Promise.resolve({ file, result: csvResult, error: null });
+          if (csvResult) return { file, result: csvResult, error: null };
         }
+        // 2. PDF — try native EZPass parser first (avoids AI token limit on large statements)
+        if (file.mimetype === 'application/pdf') {
+          try {
+            const ezpassResult = await parseEzpassPDF(file.buffer);
+            if (ezpassResult) return { file, result: ezpassResult, error: null };
+          } catch (e) { /* fall through to AI */ }
+        }
+        // 3. AI fallback for everything else
         return parseFileAutoDetect(file.buffer, file.mimetype)
           .then(result => ({ file, result, error: null }))
           .catch(err => ({ file, result: null, error: err }));
