@@ -196,15 +196,35 @@ a { color: inherit; text-decoration: none; }
 /* ── Responsive breakpoints ── */
 @media (max-width: 768px) {
   /* Show bottom nav, hide sidebar */
-  .bottom-nav { display: flex; }
   .sidebar { display: none; }
 
-  /* Main content: full width, space for bottom nav + safe areas */
+  /* Lock the viewport — no body-level scrolling on mobile */
+  html, body { height: 100%; overflow: hidden; }
+
+  /* Layout becomes a fixed-height flex column */
+  .layout {
+    height: 100%;
+    flex-direction: column;
+    min-height: unset;
+  }
+
+  /* Main scrolls internally so the bottom nav never moves */
   .main {
+    flex: 1;
+    min-height: 0; /* critical: lets flex child shrink below content height */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     margin-left: 0;
     padding: 1rem;
     padding-top: calc(1rem + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 1rem; /* no need for 80px gap — nav is outside the scroll area */
+  }
+
+  /* Bottom nav: natural flex child, not fixed */
+  .bottom-nav {
+    display: flex;
+    position: static;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Page header */
