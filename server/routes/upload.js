@@ -490,19 +490,28 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           const entryDt = normDt(toll.entry_datetime);
           const exitDt  = normDt(toll.exit_datetime);
 
-          // Deduplicate: same transponder + same datetimes (normalized) + same amount
-          // Use $regex to match regardless of trailing Z or milliseconds still in DB
-          function dtQuery(val) {
-            if (!val) return null;
-            // Match the first 16 chars (YYYY-MM-DDTHH:MM) — minute-level precision is enough
+          // Deduplicate: same transponder + same amount + same datetime(s).
+          // Use minute-level prefix matching to handle format differences ("Z", ".000Z", etc.).
+          // Also check both entry and exit fields — AI and native parser may swap them
+          // for single-datetime rows (one stores it as entry, the other as exit).
+          function dtPrefixQuery(val) {
             return { $regex: `^${val.slice(0, 16)}` };
           }
-          const alreadyExists = await TollTransaction.findOne({
+          // Collect the non-null datetimes we're about to insert
+          const dts = [entryDt, exitDt].filter(Boolean);
+          // A duplicate is any record with same transponder+amount where every one of
+          // our datetimes appears somewhere in the record (either field).
+          const dtConditions = dts.map(dt => ({
+            $or: [
+              { entry_datetime: dtPrefixQuery(dt) },
+              { exit_datetime:  dtPrefixQuery(dt) },
+            ],
+          }));
+          const alreadyExists = dts.length > 0 && await TollTransaction.findOne({
             host_id: req.hostId,
             transponder_id: transponder,
-            ...(entryDt ? { entry_datetime: dtQuery(entryDt) } : { entry_datetime: null }),
-            ...(exitDt  ? { exit_datetime:  dtQuery(exitDt)  } : { exit_datetime:  null }),
             amount: { $gte: amount - 0.001, $lte: amount + 0.001 },
+            ...(dtConditions.length > 0 ? { $and: dtConditions } : {}),
           });
           if (alreadyExists) continue;
 
