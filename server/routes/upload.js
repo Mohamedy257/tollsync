@@ -117,7 +117,7 @@ function parseEarningsCSV(buffer) {
     });
   }
 
-  return { type: 'trips', data: trips };
+  return { type: 'trips', data: trips, skipTimeCheck: true };
 }
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -178,16 +178,18 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
       continue;
     }
     try {
-      const { type, data } = result;
+      const { type, data, skipTimeCheck } = result;
 
       if (type === 'trips') {
-        // Reject files where any trip is missing a time component
-        const hasTime = dt => dt && /T\d{2}:\d{2}/.test(dt) && !/T00:00(:\d{2})?$/.test(dt);
-        const missingTime = data.filter(t => t.start_datetime || t.end_datetime)
-          .some(t => !hasTime(t.start_datetime) || !hasTime(t.end_datetime));
-        if (missingTime) {
-          results.push({ file: file.originalname, error: 'Trip times are missing from this screenshot. Please upload a screenshot that shows the exact start and end times for each trip.' });
-          continue;
+        // Reject AI-parsed files where trips are missing time (AI defaults to 00:00 when no time visible)
+        if (!skipTimeCheck) {
+          const hasTime = dt => dt && /T\d{2}:\d{2}/.test(dt) && !/T00:00(:\d{2})?$/.test(dt);
+          const missingTime = data.filter(t => t.start_datetime || t.end_datetime)
+            .some(t => !hasTime(t.start_datetime) || !hasTime(t.end_datetime));
+          if (missingTime) {
+            results.push({ file: file.originalname, error: 'Trip times are missing from this screenshot. Please upload a screenshot that shows the exact start and end times for each trip.' });
+            continue;
+          }
         }
 
         const inserted = [];
