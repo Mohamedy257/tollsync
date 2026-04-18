@@ -474,21 +474,34 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           );
         }
 
+        // Normalize ISO datetime string to "YYYY-MM-DDTHH:MM:SS" (no Z, no ms)
+        // so strings from AI ("...Z" or "....000Z") match those from the native parser.
+        function normDt(s) {
+          if (!s) return null;
+          return s.replace(/\.\d+Z?$/, '').replace(/Z$/, '');
+        }
+
         const inserted = [];
         for (const toll of data) {
           if (!toll.entry_datetime && !toll.exit_datetime) continue;
           if (!toll.amount) continue;
           const amount = Math.abs(parseFloat(toll.amount));
           const transponder = (toll.transponder_id || '').trim();
-          const entryDt = toll.entry_datetime || null;
-          const exitDt = toll.exit_datetime || null;
+          const entryDt = normDt(toll.entry_datetime);
+          const exitDt  = normDt(toll.exit_datetime);
 
-          // Deduplicate: same transponder + same datetimes + same amount
+          // Deduplicate: same transponder + same datetimes (normalized) + same amount
+          // Use $regex to match regardless of trailing Z or milliseconds still in DB
+          function dtQuery(val) {
+            if (!val) return null;
+            // Match the first 16 chars (YYYY-MM-DDTHH:MM) — minute-level precision is enough
+            return { $regex: `^${val.slice(0, 16)}` };
+          }
           const alreadyExists = await TollTransaction.findOne({
             host_id: req.hostId,
             transponder_id: transponder,
-            entry_datetime: entryDt,
-            exit_datetime: exitDt,
+            ...(entryDt ? { entry_datetime: dtQuery(entryDt) } : { entry_datetime: null }),
+            ...(exitDt  ? { exit_datetime:  dtQuery(exitDt)  } : { exit_datetime:  null }),
             amount: { $gte: amount - 0.001, $lte: amount + 0.001 },
           });
           if (alreadyExists) continue;
