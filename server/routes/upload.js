@@ -28,6 +28,99 @@ function resolveMimeType(file) {
   return file.mimetype || 'application/octet-stream';
 }
 
+// ── Earnings CSV parser ─────────────────────────────────────────────────────
+// Parses CSV exports with header: "Reservation ID","Guest","Vehicle",...
+// Returns null if the file doesn't match this format.
+function parseEarningsCSV(buffer) {
+  const text = buffer.toString('utf-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = text.split('\n').filter(l => l.trim());
+  if (!lines.length) return null;
+
+  // Detect format
+  const header = lines[0];
+  if (!header.includes('Reservation ID') || !header.includes('Total earnings')) return null;
+
+  // Simple CSV row parser — handles quoted fields
+  function parseRow(line) {
+    const fields = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { fields.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+    fields.push(cur);
+    return fields;
+  }
+
+  const headers = parseRow(lines[0]);
+  const idx = (name) => headers.findIndex(h => h.trim().replace(/^"|"$/g, '') === name);
+
+  const iReservation = idx('Reservation ID');
+  const iGuest       = idx('Guest');
+  const iVehicleCol  = idx('Vehicle');       // "Moe's Honda (MD #3GH6268)"
+  const iVehicleName = idx('Vehicle name'); // "Honda Accord 2014"
+  const iStart       = idx('Trip start');
+  const iEnd         = idx('Trip end');
+  const iStatus      = idx('Trip status');
+
+  if (iReservation === -1 || iGuest === -1 || iStart === -1 || iEnd === -1) return null;
+
+  // Convert "2025-11-14 09:30 PM" → ISO string
+  function toISO(str) {
+    if (!str) return null;
+    str = str.trim();
+    // Already ISO
+    if (/^\d{4}-\d{2}-\d{2}T/.test(str)) return str;
+    // "YYYY-MM-DD HH:MM AM/PM"
+    const m = str.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!m) return null;
+    let [, date, h, min, ap] = m;
+    h = parseInt(h, 10);
+    if (ap.toUpperCase() === 'PM' && h !== 12) h += 12;
+    if (ap.toUpperCase() === 'AM' && h === 12) h = 0;
+    return `${date}T${String(h).padStart(2, '0')}:${min}:00`;
+  }
+
+  // Extract plate from "Name (STATE #PLATE)" → "PLATE"
+  function extractPlate(vehicleCol) {
+    const m = (vehicleCol || '').match(/\(\s*[A-Z]{1,3}\s*#([A-Z0-9]+)\s*\)/i);
+    return m ? m[1].toUpperCase() : '';
+  }
+
+  const SKIP_STATUSES = new Set(['Guest cancellation', 'Host cancellation']);
+  const trips = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseRow(lines[i]);
+    if (!row.length || !row[0]) continue;
+
+    const status = iStatus !== -1 ? row[iStatus]?.trim() : '';
+    if (SKIP_STATUSES.has(status)) continue;
+
+    const start = toISO(row[iStart]?.trim());
+    const end   = toISO(row[iEnd]?.trim());
+    if (!start || !end) continue;
+
+    const vehicleCol  = row[iVehicleCol]?.trim() || '';
+    const vehicleName = iVehicleName !== -1 ? row[iVehicleName]?.trim() : '';
+    const plate       = extractPlate(vehicleCol);
+
+    trips.push({
+      trip_id:      row[iReservation]?.trim() || '',
+      renter_name:  row[iGuest]?.trim() || '',
+      vehicle:      vehicleName || vehicleCol,
+      plate,
+      start_datetime: start,
+      end_datetime:   end,
+    });
+  }
+
+  return { type: 'trips', data: trips };
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 // POST /api/upload/auto
 router.post('/auto', upload.array('files', 20), async (req, res) => {
   const files = req.files;
@@ -62,12 +155,17 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
     }
   } else {
     // Parse all files in parallel — AI calls are independent
+    // CSVs that match the earnings export format are parsed natively (no AI)
     parsed = await Promise.all(
-      files.map(file =>
-        parseFileAutoDetect(file.buffer, file.mimetype)
+      files.map(file => {
+        if (file.mimetype === 'text/csv') {
+          const csvResult = parseEarningsCSV(file.buffer);
+          if (csvResult) return Promise.resolve({ file, result: csvResult, error: null });
+        }
+        return parseFileAutoDetect(file.buffer, file.mimetype)
           .then(result => ({ file, result, error: null }))
-          .catch(err => ({ file, result: null, error: err }))
-      )
+          .catch(err => ({ file, result: null, error: err }));
+      })
     );
   }
 
@@ -93,6 +191,7 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
         }
 
         const inserted = [];
+        const unmatched = []; // trips where no registered vehicle matched by plate
         for (const trip of data) {
           if (!trip.start_datetime || !trip.end_datetime) continue;
 
@@ -114,73 +213,49 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           if (alreadyExists) continue;
 
           let vehicle_id = null;
+          const myVehicles = await Vehicle.find({ host_id: req.hostId });
 
-          if (!vehicleName) {
-            // No vehicle name detected — create a blank vehicle to prompt user for YMM
-            const newVehicle = await Vehicle.create({
-              host_id: req.hostId, name: '',
-              plate: plate || '', transponder_id: '',
-              auto_added: true,
-            });
-            vehicle_id = newVehicle.id;
-          } else if (vehicleName) {
-            const myVehicles = await Vehicle.find({ host_id: req.hostId });
+          // 1. Exact plate match against registered vehicles (with transponder)
+          if (plate) {
+            const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate && v.transponder_id);
+            if (plateMatch) vehicle_id = plateMatch.id;
+          }
 
-            // 1. Exact plate match against registered vehicles only
-            if (plate) {
-              const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate && v.transponder_id);
-              if (plateMatch) vehicle_id = plateMatch.id;
-            }
-
-            if (!vehicle_id) {
-              // Only consider fully-registered vehicles (with transponder) as candidates
-              const registeredMatches = myVehicles.filter(
-                v => v.name.toLowerCase() === vehicleName.toLowerCase() && v.transponder_id
-              );
-
-              if (registeredMatches.length === 0) {
-                // No registered car matches — create a fresh blank for this trip
-                const newVehicle = await Vehicle.create({
-                  host_id: req.hostId, name: vehicleName,
-                  plate: plate || '', transponder_id: '',
-                  auto_added: true,
-                });
-                vehicle_id = newVehicle.id;
-
-              } else if (registeredMatches.length === 1) {
-                const existing = registeredMatches[0];
-                const existingPlate = (existing.plate || '').toUpperCase();
-
-                if (plate && existingPlate && plate === existingPlate) {
-                  vehicle_id = existing.id;
-                } else if (plate && existingPlate && plate !== existingPlate) {
-                  const newVehicle = await Vehicle.create({
-                    host_id: req.hostId, name: vehicleName,
-                    plate, transponder_id: '',
-                    auto_added: true,
-                  });
-                  vehicle_id = newVehicle.id;
-                } else {
-                  const newVehicle = await Vehicle.create({
-                    host_id: req.hostId, name: vehicleName,
-                    plate: plate || '', transponder_id: '',
-                    auto_added: true,
-                    candidates: registeredMatches.map(v => ({ id: v.id, name: v.name, plate: v.plate, transponder_id: v.transponder_id })),
-                  });
-                  vehicle_id = newVehicle.id;
-                }
-
-              } else {
-                const newVehicle = await Vehicle.create({
-                  host_id: req.hostId, name: vehicleName,
-                  plate: plate || '', transponder_id: '',
-                  auto_added: true,
-                  candidates: registeredMatches.map(v => ({ id: v.id, name: v.name, plate: v.plate, transponder_id: v.transponder_id })),
-                });
-                vehicle_id = newVehicle.id;
+          // 2. Name match if no plate match
+          if (!vehicle_id && vehicleName) {
+            const registeredMatches = myVehicles.filter(
+              v => v.name.toLowerCase() === vehicleName.toLowerCase() && v.transponder_id
+            );
+            if (registeredMatches.length === 1) {
+              const existing = registeredMatches[0];
+              const existingPlate = (existing.plate || '').toUpperCase();
+              if (!plate || !existingPlate || plate === existingPlate) {
+                vehicle_id = existing.id;
               }
             }
-          } // end else if (vehicleName)
+          }
+
+          // 3. If CSV trip (has plate) but no match found — insert without vehicle_id, flag for UI resolution
+          const needsResolution = !vehicle_id && plate;
+          if (needsResolution) {
+            // No auto_added vehicle — user must pick from existing or add new
+          } else if (!vehicle_id && !plate && !vehicleName) {
+            // No info at all — create blank placeholder
+            const newVehicle = await Vehicle.create({
+              host_id: req.hostId, name: '',
+              plate: '', transponder_id: '', auto_added: true,
+            });
+            vehicle_id = newVehicle.id;
+          } else if (!vehicle_id && vehicleName) {
+            // Non-CSV or unmatched name — create auto_added placeholder
+            const newVehicle = await Vehicle.create({
+              host_id: req.hostId, name: vehicleName,
+              plate: plate || '', transponder_id: '', auto_added: true,
+              candidates: myVehicles.filter(v => v.transponder_id)
+                .map(v => ({ id: v.id, name: v.name, plate: v.plate, transponder_id: v.transponder_id })),
+            });
+            vehicle_id = newVehicle.id;
+          }
 
           const record = await Trip.create({
             host_id: req.hostId,
@@ -190,8 +265,21 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
             trip_id: trip.trip_id, source_file: file.originalname,
           });
           inserted.push(record);
+
+          if (needsResolution) {
+            unmatched.push({
+              trip_id: record.id,
+              renter_name: trip.renter_name,
+              vehicle: vehicleName,
+              plate,
+            });
+          }
         }
-        results.push({ file: file.originalname, type: 'trips', count: inserted.length });
+        results.push({
+          file: file.originalname, type: 'trips',
+          count: inserted.length,
+          unmatched: unmatched.length ? unmatched : undefined,
+        });
 
       } else if (type === 'ezpass') {
         // Expand report range to cover all uploaded files
