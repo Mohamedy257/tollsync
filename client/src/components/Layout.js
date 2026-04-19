@@ -29,6 +29,7 @@ export default function Layout({ children }) {
   const [installed, setInstalled] = useState(
     () => isStandalone || localStorage.getItem('pwa-installed-v2') === '1'
   );
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (installed) return;
@@ -213,25 +214,76 @@ export default function Layout({ children }) {
             <span className="bottom-nav-label">{n.label}</span>
           </button>
         ))}
-        <button className={`bottom-nav-item ${location.pathname === '/subscribe' ? 'active' : ''}`} onClick={() => navigate('/subscribe')}>
-          <span className="bottom-nav-icon">💳</span>
-          <span className="bottom-nav-label">Billing</span>
-        </button>
-        {host?.is_admin && (
-          <button className={`bottom-nav-item ${location.pathname === '/admin' ? 'active' : ''}`} onClick={() => navigate('/admin')}>
-            <span className="bottom-nav-icon">⚙️</span>
-            <span className="bottom-nav-label">Admin</span>
-          </button>
-        )}
-        <button className={`bottom-nav-item ${location.pathname === '/support' ? 'active' : ''}`} onClick={() => navigate('/support')}>
-          <span className="bottom-nav-icon">❓</span>
-          <span className="bottom-nav-label">Help</span>
-        </button>
-        <button className="bottom-nav-item" onClick={handleLogout}>
-          <span className="bottom-nav-icon">👤</span>
-          <span className="bottom-nav-label">Sign out</span>
+        <button
+          className={`bottom-nav-item ${['/subscribe','/support','/contact','/about','/admin'].includes(location.pathname) ? 'active' : ''}`}
+          onClick={() => setShowMore(true)}
+        >
+          <span className="bottom-nav-icon">•••</span>
+          <span className="bottom-nav-label">More</span>
         </button>
       </nav>
+
+      {/* More sheet */}
+      {showMore && (
+        <>
+          <div
+            onClick={() => setShowMore(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000 }}
+          />
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001,
+            background: '#fff', borderRadius: '18px 18px 0 0',
+            padding: '0 0 calc(16px + env(safe-area-inset-bottom, 0px))',
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+          }}>
+            {/* Handle */}
+            <div style={{ width: 36, height: 4, background: '#ddd', borderRadius: 99, margin: '12px auto 4px' }} />
+
+            {/* User info */}
+            <div style={{ padding: '10px 20px 14px', borderBottom: '0.5px solid #f0ede8' }}>
+              <p style={{ fontWeight: 700, fontSize: 14, margin: 0 }}>{host?.name || host?.email}</p>
+              {host?.name && <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{host?.email}</p>}
+            </div>
+
+            {/* Menu items */}
+            {[
+              { icon: '💳', label: 'Billing', path: '/subscribe' },
+              { icon: '❓', label: 'Help & Support', path: '/support' },
+              { icon: '💬', label: 'Chat with us', path: '/contact' },
+              { icon: 'ℹ️', label: 'About TollSync', path: '/about' },
+              ...(host?.is_admin ? [{ icon: '⚙️', label: 'Admin', path: '/admin' }] : []),
+            ].map(item => (
+              <button
+                key={item.path}
+                onClick={() => { setShowMore(false); navigate(item.path); }}
+                style={{
+                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '13px 20px', fontSize: 15, color: '#1a1a1a', textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+
+            {/* Sign out */}
+            <div style={{ borderTop: '0.5px solid #f0ede8', marginTop: 4 }}>
+              <button
+                onClick={() => { setShowMore(false); handleLogout(); }}
+                style={{
+                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '13px 20px', fontSize: 15, color: '#e24b4a', textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>↩</span>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
