@@ -6,12 +6,16 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [host, setHost] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [impersonating, setImpersonating] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       api.get('/auth/me')
-        .then(res => setHost(res.data.host))
+        .then(res => {
+          setHost(res.data.host);
+          setImpersonating(!!res.data.impersonatedBy);
+        })
         .catch(() => localStorage.removeItem('token'))
         .finally(() => setLoading(false));
     } else {
@@ -23,6 +27,15 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/login', { email, password });
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
+    setImpersonating(false);
+    return res.data.host;
+  };
+
+  const loginWithToken = async (token) => {
+    localStorage.setItem('token', token);
+    const res = await api.get('/auth/me');
+    setHost(res.data.host);
+    setImpersonating(!!res.data.impersonatedBy);
     return res.data.host;
   };
 
@@ -30,12 +43,15 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/register', { email, password, name });
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
+    setImpersonating(false);
     return res.data.host;
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('admin_token');
     setHost(null);
+    setImpersonating(false);
   };
 
   const completeSetup = async () => {
@@ -43,13 +59,36 @@ export function AuthProvider({ children }) {
     setHost(res.data.host);
   };
 
-  // Call after returning from Stripe to refresh subscription status
   const refreshHost = async () => {
     try {
       const res = await api.get('/auth/me');
       setHost(res.data.host);
+      setImpersonating(!!res.data.impersonatedBy);
       return res.data.host;
     } catch { return null; }
+  };
+
+  // Admin: start impersonating a user
+  const impersonate = async (userId) => {
+    const res = await api.post(`/admin/impersonate/${userId}`);
+    // Save original admin token so we can restore it
+    localStorage.setItem('admin_token', localStorage.getItem('token'));
+    localStorage.setItem('token', res.data.token);
+    setHost(res.data.host);
+    setImpersonating(true);
+    return res.data.host;
+  };
+
+  // Exit impersonation and restore admin session
+  const exitImpersonation = async () => {
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken) {
+      localStorage.setItem('token', adminToken);
+      localStorage.removeItem('admin_token');
+    }
+    const res = await api.get('/auth/me');
+    setHost(res.data.host);
+    setImpersonating(false);
   };
 
   const isSubscribed = host && (
@@ -57,7 +96,12 @@ export function AuthProvider({ children }) {
   );
 
   return (
-    <AuthContext.Provider value={{ host, loading, login, register, logout, completeSetup, refreshHost, isSubscribed }}>
+    <AuthContext.Provider value={{
+      host, loading, impersonating,
+      login, loginWithToken, register, logout,
+      completeSetup, refreshHost, isSubscribed,
+      impersonate, exitImpersonation,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ import TripsPage from './pages/TripsPage';
 import SubscribePage from './pages/SubscribePage';
 import AdminPage from './pages/AdminPage';
 import SetupWizard from './pages/SetupWizard';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import './index.css';
 
 function ProtectedRoute({ children, requireAdmin }) {
@@ -38,6 +39,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={host ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
       <Route path="/subscribe" element={<SubscribePage />} />
       <Route path="/" element={<ProtectedRoute><CalculatorPage /></ProtectedRoute>} />
       <Route path="/trips" element={<ProtectedRoute><TripsPage /></ProtectedRoute>} />

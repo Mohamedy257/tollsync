@@ -1,9 +1,13 @@
 const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password_hash: { type: String, required: true },
+  password_hash: { type: String, default: null }, // null for OAuth-only accounts
   name: { type: String, default: null },
   setup_complete: { type: Boolean, default: null }, // null = existing user (skip wizard), false = new signup
+  // OAuth
+  google_id: { type: String, default: null },
+  facebook_id: { type: String, default: null },
+  oauth_provider: { type: String, default: null }, // 'google' | 'facebook' | null
   // Stripe billing
   stripe_customer_id: { type: String, default: null },
   stripe_subscription_id: { type: String, default: null },

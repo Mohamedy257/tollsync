@@ -22,7 +22,7 @@ if (localStorage.getItem('pwa-dismissed') === '1') {
 export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { host, logout } = useAuth();
+  const { host, logout, impersonating, exitImpersonation } = useAuth();
 
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showIOSHint, setShowIOSHint] = useState(false);
@@ -77,10 +77,36 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
+  const handleExitImpersonation = async () => {
+    await exitImpersonation();
+    navigate('/admin');
+  };
+
   return (
     <div className="layout">
+      {/* Impersonation banner */}
+      {impersonating && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000,
+          background: '#c47800', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          padding: '8px 16px', fontSize: 13, fontWeight: 600,
+        }}>
+          <span>👤 Viewing as {host?.email} — support mode</span>
+          <button
+            onClick={handleExitImpersonation}
+            style={{
+              background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)',
+              color: '#fff', borderRadius: 8, padding: '4px 12px',
+              fontSize: 12, cursor: 'pointer', fontWeight: 700,
+            }}
+          >
+            Exit
+          </button>
+        </div>
+      )}
       {/* Desktop sidebar */}
-      <aside className="sidebar">
+      <aside className="sidebar" style={impersonating ? { paddingTop: 'calc(1.5rem + 37px)' } : {}}>
         <div className="sidebar-logo">
           <h1>⚡ TollSync</h1>
           <p>Rental toll calculator</p>
@@ -114,7 +140,7 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      <main className="main">
+      <main className="main" style={impersonating ? { paddingTop: 'calc(2rem + 37px)' } : {}}>
         {/* Install banner */}
         {showBanner && (
           <div style={{

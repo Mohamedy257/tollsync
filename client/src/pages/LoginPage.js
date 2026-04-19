@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/client';
 
 function TermsModal({ onClose }) {
   return (
@@ -40,8 +41,21 @@ export default function LoginPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthProviders, setOauthProviders] = useState({ google: false, facebook: false });
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    // Show any OAuth error passed back via query string
+    const err = searchParams.get('error');
+    if (err) setError(decodeURIComponent(err));
+
+    // Load which OAuth providers are enabled
+    api.get('/auth/oauth-providers').then(r => setOauthProviders(r.data)).catch(() => {});
+  }, []); // eslint-disable-line
+
+  const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
   const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -78,6 +92,52 @@ export default function LoginPage() {
         <p className="auth-sub">{mode === 'login' ? 'Sign in to your host account' : 'Create a host account'}</p>
 
         {error && <div className="alert alert-error">{error}</div>}
+
+        {/* OAuth buttons */}
+        {(oauthProviders.google || oauthProviders.facebook) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {oauthProviders.google && (
+              <a
+                href={`${apiBase}/auth/google`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '10px 16px', borderRadius: 10, border: '1px solid #e5e3de',
+                  background: '#fff', color: '#333', fontWeight: 600, fontSize: 14,
+                  textDecoration: 'none', cursor: 'pointer',
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.8 0 7 5.8 3.3 14.2l7.8 6.1C12.9 13.8 18 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8C43.5 37.4 46.5 31.4 46.5 24.5z"/>
+                  <path fill="#FBBC05" d="M11.1 28.3A14.7 14.7 0 0 1 9.5 24c0-1.5.3-2.9.7-4.3l-7.8-6C.9 16.6 0 20.2 0 24s.9 7.4 2.4 10.3l8.7-6z"/>
+                  <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2 1.4-4.7 2.2-7.7 2.2-6 0-11.1-4.1-12.9-9.6l-8.7 6C7 42.2 14.8 48 24 48z"/>
+                </svg>
+                Continue with Google
+              </a>
+            )}
+            {oauthProviders.facebook && (
+              <a
+                href={`${apiBase}/auth/facebook`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '10px 16px', borderRadius: 10, border: '1px solid #e5e3de',
+                  background: '#1877F2', color: '#fff', fontWeight: 600, fontSize: 14,
+                  textDecoration: 'none', cursor: 'pointer',
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                  <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+                </svg>
+                Continue with Facebook
+              </a>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
+              <div style={{ flex: 1, height: 1, background: '#e5e3de' }} />
+              <span style={{ fontSize: 12, color: '#aaa' }}>or</span>
+              <div style={{ flex: 1, height: 1, background: '#e5e3de' }} />
+            </div>
+          </div>
+        )}
 
         <form onSubmit={submit}>
           {mode === 'register' && (

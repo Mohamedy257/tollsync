@@ -9,6 +9,7 @@ module.exports = function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.hostId = decoded.hostId;
+    req.impersonatedBy = decoded.impersonatedBy || null; // admin id if impersonating
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });

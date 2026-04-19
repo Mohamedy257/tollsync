@@ -1,4 +1,5 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const Host = require('../models/Host');
 const PlanConfig = require('../models/PlanConfig');
@@ -37,6 +38,13 @@ router.get('/config', requireAdmin, async (req, res) => {
       stripe_secret_key_set: !!(plan.stripe_secret_key || process.env.STRIPE_SECRET_KEY),
       stripe_publishable_key: plan.stripe_publishable_key || process.env.STRIPE_PUBLISHABLE_KEY || '',
       stripe_webhook_secret_set: !!(plan.stripe_webhook_secret || process.env.STRIPE_WEBHOOK_SECRET),
+      // OAuth
+      google_oauth_enabled: !!plan.google_oauth_enabled,
+      google_client_id: plan.google_client_id || '',
+      google_client_secret_set: !!plan.google_client_secret,
+      facebook_oauth_enabled: !!plan.facebook_oauth_enabled,
+      facebook_app_id: plan.facebook_app_id || '',
+      facebook_app_secret_set: !!plan.facebook_app_secret,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -46,7 +54,12 @@ router.get('/config', requireAdmin, async (req, res) => {
 // PUT /api/admin/config — update plan; creates new Stripe price if price changed
 router.put('/config', requireAdmin, async (req, res) => {
   try {
-    const { name, description, price_cents, trial_days, stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId } = req.body;
+    const {
+      name, description, price_cents, trial_days,
+      stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId,
+      google_oauth_enabled, google_client_id, google_client_secret,
+      facebook_oauth_enabled, facebook_app_id, facebook_app_secret,
+    } = req.body;
     const existing = await PlanConfig.findOne();
 
     // Build Stripe key updates (only overwrite if a non-empty value was submitted)
@@ -85,6 +98,15 @@ router.put('/config', requireAdmin, async (req, res) => {
       stripe_price_id = price.id;
     }
 
+    // OAuth updates — only overwrite secrets if non-empty value submitted
+    const oauthUpdates = {};
+    if (google_oauth_enabled !== undefined) oauthUpdates.google_oauth_enabled = !!google_oauth_enabled;
+    if (google_client_id !== undefined) oauthUpdates.google_client_id = google_client_id.trim();
+    if (google_client_secret && google_client_secret.trim()) oauthUpdates.google_client_secret = google_client_secret.trim();
+    if (facebook_oauth_enabled !== undefined) oauthUpdates.facebook_oauth_enabled = !!facebook_oauth_enabled;
+    if (facebook_app_id !== undefined) oauthUpdates.facebook_app_id = facebook_app_id.trim();
+    if (facebook_app_secret && facebook_app_secret.trim()) oauthUpdates.facebook_app_secret = facebook_app_secret.trim();
+
     const { stripe_price_id: _ignored, ...restKeyUpdates } = keyUpdates;
     const plan = await PlanConfig.findOneAndUpdate(
       {},
@@ -96,6 +118,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         stripe_price_id,
         stripe_product_id,
         ...restKeyUpdates,
+        ...oauthUpdates,
       },
       { upsert: true, new: true }
     );
@@ -186,6 +209,28 @@ router.post('/revoke/:hostId', requireAdmin, async (req, res) => {
     );
     if (!host) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/impersonate/:hostId — generate a short-lived token scoped to another user
+router.post('/impersonate/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const adminId = req.hostId;
+    const target = await Host.findById(req.params.hostId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    // Refuse to impersonate another admin
+    const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+    if (target.email === adminEmail) return res.status(403).json({ error: 'Cannot impersonate admin' });
+
+    const token = jwt.sign(
+      { hostId: target.id, impersonatedBy: adminId },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+    res.json({ token, host: { id: target.id, email: target.email, name: target.name } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
