@@ -1,48 +1,19 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-function createTransport() {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!user || !pass) {
-    throw new Error('Email not configured. Set SMTP_USER and SMTP_PASS environment variables.');
-  }
-
-  const smtpHost = process.env.SMTP_HOST;
-
-  // Auto-detect Gmail — force IPv4 to avoid Railway IPv6 issues
-  if (!smtpHost && user.toLowerCase().includes('@gmail.com')) {
-    return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      family: 4, // force IPv4
-      auth: { user, pass },
-    });
-  }
-
-  if (!smtpHost) {
-    throw new Error('Email not configured. Set SMTP_HOST (or use a @gmail.com SMTP_USER for auto-detection).');
-  }
-
-  const port = parseInt(process.env.SMTP_PORT || '587', 10);
-  return nodemailer.createTransport({
-    host: smtpHost,
-    port,
-    secure: port === 465,
-    family: 4,
-    auth: { user, pass },
-  });
-}
-
-const FROM = () => process.env.SMTP_FROM || process.env.SMTP_USER;
+const FROM = () => process.env.SMTP_FROM || 'TollSync <onboarding@resend.dev>';
 const APP_URL = () => process.env.CLIENT_URL || 'http://localhost:3000';
+
+function getResend() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('Email not configured. Set RESEND_API_KEY environment variable.');
+  return new Resend(apiKey);
+}
 
 async function sendPasswordReset(to, token) {
   const link = `${APP_URL()}/reset-password?token=${token}`;
-  const transport = createTransport();
-  await transport.sendMail({
-    from: `TollSync <${FROM()}>`,
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM(),
     to,
     subject: 'Reset your TollSync password',
     html: `
@@ -61,11 +32,11 @@ async function sendPasswordReset(to, token) {
 }
 
 async function sendVerificationEmail(to, token, name) {
-  const transport = createTransport();
   const firstName = (name || to).split(' ')[0];
   const link = `${APP_URL()}/verify-email?token=${token}`;
-  await transport.sendMail({
-    from: `TollSync <${FROM()}>`,
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM(),
     to,
     subject: 'Verify your TollSync email ⚡',
     html: `
@@ -89,10 +60,10 @@ async function sendVerificationEmail(to, token, name) {
 }
 
 async function sendWelcome(to, name) {
-  const transport = createTransport();
   const firstName = (name || to).split(' ')[0];
-  await transport.sendMail({
-    from: `TollSync <${FROM()}>`,
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM(),
     to,
     subject: 'Welcome to TollSync ⚡',
     html: `
@@ -140,11 +111,10 @@ async function sendWelcome(to, name) {
 }
 
 async function sendCustom(to, subject, body) {
-  const transport = createTransport();
-  // Convert plain-text line breaks to <br> for HTML rendering
   const htmlBody = body.replace(/\n/g, '<br>');
-  await transport.sendMail({
-    from: `TollSync <${FROM()}>`,
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM(),
     to,
     subject,
     html: `
