@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const Host = require('../models/Host');
 const { sendPasswordReset, sendWelcome, sendVerificationEmail } = require('../services/email');
 const PlanConfig = require('../models/PlanConfig');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
