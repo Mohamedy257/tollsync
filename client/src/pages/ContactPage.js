@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/client';
 
-const WA_NUMBER = '6673598525';
-
-function waLink(message = '') {
-  const base = `https://wa.me/${WA_NUMBER}`;
+function waLink(number, message = '') {
+  const base = `https://wa.me/${number}`;
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
 
@@ -19,16 +18,24 @@ const QUICK_TOPICS = [
 export default function ContactPage() {
   const { host } = useAuth();
   const navigate = useNavigate();
+  const [contact, setContact] = useState({ whatsapp_number: '16673598525', support_email: null });
+
+  useEffect(() => {
+    api.get('/billing/contact').then(r => setContact(r.data)).catch(() => {});
+  }, []);
+
+  const waNumber = contact.whatsapp_number || '16673598525';
+  const supportEmail = contact.support_email;
 
   return (
     <div>
       <div className="page-header">
         <h2>Chat with us</h2>
-        <p>We're available on WhatsApp — tap below to start a conversation.</p>
+        <p>We're available on WhatsApp and email — reach out any time.</p>
       </div>
 
       {/* Main WhatsApp CTA */}
-      <div className="card" style={{ textAlign: 'center', padding: '32px 24px', marginBottom: 20 }}>
+      <div className="card" style={{ textAlign: 'center', padding: '32px 24px', marginBottom: 16 }}>
         <div style={{
           width: 72, height: 72, borderRadius: '50%', margin: '0 auto 16px',
           background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -38,12 +45,12 @@ export default function ContactPage() {
           </svg>
         </div>
         <p style={{ fontWeight: 700, fontSize: 18, margin: '0 0 6px' }}>WhatsApp Support</p>
-        <p style={{ fontSize: 13, color: '#666', margin: '0 0 6px' }}>+{WA_NUMBER}</p>
+        <p style={{ fontSize: 13, color: '#666', margin: '0 0 6px' }}>+{waNumber}</p>
         <p style={{ fontSize: 13, color: '#888', margin: '0 0 24px' }}>
           Typically replies within a few hours during business hours
         </p>
         <a
-          href={waLink(`Hi! I'm a TollSync user${host?.email ? ` (${host.email})` : ''} and need some help.`)}
+          href={waLink(waNumber, `Hi! I'm a TollSync user${host?.email ? ` (${host.email})` : ''} and need some help.`)}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -60,13 +67,40 @@ export default function ContactPage() {
         </a>
       </div>
 
+      {/* Email CTA */}
+      {supportEmail && (
+        <div className="card" style={{ textAlign: 'center', padding: '24px', marginBottom: 16 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%', margin: '0 auto 14px',
+            background: '#185fa5', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+          </div>
+          <p style={{ fontWeight: 700, fontSize: 16, margin: '0 0 4px' }}>Send us an email</p>
+          <p style={{ fontSize: 13, color: '#666', margin: '0 0 20px' }}>{supportEmail}</p>
+          <a
+            href={`mailto:${supportEmail}?subject=${encodeURIComponent('TollSync Support')}&body=${encodeURIComponent(`Hi,\n\nI'm a TollSync user${host?.email ? ` (${host.email})` : ''} and I need help with:\n\n`)}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: '#185fa5', color: '#fff', fontWeight: 700,
+              fontSize: 14, padding: '11px 24px', borderRadius: 10,
+              textDecoration: 'none',
+            }}
+          >
+            Send email
+          </a>
+        </div>
+      )}
+
       {/* Quick topic shortcuts */}
       <p className="section-title">Quick topics</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 24 }}>
         {QUICK_TOPICS.map(topic => (
           <a
             key={topic.label}
-            href={waLink(topic.message)}
+            href={waLink(waNumber, topic.message)}
             target="_blank"
             rel="noopener noreferrer"
             style={{

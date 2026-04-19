@@ -28,6 +28,9 @@ export default function AdminPage() {
   const [oauthStatus, setOauthStatus] = useState({ google_secret_set: false, facebook_secret_set: false });
   const [savingOauth, setSavingOauth] = useState(false);
   const [oauthMsg, setOauthMsg] = useState('');
+  const [contactForm, setContactForm] = useState({ whatsapp_number: '', support_email: '' });
+  const [savingContact, setSavingContact] = useState(false);
+  const [contactMsg, setContactMsg] = useState('');
   const [subscribers, setSubscribers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savingStripe, setSavingStripe] = useState(false);
@@ -71,6 +74,10 @@ export default function AdminPage() {
       setOauthStatus({
         google_secret_set: !!cfgRes.data.google_client_secret_set,
         facebook_secret_set: !!cfgRes.data.facebook_app_secret_set,
+      });
+      setContactForm({
+        whatsapp_number: cfgRes.data.whatsapp_number || '16673598525',
+        support_email: cfgRes.data.support_email || '',
       });
       setSubscribers(subRes.data.subscribers);
       setMessages(msgRes.data.messages || []);
@@ -153,6 +160,21 @@ export default function AdminPage() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save OAuth settings');
     } finally { setSavingOauth(false); }
+  };
+
+  const saveContact = async e => {
+    e.preventDefault();
+    setSavingContact(true); setContactMsg(''); setError('');
+    try {
+      await api.put('/admin/config', {
+        whatsapp_number: contactForm.whatsapp_number,
+        support_email: contactForm.support_email,
+      });
+      setContactMsg('Contact settings saved');
+      setTimeout(() => setContactMsg(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save contact settings');
+    } finally { setSavingContact(false); }
   };
 
   const impersonateUser = async (id) => {
@@ -405,6 +427,35 @@ export default function AdminPage() {
               {savingOauth ? <><span className="spinner" /> Saving...</> : 'Save OAuth settings'}
             </button>
             {oauthMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{oauthMsg}</span>}
+          </div>
+        </form>
+      </div>
+
+      {/* Contact / support channels */}
+      <p className="section-title">Contact channels</p>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <form onSubmit={saveContact}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px 12px', marginBottom: 12 }}>
+            <div>
+              <label style={lbl}>WhatsApp number (digits only, incl. country code)</label>
+              <input className="form-control" placeholder="16673598525"
+                value={contactForm.whatsapp_number}
+                onChange={e => setContactForm(f => ({ ...f, whatsapp_number: e.target.value.replace(/\D/g, '') }))} />
+              <p style={{ fontSize: 11, color: '#aaa', margin: '3px 0 0' }}>No + sign — e.g. 16673598525 for +1 (667) 359-8525</p>
+            </div>
+            <div>
+              <label style={lbl}>Support email <span style={{ color: '#aaa', fontWeight: 400 }}>(optional)</span></label>
+              <input className="form-control" type="email" placeholder="support@yourapp.com"
+                value={contactForm.support_email}
+                onChange={e => setContactForm(f => ({ ...f, support_email: e.target.value }))} />
+              <p style={{ fontSize: 11, color: '#aaa', margin: '3px 0 0' }}>Shown as an "Email us" option on the Contact page</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn btn-primary btn-sm" type="submit" disabled={savingContact}>
+              {savingContact ? <><span className="spinner" /> Saving...</> : 'Save contact settings'}
+            </button>
+            {contactMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{contactMsg}</span>}
           </div>
         </form>
       </div>

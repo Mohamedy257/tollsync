@@ -14,7 +14,7 @@ const req = <span style={{ color: '#e24b4a' }}>*</span>;
 const errStyle = { border: '1.5px solid #e24b4a' };
 const errMsg = (msg) => <p style={{ fontSize: 11, color: '#e24b4a', marginTop: 3 }}>{msg}</p>;
 
-function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitted }) {
+function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitted, formRef }) {
   const models = v.make && v.make !== 'Other' ? (CAR_MODELS[v.make] || []) : [];
   const set = patch => onChange(idx, patch);
 
@@ -34,10 +34,18 @@ function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitt
     transponder_id: !v.transponder_id.trim(),
   } : {};
 
+  const hasErrors = submitted && !isVehicleValid(v);
+  const missingFields = hasErrors ? [
+    err.nickname && 'Nickname',
+    (err.year || err.make || err.freeformMake || err.model || err.freeformModel) && 'Year / Make / Model',
+    err.plate && 'License plate',
+    err.transponder_id && 'EZ-Pass transponder',
+  ].filter(Boolean) : [];
+
   return (
-    <div style={{
+    <div ref={formRef} style={{
       background: '#fff', borderRadius: 14,
-      border: submitted && !isVehicleValid(v) ? '1.5px solid #e24b4a' : '0.5px solid #e5e3de',
+      border: hasErrors ? '1.5px solid #e24b4a' : '0.5px solid #e5e3de',
       padding: isMobile ? '16px' : '20px', marginBottom: 12, position: 'relative',
     }}>
       {showRemove && (
@@ -52,6 +60,24 @@ function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitt
       <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 14px', color: '#185fa5' }}>
         Vehicle {idx + 1}
       </p>
+
+      {missingFields.length > 0 && (
+        <div style={{
+          background: '#fff5f5', border: '1px solid #f5c6c6', borderRadius: 8,
+          padding: '10px 12px', marginBottom: 14,
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <span style={{ color: '#e24b4a', fontSize: 15, flexShrink: 0, marginTop: 1 }}>⚠</span>
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#c0392b', margin: '0 0 3px' }}>
+              Please fill in the required fields:
+            </p>
+            <p style={{ fontSize: 12, color: '#c0392b', margin: 0 }}>
+              {missingFields.join(' · ')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Nickname */}
       <div className="form-group">
@@ -278,6 +304,7 @@ export default function SetupWizard() {
   const [step, setStep] = useState(1);
   const [vehicles, setVehicles] = useState([EMPTY_VEHICLE()]);
   const [submitted, setSubmitted] = useState(false);
+  const vehicleRefs = useRef([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -335,7 +362,13 @@ export default function SetupWizard() {
 
   const saveVehicles = async () => {
     setSubmitted(true);
-    if (!allValid) return;
+    if (!allValid) {
+      // Scroll to the first invalid vehicle
+      const firstInvalidIdx = vehicles.findIndex(v => !isVehicleValid(v));
+      const el = vehicleRefs.current[firstInvalidIdx];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     setSaving(true); setSaveError('');
     try {
       for (const v of vehicles) {
@@ -443,7 +476,8 @@ export default function SetupWizard() {
             {vehicles.map((v, idx) => (
               <VehicleForm key={idx} v={v} idx={idx}
                 onChange={updateVehicle} onRemove={removeVehicle}
-                showRemove={vehicles.length > 1} isMobile={isMobile} submitted={submitted} />
+                showRemove={vehicles.length > 1} isMobile={isMobile} submitted={submitted}
+                formRef={el => vehicleRefs.current[idx] = el} />
             ))}
 
             <button className="btn" style={{ width: '100%', justifyContent: 'center', marginBottom: 8, padding: '11px' }}

@@ -3,7 +3,24 @@ import api from '../api/client';
 import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
 
 const EMPTY_FORM = { nickname: '', plate: '', transponder_id: '', vin: '' };
-const EMPTY_YMM = { year: '', make: '', model: '' };
+const EMPTY_YMM = { year: '', make: '', model: '', freeformMake: '', freeformModel: '' };
+
+function ymmFromVehicle(v) {
+  const makeInList = CAR_MAKES.includes(v.make);
+  const make = makeInList ? v.make : (v.make ? 'Other' : '');
+  const freeformMake = makeInList ? '' : (v.make || '');
+  const models = make && make !== 'Other' ? (CAR_MODELS[make] || []) : [];
+  const modelInList = models.includes(v.model);
+  const model = makeInList ? (modelInList ? v.model : (v.model ? 'Other' : '')) : '';
+  const freeformModel = makeInList && !modelInList ? (v.model || '') : '';
+  return { year: v.year || '', make, model, freeformMake, freeformModel };
+}
+
+function ymmToName({ year, make, model, freeformMake, freeformModel }) {
+  const m = make === 'Other' ? freeformMake.trim() : make;
+  const mo = make === 'Other' ? freeformModel.trim() : (model === 'Other' ? freeformModel.trim() : model);
+  return [year, m, mo].filter(Boolean).join(' ');
+}
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState([]);
@@ -13,6 +30,7 @@ export default function VehiclesPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [editYmm, setEditYmm] = useState(EMPTY_YMM);
   const [savingId, setSavingId] = useState(null);
 
   useEffect(() => { load(); }, []);
@@ -48,19 +66,22 @@ export default function VehiclesPage() {
     setEditingId(v.id);
     setEditForm({
       nickname: v.nickname || '',
-      name: v.name || '',
       plate: v.plate || '',
       transponder_id: v.transponder_id || '',
       vin: v.vin || '',
     });
+    setEditYmm(ymmFromVehicle(v));
   };
 
-  const cancelEdit = () => { setEditingId(null); setEditForm({}); };
+  const cancelEdit = () => { setEditingId(null); setEditForm({}); setEditYmm(EMPTY_YMM); };
 
   const saveEdit = async (id) => {
     setSavingId(id);
+    const resolvedMake = editYmm.make === 'Other' ? editYmm.freeformMake.trim() : editYmm.make;
+    const resolvedModel = editYmm.make === 'Other' ? editYmm.freeformModel.trim() : (editYmm.model === 'Other' ? editYmm.freeformModel.trim() : editYmm.model);
+    const name = ymmToName(editYmm);
     try {
-      await api.put(`/vehicles/${id}`, editForm);
+      await api.put(`/vehicles/${id}`, { ...editForm, name, year: editYmm.year, make: resolvedMake, model: resolvedModel });
       setEditingId(null); setEditForm({});
       load();
     } catch (err) {
@@ -89,9 +110,39 @@ export default function VehiclesPage() {
                 onChange={e => setEditForm(f => ({ ...f, nickname: e.target.value }))} />
             </div>
             <div style={fg}>
-              <label style={lbl}>Make, model &amp; year</label>
-              <input className="form-control" value={editForm.name}
-                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+              <label style={lbl}>Year</label>
+              <select className="form-control" value={editYmm.year}
+                onChange={e => setEditYmm(y => ({ ...y, year: e.target.value }))}>
+                <option value="">Select year</option>
+                {CAR_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div style={fg}>
+              <label style={lbl}>Make</label>
+              <select className="form-control" value={editYmm.make}
+                onChange={e => setEditYmm(y => ({ ...y, make: e.target.value, model: '', freeformMake: '', freeformModel: '' }))}>
+                <option value="">Select make</option>
+                {CAR_MAKES.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              {editYmm.make === 'Other' && (
+                <input className="form-control" placeholder="Enter make" style={{ marginTop: 4 }}
+                  value={editYmm.freeformMake}
+                  onChange={e => setEditYmm(y => ({ ...y, freeformMake: e.target.value }))} />
+              )}
+            </div>
+            <div style={fg}>
+              <label style={lbl}>Model</label>
+              <select className="form-control" value={editYmm.model}
+                onChange={e => setEditYmm(y => ({ ...y, model: e.target.value, freeformModel: '' }))}
+                disabled={!editYmm.make || editYmm.make === 'Other'}>
+                <option value="">Select model</option>
+                {(CAR_MODELS[editYmm.make] || []).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              {(editYmm.make === 'Other' || editYmm.model === 'Other') && (
+                <input className="form-control" placeholder="Enter model" style={{ marginTop: 4 }}
+                  value={editYmm.freeformModel}
+                  onChange={e => setEditYmm(y => ({ ...y, freeformModel: e.target.value }))} />
+              )}
             </div>
             <div style={fg}>
               <label style={lbl}>License plate</label>

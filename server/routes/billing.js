@@ -32,6 +32,19 @@ router.get('/plan', async (req, res) => {
   }
 });
 
+// GET /api/billing/contact — public contact info (WhatsApp, email)
+router.get('/contact', async (req, res) => {
+  try {
+    const plan = await PlanConfig.findOne() || {};
+    res.json({
+      whatsapp_number: plan.whatsapp_number || '16673598525',
+      support_email: plan.support_email || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/billing/status — current user subscription
 router.get('/status', auth, async (req, res) => {
   try {
