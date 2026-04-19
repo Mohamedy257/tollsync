@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const Host = require('../models/Host');
-const { sendPasswordReset } = require('../services/email');
+const { sendPasswordReset, sendWelcome } = require('../services/email');
 const PlanConfig = require('../models/PlanConfig');
 
 const router = express.Router();
@@ -50,6 +50,8 @@ router.post('/register', async (req, res) => {
     const host = await Host.create({ email, password_hash: hash, name: name || null, setup_complete: false });
     const token = issueToken(host.id);
     res.json({ token, host: serializeHost(host) });
+    // Send welcome email — fire and forget so it never blocks the response
+    sendWelcome(host.email, host.name).catch(err => console.warn('Welcome email failed:', err.message));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -348,6 +350,8 @@ async function findOrCreateOAuthUser({ email, name, provider, providerId, field 
     oauth_provider: provider,
     setup_complete: false,
   });
+  // Send welcome email — fire and forget
+  sendWelcome(host.email, host.name).catch(err => console.warn('Welcome email failed:', err.message));
   return host;
 }
 
