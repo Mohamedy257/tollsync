@@ -186,6 +186,16 @@ export default function LoginPage() {
             {mode === 'login' ? 'Register' : 'Sign in'}
           </button>
         </p>
+        {mode === 'login' && (
+          <p style={{ textAlign: 'center', marginTop: 4, fontSize: 13 }}>
+            <button
+              onClick={() => navigate('/forgot-password')}
+              style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: 13 }}
+            >
+              Forgot password?
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

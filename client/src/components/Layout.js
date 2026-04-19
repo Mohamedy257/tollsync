@@ -134,6 +134,10 @@ export default function Layout({ children }) {
             </button>
           )}
           <button className="nav-item" style={{ width: '100%', marginBottom: 4, fontSize: 12 }}
+            onClick={() => navigate('/account')}>
+            👤 Account
+          </button>
+          <button className="nav-item" style={{ width: '100%', marginBottom: 4, fontSize: 12 }}
             onClick={() => navigate('/subscribe')}>
             💳 Billing
           </button>
@@ -247,6 +251,7 @@ export default function Layout({ children }) {
 
             {/* Menu items */}
             {[
+              { icon: '👤', label: 'Account Settings', path: '/account' },
               { icon: '💳', label: 'Billing', path: '/subscribe' },
               { icon: '❓', label: 'Help & Support', path: '/support' },
               { icon: '💬', label: 'Chat with us', path: '/contact' },

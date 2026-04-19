@@ -15,6 +15,10 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import AboutPage from './pages/AboutPage';
 import SupportPage from './pages/SupportPage';
 import ContactPage from './pages/ContactPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import AccountPage from './pages/AccountPage';
+import NotFoundPage from './pages/NotFoundPage';
 import './index.css';
 
 function ProtectedRoute({ children, requireAdmin }) {
@@ -42,6 +46,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={host ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
       <Route path="/subscribe" element={<SubscribePage />} />
       <Route path="/" element={<ProtectedRoute><CalculatorPage /></ProtectedRoute>} />
@@ -53,7 +59,8 @@ function AppRoutes() {
       <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
       <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

@@ -13,5 +13,8 @@ const schema = new mongoose.Schema({
   stripe_subscription_id: { type: String, default: null },
   subscription_status: { type: String, default: 'none' }, // none | active | past_due | canceled | trialing
   subscription_current_period_end: { type: Date, default: null },
+  // Password reset
+  reset_token: { type: String, default: null },
+  reset_token_expires: { type: Date, default: null },
 }, { timestamps: true });
 module.exports = mongoose.model('Host', schema);
