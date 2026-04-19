@@ -78,9 +78,8 @@ export default function ContactPage() {
               <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
             </svg>
           </div>
-          <p style={{ fontWeight: 700, fontSize: 16, margin: '0 0 4px' }}>Send us an email</p>
-          <p style={{ fontSize: 13, color: '#666', margin: '0 0 20px' }}>{supportEmail}</p>
-          <a
+          <p style={{ fontWeight: 700, fontSize: 16, margin: '0 0 20px' }}>Send us an email</p>
+          <
             href={`mailto:${supportEmail}?subject=${encodeURIComponent('TollSync Support')}&body=${encodeURIComponent(`Hi,\n\nI'm a TollSync user${host?.email ? ` (${host.email})` : ''} and I need help with:\n\n`)}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
