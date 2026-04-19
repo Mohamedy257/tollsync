@@ -11,7 +11,7 @@ const schema = new mongoose.Schema({
   stripe_webhook_secret: { type: String, default: null },
   // Contact / support
   whatsapp_number: { type: String, default: '16673598525' },
-  support_email: { type: String, default: null },
+  support_email: { type: String, default: 'mohamedy257@gmail.com' },
   // OAuth providers
   google_oauth_enabled: { type: Boolean, default: false },
   google_client_id: { type: String, default: null },

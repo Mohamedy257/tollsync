@@ -38,7 +38,7 @@ router.get('/contact', async (req, res) => {
     const plan = await PlanConfig.findOne() || {};
     res.json({
       whatsapp_number: plan.whatsapp_number || '16673598525',
-      support_email: plan.support_email || null,
+      support_email: plan.support_email || 'mohamedy257@gmail.com',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
