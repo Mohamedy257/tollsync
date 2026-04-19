@@ -91,6 +91,15 @@ export function AuthProvider({ children }) {
     setImpersonating(false);
   };
 
+  const resendVerification = async () => {
+    await api.post('/auth/resend-verification');
+  };
+
+  const verifyEmail = async (token) => {
+    await api.get(`/auth/verify-email?token=${token}`);
+    await refreshHost();
+  };
+
   const isSubscribed = host && (
     host.is_admin || host.subscription_status === 'active' || host.subscription_status === 'trialing'
   );
@@ -100,6 +109,7 @@ export function AuthProvider({ children }) {
       host, loading, impersonating,
       login, loginWithToken, register, logout,
       completeSetup, refreshHost, isSubscribed,
+      resendVerification, verifyEmail,
       impersonate, exitImpersonation,
     }}>
       {children}

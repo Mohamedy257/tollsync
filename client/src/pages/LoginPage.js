@@ -40,6 +40,7 @@ export default function LoginPage() {
   const [agreed, setAgreed] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState('');
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
   const [oauthProviders, setOauthProviders] = useState({ google: false, facebook: false });
   const { login, register } = useAuth();
@@ -71,15 +72,23 @@ export default function LoginPage() {
       else await register(form.email, form.password, form.name);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
+      const code = err.response?.data?.code;
+      if (code === 'EMAIL_NOT_FOUND') {
+        setError('');
+        setNotFound(true);
+      } else {
+        setNotFound(false);
+        setError(err.response?.data?.error || 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const switchMode = () => {
-    setMode(m => m === 'login' ? 'register' : 'login');
+  const switchMode = (forceTo) => {
+    setMode(m => forceTo || (m === 'login' ? 'register' : 'login'));
     setError('');
+    setNotFound(false);
     setAgreed(false);
   };
 
@@ -92,6 +101,19 @@ export default function LoginPage() {
         <p className="auth-sub">{mode === 'login' ? 'Sign in to your host account' : 'Create a host account'}</p>
 
         {error && <div className="alert alert-error">{error}</div>}
+        {notFound && (
+          <div style={{ background: '#fff8e6', border: '1px solid #f5d97a', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+            <p style={{ fontSize: 13, color: '#7a5c00', margin: '0 0 8px', fontWeight: 600 }}>No account found with that email.</p>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ fontSize: 13 }}
+              onClick={() => switchMode('register')}
+            >
+              Create an account →
+            </button>
+          </div>
+        )}
 
         {/* OAuth buttons */}
         {(oauthProviders.google || oauthProviders.facebook) && (
@@ -181,7 +203,7 @@ export default function LoginPage() {
 
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#888' }}>
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <button onClick={switchMode}
+          <button onClick={() => switchMode()}
             style={{ background: 'none', border: 'none', color: '#185fa5', cursor: 'pointer', fontSize: 13 }}>
             {mode === 'login' ? 'Register' : 'Sign in'}
           </button>

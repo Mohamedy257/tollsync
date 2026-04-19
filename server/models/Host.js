@@ -13,6 +13,9 @@ const schema = new mongoose.Schema({
   stripe_subscription_id: { type: String, default: null },
   subscription_status: { type: String, default: 'none' }, // none | active | past_due | canceled | trialing
   subscription_current_period_end: { type: Date, default: null },
+  // Email verification
+  email_verified: { type: Boolean, default: null }, // null = pre-feature (treat as verified), false = pending, true = verified
+  email_verification_token: { type: String, default: null },
   // Password reset
   reset_token: { type: String, default: null },
   reset_token_expires: { type: Date, default: null },

@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const Host = require('../models/Host');
-const { sendPasswordReset, sendWelcome } = require('../services/email');
+const { sendPasswordReset, sendWelcome, sendVerificationEmail } = require('../services/email');
 const PlanConfig = require('../models/PlanConfig');
 
 const router = express.Router();
@@ -19,6 +19,8 @@ function serializeHost(host) {
     subscription_current_period_end: host.subscription_current_period_end || null,
     is_admin: !!(adminEmail && host.email === adminEmail),
     oauth_provider: host.oauth_provider || null,
+    // null = pre-feature user (treat as verified), false = pending, true = verified
+    email_verified: host.email_verified,
   };
 }
 
@@ -47,11 +49,18 @@ router.post('/register', async (req, res) => {
     const existing = await Host.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(409).json({ error: 'Email already registered' });
     const hash = await bcrypt.hash(password, 10);
-    const host = await Host.create({ email, password_hash: hash, name: name || null, setup_complete: false });
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const host = await Host.create({
+      email, password_hash: hash, name: name || null,
+      setup_complete: false,
+      email_verified: false,
+      email_verification_token: verificationToken,
+    });
     const token = issueToken(host.id);
     res.json({ token, host: serializeHost(host) });
-    // Send welcome email — fire and forget so it never blocks the response
-    sendWelcome(host.email, host.name).catch(err => console.warn('Welcome email failed:', err.message));
+    // Send verification email — fire and forget
+    sendVerificationEmail(host.email, verificationToken, host.name)
+      .catch(err => console.warn('Verification email failed:', err.message));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -64,10 +73,11 @@ router.post('/login', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   try {
     const host = await Host.findOne({ email: email.toLowerCase() });
-    if (!host) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!host) return res.status(401).json({ error: 'No account found with that email. Would you like to create one?', code: 'EMAIL_NOT_FOUND' });
     if (!host.password_hash) return res.status(401).json({ error: `This account uses ${host.oauth_provider || 'social'} login. Please sign in with that provider.` });
     const valid = await bcrypt.compare(password, host.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!valid) return res.status(401).json({ error: 'Incorrect password.' });
+    if (host.email_verified === false) return res.status(401).json({ error: 'Please verify your email before signing in. Check your inbox for the verification link.', code: 'EMAIL_NOT_VERIFIED' });
     const token = issueToken(host.id);
     res.json({ token, host: serializeHost(host) });
   } catch (err) {
@@ -222,6 +232,41 @@ router.get('/facebook/callback', async (req, res) => {
   }
 });
 
+// ─── Email verification ───────────────────────────────────────────────────────
+
+// GET /api/auth/verify-email?token=xxx — public link from email
+router.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: 'Missing token' });
+  try {
+    const host = await Host.findOne({ email_verification_token: token });
+    if (!host) return res.status(400).json({ error: 'Invalid or expired verification link.' });
+    host.email_verified = true;
+    host.email_verification_token = null;
+    await host.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/auth/resend-verification — auth required
+router.post('/resend-verification', auth, async (req, res) => {
+  try {
+    const host = await Host.findById(req.hostId);
+    if (!host) return res.status(404).json({ error: 'User not found' });
+    if (host.email_verified) return res.json({ ok: true }); // already verified
+    const token = crypto.randomBytes(32).toString('hex');
+    host.email_verification_token = token;
+    await host.save();
+    await sendVerificationEmail(host.email, token, host.name);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Resend verification error:', err.message);
+    res.status(500).json({ error: 'Failed to resend. Please try again.' });
+  }
+});
+
 // ─── Password reset ──────────────────────────────────────────────────────────
 
 // POST /api/auth/forgot-password
@@ -349,8 +394,8 @@ async function findOrCreateOAuthUser({ email, name, provider, providerId, field 
     [field]: providerId,
     oauth_provider: provider,
     setup_complete: false,
+    email_verified: true, // OAuth providers verify the email for us
   });
-  // Send welcome email — fire and forget
   sendWelcome(host.email, host.name).catch(err => console.warn('Welcome email failed:', err.message));
   return host;
 }

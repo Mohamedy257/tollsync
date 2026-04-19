@@ -61,6 +61,7 @@ router.get('/status', auth, async (req, res) => {
 // POST /api/billing/checkout — create Stripe checkout session
 router.post('/checkout', auth, async (req, res) => {
   try {
+    const { from } = req.body; // 'wizard' = return to wizard after payment
     const stripe = await getStripe();
     const host = await Host.findById(req.hostId);
 
@@ -88,8 +89,10 @@ router.post('/checkout', auth, async (req, res) => {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${clientUrl}/subscribe?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${clientUrl}/subscribe`,
+      success_url: from === 'wizard'
+        ? `${clientUrl}/?session_id={CHECKOUT_SESSION_ID}`
+        : `${clientUrl}/subscribe?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: from === 'wizard' ? `${clientUrl}/` : `${clientUrl}/subscribe`,
     };
     if (trialDays > 0) {
       sessionParams.subscription_data = { trial_period_days: trialDays };
