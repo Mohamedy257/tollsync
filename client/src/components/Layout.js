@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/client';
 
 const NAV = [
   { path: '/', icon: '⚡', label: 'Calculator' },
@@ -23,6 +24,17 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { host, logout, impersonating, exitImpersonation } = useAuth();
+  const [verifyDismissed, setVerifyDismissed] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
+
+  const resendVerification = async () => {
+    try {
+      await api.post('/auth/resend-verification');
+      setResendSent(true);
+    } catch { /* silent — SMTP may not be configured */ }
+  };
+
+  const showVerifyBanner = host?.email_verified === false && !verifyDismissed;
 
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showIOSHint, setShowIOSHint] = useState(false);
@@ -85,6 +97,32 @@ export default function Layout({ children }) {
 
   return (
     <div className="layout">
+      {/* Email verification banner */}
+      {showVerifyBanner && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1999,
+          background: '#185fa5', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          padding: '8px 16px', fontSize: 13, flexWrap: 'wrap',
+        }}>
+          <span>📧 Please verify your email address.</span>
+          {resendSent ? (
+            <span style={{ fontWeight: 600 }}>✓ Email sent!</span>
+          ) : (
+            <button onClick={resendVerification} style={{
+              background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)',
+              color: '#fff', borderRadius: 6, padding: '2px 10px', fontSize: 12, cursor: 'pointer',
+            }}>
+              Resend
+            </button>
+          )}
+          <button onClick={() => setVerifyDismissed(true)} style={{
+            background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)',
+            fontSize: 16, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+          }}>✕</button>
+        </div>
+      )}
+
       {/* Impersonation banner */}
       {impersonating && (
         <div style={{
@@ -107,7 +145,7 @@ export default function Layout({ children }) {
         </div>
       )}
       {/* Desktop sidebar */}
-      <aside className="sidebar" style={impersonating ? { paddingTop: 'calc(1.5rem + 37px)' } : {}}>
+      <aside className="sidebar" style={(impersonating || showVerifyBanner) ? { paddingTop: 'calc(1.5rem + 37px)' } : {}}>
         <div className="sidebar-logo">
           <h1>⚡ TollSync</h1>
           <p>Rental toll calculator</p>
@@ -153,7 +191,7 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      <main className="main" style={impersonating ? { paddingTop: 'calc(2rem + 37px)' } : {}}>
+      <main className="main" style={(impersonating || showVerifyBanner) ? { paddingTop: 'calc(2rem + 37px)' } : {}}>
         {/* Install banner */}
         {showBanner && (
           <div style={{

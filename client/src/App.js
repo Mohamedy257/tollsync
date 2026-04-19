@@ -84,9 +84,6 @@ function ProtectedRoute({ children, requireAdmin }) {
   );
   if (!host) return <Navigate to="/login" replace />;
 
-  // Email verification gate — only blocks new accounts (email_verified === false)
-  if (host.email_verified === false) return <EmailVerificationGate />;
-
   if (host.setup_complete === false) return <SetupWizard />;
 
   // Admin-only routes
