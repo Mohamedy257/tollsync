@@ -261,11 +261,13 @@ router.post('/resend-verification', auth, async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     host.email_verification_token = token;
     await host.save();
-    await sendVerificationEmail(host.email, token, host.name);
-    console.log('Resent verification email to', host.email);
+    // Respond immediately — don't block on SMTP
     res.json({ ok: true });
+    sendVerificationEmail(host.email, token, host.name)
+      .then(() => console.log('Resent verification email to', host.email))
+      .catch(err => console.error('Resend verification FAILED for', host.email, ':', err.message));
   } catch (err) {
-    console.error('Resend verification FAILED:', err.message);
+    console.error('Resend verification error:', err.message);
     res.status(500).json({ error: 'Failed to resend. Please try again.' });
   }
 });
