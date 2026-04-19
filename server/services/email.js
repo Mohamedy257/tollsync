@@ -10,10 +10,13 @@ function createTransport() {
 
   const smtpHost = process.env.SMTP_HOST;
 
-  // Auto-detect Gmail — no SMTP_HOST needed for @gmail.com accounts
+  // Auto-detect Gmail — force IPv4 to avoid Railway IPv6 issues
   if (!smtpHost && user.toLowerCase().includes('@gmail.com')) {
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      family: 4, // force IPv4
       auth: { user, pass },
     });
   }
@@ -27,6 +30,7 @@ function createTransport() {
     host: smtpHost,
     port,
     secure: port === 465,
+    family: 4,
     auth: { user, pass },
   });
 }
