@@ -224,14 +224,17 @@ function clientUrl() {
   return (process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
 
+function serverBase() {
+  // SERVER_URL takes priority; CLIENT_URL works in production where server & client share a domain
+  return (process.env.SERVER_URL || process.env.CLIENT_URL || `http://localhost:${process.env.PORT || 3001}`).replace(/\/$/, '');
+}
+
 function googleCallbackUrl() {
-  const base = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3001}`;
-  return `${base}/api/auth/google/callback`;
+  return `${serverBase()}/api/auth/google/callback`;
 }
 
 function facebookCallbackUrl() {
-  const base = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3001}`;
-  return `${base}/api/auth/facebook/callback`;
+  return `${serverBase()}/api/auth/facebook/callback`;
 }
 
 async function findOrCreateOAuthUser({ email, name, provider, providerId, field }) {
