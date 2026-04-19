@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const Host = require('../models/Host');
 const PlanConfig = require('../models/PlanConfig');
+const ContactMessage = require('../models/ContactMessage');
 
 const router = express.Router();
 router.use(auth);
@@ -208,6 +209,26 @@ router.post('/revoke/:hostId', requireAdmin, async (req, res) => {
       { new: true }
     );
     if (!host) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/messages — inbox of contact form submissions
+router.get('/messages', requireAdmin, async (req, res) => {
+  try {
+    const messages = await ContactMessage.find({}).sort({ createdAt: -1 }).limit(200);
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/messages/:id/read
+router.post('/messages/:id/read', requireAdmin, async (req, res) => {
+  try {
+    await ContactMessage.findByIdAndUpdate(req.params.id, { read: true });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

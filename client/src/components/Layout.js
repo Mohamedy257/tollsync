@@ -136,6 +136,14 @@ export default function Layout({ children }) {
             onClick={() => navigate('/subscribe')}>
             💳 Billing
           </button>
+          <div style={{ borderTop: '0.5px solid #f0ede8', marginTop: 8, paddingTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {[['About', '/about'], ['Support', '/support'], ['Contact', '/contact']].map(([label, path]) => (
+              <button key={path} onClick={() => navigate(path)}
+                style={{ background: 'none', border: 'none', fontSize: 11, color: '#aaa', cursor: 'pointer', padding: '2px 4px' }}>
+                {label}
+              </button>
+            ))}
+          </div>
           <button className="logout-btn" onClick={handleLogout}>Sign out</button>
         </div>
       </aside>
@@ -215,6 +223,10 @@ export default function Layout({ children }) {
             <span className="bottom-nav-label">Admin</span>
           </button>
         )}
+        <button className={`bottom-nav-item ${location.pathname === '/support' ? 'active' : ''}`} onClick={() => navigate('/support')}>
+          <span className="bottom-nav-icon">❓</span>
+          <span className="bottom-nav-label">Help</span>
+        </button>
         <button className="bottom-nav-item" onClick={handleLogout}>
           <span className="bottom-nav-icon">👤</span>
           <span className="bottom-nav-label">Sign out</span>

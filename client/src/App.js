@@ -12,6 +12,9 @@ import SubscribePage from './pages/SubscribePage';
 import AdminPage from './pages/AdminPage';
 import SetupWizard from './pages/SetupWizard';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import AboutPage from './pages/AboutPage';
+import SupportPage from './pages/SupportPage';
+import ContactPage from './pages/ContactPage';
 import './index.css';
 
 function ProtectedRoute({ children, requireAdmin }) {
@@ -47,6 +50,9 @@ function AppRoutes() {
       <Route path="/vehicles" element={<ProtectedRoute><VehiclesPage /></ProtectedRoute>} />
       <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
+      <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
+      <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
+      <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

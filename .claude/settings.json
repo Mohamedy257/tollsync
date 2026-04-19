@@ -20,7 +20,8 @@
       "Bash(node --check /Users/mohamedyousif/Downloads/turo-toll-calc/server/services/ai.js)",
       "WebFetch(domain:instantdomainsearch.com)",
       "Bash(grep -E \"^-.*\\\\.\\(js|ts\\)$\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('proxy:', d.get\\('proxy', 'NOT SET'\\)\\)\")"
     ]
   }
 }

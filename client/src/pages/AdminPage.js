@@ -37,14 +37,17 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [grantingId, setGrantingId] = useState(null);
   const [impersonatingId, setImpersonatingId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [expandedMsg, setExpandedMsg] = useState(null);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
     try {
-      const [cfgRes, subRes] = await Promise.all([
+      const [cfgRes, subRes, msgRes] = await Promise.all([
         api.get('/admin/config'),
         api.get('/admin/subscribers'),
+        api.get('/admin/messages'),
       ]);
       setConfig(cfgRes.data);
       setForm({
@@ -70,6 +73,7 @@ export default function AdminPage() {
         facebook_secret_set: !!cfgRes.data.facebook_app_secret_set,
       });
       setSubscribers(subRes.data.subscribers);
+      setMessages(msgRes.data.messages || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load admin data');
     }
@@ -403,6 +407,56 @@ export default function AdminPage() {
             {oauthMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{oauthMsg}</span>}
           </div>
         </form>
+      </div>
+
+      {/* Contact messages */}
+      <p className="section-title">
+        Support messages
+        {messages.filter(m => !m.read).length > 0 && (
+          <span style={{ marginLeft: 8, background: '#e24b4a', color: '#fff', borderRadius: 99, fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>
+            {messages.filter(m => !m.read).length} new
+          </span>
+        )}
+      </p>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
+        {messages.length === 0 ? (
+          <p style={{ padding: 16, color: '#aaa', fontSize: 13 }}>No messages yet.</p>
+        ) : messages.map((m, i) => (
+          <div key={m._id || i} style={{
+            borderBottom: i < messages.length - 1 ? '0.5px solid #f0ede8' : 'none',
+            background: m.read ? '#fff' : '#f8f0ff',
+          }}>
+            <button
+              onClick={async () => {
+                setExpandedMsg(expandedMsg === m._id ? null : m._id);
+                if (!m.read) {
+                  await api.post(`/admin/messages/${m._id}/read`).catch(() => {});
+                  setMessages(ms => ms.map(x => x._id === m._id ? { ...x, read: true } : x));
+                }
+              }}
+              style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', textAlign: 'left' }}
+            >
+              {!m.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#185fa5', flexShrink: 0 }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{m.name} <span style={{ color: '#aaa', fontWeight: 400 }}>— {m.subject}</span></p>
+                  <span style={{ fontSize: 11, color: '#aaa', flexShrink: 0 }}>{fmtDate(m.createdAt)}</span>
+                </div>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{m.email}</p>
+              </div>
+              <span style={{ fontSize: 11, color: '#ccc' }}>{expandedMsg === m._id ? '▲' : '▼'}</span>
+            </button>
+            {expandedMsg === m._id && (
+              <div style={{ padding: '0 16px 14px 16px', borderTop: '0.5px solid #f0ede8' }}>
+                <p style={{ fontSize: 13, color: '#333', lineHeight: 1.7, margin: '12px 0 0', whiteSpace: 'pre-wrap' }}>{m.message}</p>
+                <a href={`mailto:${m.email}?subject=Re: ${encodeURIComponent(m.subject)}`}
+                  style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: '#185fa5', fontWeight: 600 }}>
+                  Reply via email →
+                </a>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Subscribers */}

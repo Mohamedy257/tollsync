@@ -41,6 +41,7 @@ app.use('/api/ezpass', require('./routes/ezpass'));
 app.use('/api/results', require('./routes/results'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/integrations', require('./routes/integrations'));
+app.use('/api/contact', require('./routes/contact'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
