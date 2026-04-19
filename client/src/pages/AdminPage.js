@@ -40,6 +40,12 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [grantingId, setGrantingId] = useState(null);
   const [impersonatingId, setImpersonatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [emailModal, setEmailModal] = useState(null); // { id, email }
+  const [emailForm, setEmailForm] = useState({ subject: '', body: '' });
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState('');
   const [messages, setMessages] = useState([]);
   const [expandedMsg, setExpandedMsg] = useState(null);
 
@@ -208,6 +214,29 @@ export default function AdminPage() {
     } finally { setGrantingId(null); }
   };
 
+  const deleteUser = async (id) => {
+    setDeletingId(id);
+    try {
+      await api.delete(`/admin/users/${id}`);
+      setSubscribers(s => s.filter(x => (x.id || x._id) !== id));
+      setConfirmDeleteId(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete user');
+    } finally { setDeletingId(null); }
+  };
+
+  const sendEmail = async (e) => {
+    e.preventDefault();
+    setSendingEmail(true); setEmailMsg('');
+    try {
+      await api.post(`/admin/email/${emailModal.id}`, emailForm);
+      setEmailMsg('Email sent successfully');
+      setTimeout(() => { setEmailModal(null); setEmailMsg(''); setEmailForm({ subject: '', body: '' }); }, 1500);
+    } catch (err) {
+      setEmailMsg(err.response?.data?.error || 'Failed to send email');
+    } finally { setSendingEmail(false); }
+  };
+
   const lbl = { fontSize: 12, color: '#666', marginBottom: 3, display: 'block', fontWeight: 500 };
   const activeCount = subscribers.filter(s => s.subscription_status === 'active' || s.subscription_status === 'trialing').length;
 
@@ -217,6 +246,83 @@ export default function AdminPage() {
         <h2>Admin</h2>
         <p>Manage plans, pricing, and subscribers.</p>
       </div>
+
+      {/* Send Email Modal */}
+      {emailModal && (
+        <>
+          <div onClick={() => { setEmailModal(null); setEmailMsg(''); setEmailForm({ subject: '', body: '' }); }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 1001, background: '#fff', borderRadius: 16, padding: 28,
+            width: '90%', maxWidth: 480, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Send email to {emailModal.email}</p>
+              <button onClick={() => { setEmailModal(null); setEmailMsg(''); setEmailForm({ subject: '', body: '' }); }}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>✕</button>
+            </div>
+            <form onSubmit={sendEmail}>
+              <div className="form-group">
+                <label style={lbl}>Subject</label>
+                <input className="form-control" placeholder="Subject" required
+                  value={emailForm.subject}
+                  onChange={e => setEmailForm(f => ({ ...f, subject: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label style={lbl}>Message</label>
+                <textarea className="form-control" rows={6} placeholder="Write your message..." required
+                  value={emailForm.body}
+                  onChange={e => setEmailForm(f => ({ ...f, body: e.target.value }))}
+                  style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: 14 }} />
+              </div>
+              {emailMsg && (
+                <p style={{ fontSize: 13, color: emailMsg.includes('success') ? '#3b6d11' : '#e24b4a', marginBottom: 10 }}>
+                  {emailMsg}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" className="btn"
+                  onClick={() => { setEmailModal(null); setEmailMsg(''); setEmailForm({ subject: '', body: '' }); }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={sendingEmail}>
+                  {sendingEmail ? <><span className="spinner" /> Sending...</> : 'Send email'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId && (
+        <>
+          <div onClick={() => setConfirmDeleteId(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 1001, background: '#fff', borderRadius: 16, padding: 28,
+            width: '90%', maxWidth: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 40, margin: '0 0 12px' }}>⚠️</p>
+            <p style={{ fontWeight: 700, fontSize: 16, margin: '0 0 8px' }}>Delete this user?</p>
+            <p style={{ fontSize: 13, color: '#666', margin: '0 0 24px', lineHeight: 1.6 }}>
+              This permanently deletes the account and all their vehicles, trips, and toll data. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                disabled={deletingId === confirmDeleteId}
+                onClick={() => deleteUser(confirmDeleteId)}
+              >
+                {deletingId === confirmDeleteId ? <><span className="spinner" /> Deleting...</> : 'Yes, delete'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -537,7 +643,7 @@ export default function AdminPage() {
               }}>
                 {s.subscription_status || 'none'}
               </span>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button
                   className="btn btn-sm"
                   style={{ fontSize: 11, background: '#185fa5', color: '#fff', borderColor: 'transparent' }}
@@ -546,6 +652,14 @@ export default function AdminPage() {
                   title="Log in as this user for support"
                 >
                   {impersonatingId === (s.id || s._id) ? <span className="spinner" /> : '👤 View as'}
+                </button>
+                <button
+                  className="btn btn-sm"
+                  style={{ fontSize: 11 }}
+                  onClick={() => { setEmailModal({ id: s.id || s._id, email: s.email }); setEmailForm({ subject: '', body: '' }); setEmailMsg(''); }}
+                  title="Send email to this user"
+                >
+                  ✉️ Email
                 </button>
                 {s.subscription_status !== 'active' ? (
                   <button className="btn btn-sm" style={{ fontSize: 11 }}
@@ -560,6 +674,14 @@ export default function AdminPage() {
                     Revoke
                   </button>
                 )}
+                <button
+                  className="btn btn-sm btn-danger"
+                  style={{ fontSize: 11 }}
+                  onClick={() => setConfirmDeleteId(s.id || s._id)}
+                  title="Permanently delete this user"
+                >
+                  🗑️
+                </button>
               </div>
             </div>
           ))

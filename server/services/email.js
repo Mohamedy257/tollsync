@@ -43,6 +43,34 @@ async function sendPasswordReset(to, token) {
   });
 }
 
+async function sendVerificationEmail(to, token, name) {
+  const transport = createTransport();
+  const firstName = (name || to).split(' ')[0];
+  const link = `${APP_URL()}/verify-email?token=${token}`;
+  await transport.sendMail({
+    from: `TollSync <${FROM()}>`,
+    to,
+    subject: 'Verify your TollSync email ⚡',
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+        <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+          <h2 style="margin:0 0 8px;font-size:22px;color:#1a1a1a">⚡ Welcome to TollSync, ${firstName}!</h2>
+          <p style="color:#555;font-size:14px;margin:0 0 24px;line-height:1.6">
+            You're almost ready. Click the button below to verify your email address and activate your account.
+          </p>
+          <a href="${link}" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+            Verify my email →
+          </a>
+          <p style="color:#aaa;font-size:12px;margin-top:24px">
+            This link expires in 24 hours. If you didn't create a TollSync account, you can safely ignore this email.
+          </p>
+          <p style="color:#ccc;font-size:11px;margin-top:8px">Or copy this link: ${link}</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
 async function sendWelcome(to, name) {
   const transport = createTransport();
   const firstName = (name || to).split(' ')[0];
@@ -94,4 +122,25 @@ async function sendWelcome(to, name) {
   });
 }
 
-module.exports = { sendPasswordReset, sendWelcome };
+async function sendCustom(to, subject, body) {
+  const transport = createTransport();
+  // Convert plain-text line breaks to <br> for HTML rendering
+  const htmlBody = body.replace(/\n/g, '<br>');
+  await transport.sendMail({
+    from: `TollSync <${FROM()}>`,
+    to,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+        <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+          <h2 style="margin:0 0 20px;font-size:18px;color:#1a1a1a">⚡ TollSync</h2>
+          <div style="font-size:14px;color:#333;line-height:1.7">${htmlBody}</div>
+          <p style="color:#aaa;font-size:12px;margin-top:28px">— The TollSync team</p>
+        </div>
+      </div>
+    `,
+    text: body,
+  });
+}
+
+module.exports = { sendPasswordReset, sendWelcome, sendVerificationEmail, sendCustom };

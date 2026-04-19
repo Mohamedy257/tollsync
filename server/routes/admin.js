@@ -4,6 +4,14 @@ const auth = require('../middleware/auth');
 const Host = require('../models/Host');
 const PlanConfig = require('../models/PlanConfig');
 const ContactMessage = require('../models/ContactMessage');
+const Vehicle = require('../models/Vehicle');
+const Trip = require('../models/Trip');
+const TollTransaction = require('../models/TollTransaction');
+const TripResult = require('../models/TripResult');
+const GmailToken = require('../models/GmailToken');
+const GmailConfig = require('../models/GmailConfig');
+const EzpassReportRange = require('../models/EzpassReportRange');
+const { sendCustom } = require('../services/email');
 
 const router = express.Router();
 router.use(auth);
@@ -263,6 +271,50 @@ router.post('/impersonate/:hostId', requireAdmin, async (req, res) => {
     );
     res.json({ token, host: { id: target.id, email: target.email, name: target.name } });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/users/:hostId — permanently delete a user and all their data
+router.delete('/users/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const { hostId } = req.params;
+    const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+    const target = await Host.findById(hostId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (target.email === adminEmail) return res.status(403).json({ error: 'Cannot delete admin account' });
+
+    await Promise.all([
+      Vehicle.deleteMany({ host_id: hostId }),
+      Trip.deleteMany({ host_id: hostId }),
+      TollTransaction.deleteMany({ host_id: hostId }),
+      TripResult.deleteMany({ host_id: hostId }),
+      GmailToken.deleteMany({ host_id: hostId }),
+      GmailConfig.deleteMany({ host_id: hostId }),
+      EzpassReportRange.deleteMany({ host_id: hostId }),
+    ]);
+    await Host.findByIdAndDelete(hostId);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete user error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/email/:hostId — send a custom email to a user
+router.post('/email/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const { subject, body } = req.body;
+    if (!subject || !body) return res.status(400).json({ error: 'Subject and body are required' });
+
+    const target = await Host.findById(req.params.hostId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    await sendCustom(target.email, subject, body);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Send email error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
