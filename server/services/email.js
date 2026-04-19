@@ -1,17 +1,30 @@
 const nodemailer = require('nodemailer');
 
 function createTransport() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || '587', 10);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
-  if (!host || !user || !pass) {
-    throw new Error('Email not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.');
+  if (!user || !pass) {
+    throw new Error('Email not configured. Set SMTP_USER and SMTP_PASS environment variables.');
   }
 
+  const smtpHost = process.env.SMTP_HOST;
+
+  // Auto-detect Gmail — no SMTP_HOST needed for @gmail.com accounts
+  if (!smtpHost && user.toLowerCase().includes('@gmail.com')) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+  }
+
+  if (!smtpHost) {
+    throw new Error('Email not configured. Set SMTP_HOST (or use a @gmail.com SMTP_USER for auto-detection).');
+  }
+
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
   return nodemailer.createTransport({
-    host,
+    host: smtpHost,
     port,
     secure: port === 465,
     auth: { user, pass },
