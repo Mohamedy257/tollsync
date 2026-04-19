@@ -55,7 +55,7 @@ export default function LoginPage() {
     api.get('/auth/oauth-providers').then(r => setOauthProviders(r.data)).catch(() => {});
   }, []); // eslint-disable-line
 
-  const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+  const apiBase = '/api';
 
   const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
