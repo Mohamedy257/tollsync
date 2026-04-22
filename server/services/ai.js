@@ -267,26 +267,4 @@ ${text.slice(0, 12000)}`;
   return JSON.parse(clean.slice(start, end + 1));
 }
 
-// Takes an array of { id, location } objects, returns a map of id → reformatted location
-async function reformatLocations(items) {
-  if (!items.length) return {};
-  const prompt = `Reformat each toll transaction location as "Agency - Entry Plaza - Exit Plaza".
-Omit any part not identifiable. Use " - " as separator.
-Return ONLY a raw JSON object mapping each id to the reformatted location string.
-Input: ${JSON.stringify(items)}`;
-
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const raw = response.content.map(b => b.text || '').join('');
-  const clean = raw.replace(/```json|```/g, '').trim();
-  const start = clean.indexOf('{');
-  const end = clean.lastIndexOf('}');
-  if (start === -1 || end === -1) return {};
-  return JSON.parse(clean.slice(start, end + 1));
-}
-
-module.exports = { parseFileWithAI, parseFileAutoDetect, parseMultipleImagesAutoDetect, matchTollsToTrips, parseTextAsTrips, reformatLocations };
+module.exports = { parseFileWithAI, parseFileAutoDetect, parseMultipleImagesAutoDetect, matchTollsToTrips, parseTextAsTrips };

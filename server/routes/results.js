@@ -5,7 +5,7 @@ const TollTransaction = require('../models/TollTransaction');
 const TripResult = require('../models/TripResult');
 const EzpassReportRange = require('../models/EzpassReportRange');
 const Vehicle = require('../models/Vehicle');
-const { matchTollsToTrips, reformatLocations } = require('../services/ai');
+const { matchTollsToTrips } = require('../services/ai');
 
 const router = express.Router();
 router.use(auth);
@@ -41,28 +41,6 @@ router.post('/calculate', async (req, res) => {
       location: t.location,
       amount: parseFloat(t.amount),
     }));
-
-    // Reformat existing location strings to "Agency - Entry Plaza - Exit Plaza"
-    try {
-      const toReformat = tolls
-        .filter(t => t.location)
-        .map(t => ({ id: t.id, location: t.location }));
-      if (toReformat.length) {
-        const reformatted = await reformatLocations(toReformat);
-        const bulkOps = Object.entries(reformatted)
-          .filter(([, loc]) => loc)
-          .map(([id, location]) => ({
-            updateOne: { filter: { _id: id }, update: { $set: { location } } },
-          }));
-        if (bulkOps.length) await TollTransaction.bulkWrite(bulkOps);
-        // Update in-memory tollsMapped too
-        for (const tm of tollsMapped) {
-          if (reformatted[tm.toll_db_id]) tm.location = reformatted[tm.toll_db_id];
-        }
-      }
-    } catch (e) {
-      console.warn('Location reformat failed (non-fatal):', e.message);
-    }
 
     const matched = matchTollsToTrips(vehiclesMapped, tripsMapped, tollsMapped);
 
