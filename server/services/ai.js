@@ -8,7 +8,7 @@ Each object must have:
 - transponder_id (string)
 - entry_datetime (ISO 8601 from "Entry Date and Time" column, null if not present)
 - exit_datetime (ISO 8601 from "Exit Date and Time" column, null if not present)
-- location (string — format as "Agency - Entry Plaza - Exit Plaza" using any available location info in the row such as agency code, plaza code, facility name, or toll road name; omit only parts that are truly absent; never return empty string — use at least the agency or facility name if anything is available)
+- location (string — format as "Agency - Entry Plaza - Exit Plaza", omit any part that is not available, use " - " as separator)
 - amount (positive number in dollars, strip any minus sign)
 Exclude credit card payments, replenishments, and non-toll rows.`;
 
@@ -160,7 +160,7 @@ Rules:
 - For trips: "plate" is the license plate number that is explicitly written as text in the screenshot (e.g. "ABC1234"), or null if not found as text.
 - For trips: "vehicle" is the make/model/year string ONLY if it is explicitly written as text (e.g. "Nissan Altima 2020"). Do NOT visually identify the vehicle from photos or images of cars — if the vehicle name is not written as readable text, return null.
 - For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if not present). amount must be positive, strip minus signs. Exclude credit card payments and replenishments.
-- For ezpass: location must be formatted as "Agency - Entry Plaza - Exit Plaza" using any available location info (agency code, plaza code, facility name, toll road name); never return empty — use at least the agency or facility name if anything is present.
+- For ezpass: location must be formatted as "Agency - Entry Plaza - Exit Plaza", omitting any part not available, using " - " as separator.
 - For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
 }
 
