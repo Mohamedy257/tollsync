@@ -515,6 +515,7 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           });
           if (alreadyExists) continue;
 
+          console.log('TOLL LOCATION DEBUG:', JSON.stringify({ transponder, location: toll.location, amount }));
           const record = await TollTransaction.create({
             host_id: req.hostId,
             transponder_id: transponder,
