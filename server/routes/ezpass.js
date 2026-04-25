@@ -57,12 +57,21 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
       const inserted = [];
       for (const toll of parsed) {
         if ((!toll.entry_datetime && !toll.exit_datetime) || !toll.amount) continue;
+        const agency = sanitizeLocation(toll.agency);
+        const entryPlaza = sanitizeLocation(toll.entry_plaza);
+        const exitPlaza = sanitizeLocation(toll.exit_plaza);
+        const plazaFacility = sanitizeLocation(toll.plaza_facility);
+        const location = [agency, entryPlaza, exitPlaza, plazaFacility].filter(Boolean).join(' - ') || null;
         const record = await TollTransaction.create({
           host_id: req.hostId,
           transponder_id: toll.transponder_id,
           entry_datetime: toll.entry_datetime || null,
           exit_datetime: toll.exit_datetime || null,
-          location: sanitizeLocation(toll.location),
+          agency,
+          entry_plaza: entryPlaza,
+          exit_plaza: exitPlaza,
+          plaza_facility: plazaFacility,
+          location,
           amount: Math.abs(parseFloat(toll.amount)),
           source_file: file.originalname,
         });

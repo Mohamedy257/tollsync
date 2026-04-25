@@ -51,11 +51,14 @@ function fmtDt(iso) {
 const cleanLocation = v => (v && v !== '_' && v !== '-' && v.trim()) ? v.trim() : null;
 
 const COLS = [
-  { key: 'transponder_id', label: 'Transponder ID', mono: true },
-  { key: 'entry_datetime', label: 'Entry Date & Time', fmt: fmtDt },
-  { key: 'exit_datetime',  label: 'Exit Date & Time',  fmt: fmtDt },
-  { key: 'location',       label: 'Location', fmt: v => cleanLocation(v) || '—' },
-  { key: 'amount',         label: 'Amount', right: true, fmt: v => `$${parseFloat(v).toFixed(2)}` },
+  { key: 'transponder_id',  label: 'Transponder / Plate', mono: true },
+  { key: 'agency',          label: 'Agency',         fmt: v => v || '—' },
+  { key: 'entry_plaza',     label: 'Entry Plaza',    fmt: v => v || '—' },
+  { key: 'exit_plaza',      label: 'Exit Plaza',     fmt: v => v || '—' },
+  { key: 'plaza_facility',  label: 'Plaza Facility', fmt: v => v || '—' },
+  { key: 'entry_datetime',  label: 'Entry Date & Time', fmt: fmtDt },
+  { key: 'exit_datetime',   label: 'Exit Date & Time',  fmt: fmtDt },
+  { key: 'amount',          label: 'Amount', right: true, fmt: v => `$${parseFloat(v).toFixed(2)}` },
 ];
 
 export default function EzPassPage() {
@@ -301,7 +304,9 @@ export default function EzPassPage() {
                   ref={isHighlighted ? highlightRef : null}
                   style={{ marginBottom: 8, padding: '12px 14px', transition: 'background 0.4s', background: isHighlighted ? '#e8f0fb' : undefined }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>{cleanLocation(t.location) || '—'}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>
+                      {[t.agency, t.entry_plaza, t.exit_plaza, t.plaza_facility].filter(Boolean).join(' · ') || '—'}
+                    </span>
                     <span style={{ fontWeight: 700, fontSize: 16, color: '#185fa5', flexShrink: 0 }}>${parseFloat(t.amount).toFixed(2)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#666', marginBottom: 3 }}>
@@ -373,7 +378,7 @@ export default function EzPassPage() {
                   </tbody>
                   <tfoot>
                     <tr style={{ background: '#f8f7f4', borderTop: '1px solid #e5e3de' }}>
-                      <td colSpan={4} style={{ padding: '8px 14px', fontSize: 12, color: '#888' }}>
+                      <td colSpan={8} style={{ padding: '8px 14px', fontSize: 12, color: '#888' }}>
                         {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo || filterTransponders.length) ? ' (filtered)' : ''}
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, color: '#185fa5' }}>

@@ -523,12 +523,21 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           });
           if (alreadyExists) continue;
 
+          const agency = sanitizeLocation(toll.agency);
+          const entryPlaza = sanitizeLocation(toll.entry_plaza);
+          const exitPlaza = sanitizeLocation(toll.exit_plaza);
+          const plazaFacility = sanitizeLocation(toll.plaza_facility);
+          const location = [agency, entryPlaza, exitPlaza, plazaFacility].filter(Boolean).join(' - ') || null;
           const record = await TollTransaction.create({
             host_id: req.hostId,
             transponder_id: transponder,
             entry_datetime: entryDt,
             exit_datetime: exitDt,
-            location: sanitizeLocation(toll.location),
+            agency,
+            entry_plaza: entryPlaza,
+            exit_plaza: exitPlaza,
+            plaza_facility: plazaFacility,
+            location,
             amount,
             source_file: file.originalname,
           });

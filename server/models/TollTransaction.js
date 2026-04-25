@@ -5,6 +5,10 @@ const schema = new mongoose.Schema({
   entry_datetime: { type: String, default: null },
   exit_datetime: { type: String, default: null },
   location: { type: String, default: null },
+  agency: { type: String, default: null },
+  entry_plaza: { type: String, default: null },
+  exit_plaza: { type: String, default: null },
+  plaza_facility: { type: String, default: null },
   amount: { type: Number, required: true },
   source_file: { type: String, default: null },
 }, { timestamps: true });
