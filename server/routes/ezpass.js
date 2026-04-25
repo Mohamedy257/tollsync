@@ -14,6 +14,15 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 });
 
+// Treat placeholder values from EZ-Pass files as no location
+const PLACEHOLDER = /^[-_\s.]+$|^n\/?a$/i;
+function sanitizeLocation(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || PLACEHOLDER.test(trimmed)) return null;
+  return trimmed;
+}
+
 function resolveMimeType(file) {
   const name = (file.originalname || '').toLowerCase();
   if (name.endsWith('.pdf')) return 'application/pdf';
@@ -53,7 +62,7 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
           transponder_id: toll.transponder_id,
           entry_datetime: toll.entry_datetime || null,
           exit_datetime: toll.exit_datetime || null,
-          location: toll.location,
+          location: sanitizeLocation(toll.location),
           amount: Math.abs(parseFloat(toll.amount)),
           source_file: file.originalname,
         });
@@ -66,6 +75,19 @@ router.post('/upload', upload.array('files', 20), async (req, res) => {
     }
   }
   res.json({ results });
+});
+
+// POST /api/ezpass/fix-locations — one-time cleanup: null out placeholder location values
+router.post('/fix-locations', async (req, res) => {
+  try {
+    const result = await TollTransaction.updateMany(
+      { host_id: req.hostId, location: { $in: ['_', '-', 'N/A', 'n/a', '', null] } },
+      { $set: { location: null } }
+    );
+    res.json({ fixed: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE /api/ezpass/file/:filename — delete all records from a specific source file

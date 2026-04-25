@@ -48,7 +48,7 @@ async function parseFileWithAI(fileBuffer, mimeType, type) {
     ];
   } else {
     // CSV and any other text-based format
-    const text = fileData.toString('utf-8');
+    const text = fileBuffer.toString('utf-8');
     content = `${prompt}\n\nFile content:\n${text.slice(0, 12000)}`;
   }
 
@@ -182,7 +182,7 @@ async function parseFileAutoDetect(fileBuffer, mimeType) {
     ];
   } else {
     // CSV and any other text-based format
-    const text = fileData.toString('utf-8');
+    const text = fileBuffer.toString('utf-8');
     content = `${prompt}\n\nFile content:\n${text.slice(0, 12000)}`;
   }
 

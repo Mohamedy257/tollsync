@@ -47,11 +47,13 @@ function fmtDt(iso) {
   } catch { return iso; }
 }
 
+const cleanLocation = v => (v && v !== '_' && v !== '-' && v.trim()) ? v.trim() : null;
+
 const COLS = [
   { key: 'transponder_id', label: 'Transponder ID', mono: true },
   { key: 'entry_datetime', label: 'Entry Date & Time', fmt: fmtDt },
   { key: 'exit_datetime',  label: 'Exit Date & Time',  fmt: fmtDt },
-  { key: 'location',       label: 'Location' },
+  { key: 'location',       label: 'Location', fmt: v => cleanLocation(v) || '—' },
   { key: 'amount',         label: 'Amount', right: true, fmt: v => `$${parseFloat(v).toFixed(2)}` },
 ];
 
@@ -80,6 +82,8 @@ export default function EzPassPage() {
   const load = async () => {
     setLoading(true);
     try {
+      // Fix any existing placeholder locations silently before loading
+      await api.post('/ezpass/fix-locations').catch(() => {});
       const res = await api.get('/ezpass');
       setTolls(res.data.tolls);
     } catch { setError('Failed to load toll records'); }
@@ -283,7 +287,7 @@ export default function EzPassPage() {
               {sorted.map((t) => (
                 <div key={t._id || t.id} className="card" style={{ marginBottom: 8, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>{t.location || '—'}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>{cleanLocation(t.location) || '—'}</span>
                     <span style={{ fontWeight: 700, fontSize: 16, color: '#185fa5', flexShrink: 0 }}>${parseFloat(t.amount).toFixed(2)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#666', marginBottom: 3 }}>
