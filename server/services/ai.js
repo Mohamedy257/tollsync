@@ -2,18 +2,19 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const EZPASS_PROMPT = `Extract all EZ-Pass toll transactions from this file.
+const EZPASS_PROMPT = `Extract all EZ-Pass toll transactions from this document.
 Return ONLY a raw JSON array, no markdown, no explanation.
-Each object must have:
-- transponder_id (string)
-- entry_datetime (ISO 8601 from any entry date/time column, null if not present)
-- exit_datetime (ISO 8601 from any exit date/time column, null if not present)
-- agency (string from Agency column, null if not present)
-- entry_plaza (string from Entry Plaza column, null if not present)
-- exit_plaza (string from Exit Plaza column, null if not present)
-- plaza_facility (string from Plaza Facility column, null if not present)
-- amount (positive number in dollars, strip any minus sign)
-Exclude credit card payments, replenishments, and non-toll rows.`;
+The document has columns including: Transponder/Plate, Agency, Entry Plaza, Exit Plaza, Entry Date and Time, Exit Date and Time, Plaza Facility, Amount.
+Each object must have exactly these fields:
+- transponder_id: the value in the Transponder or Transponder/Plate column (string)
+- entry_datetime: ISO 8601 from Entry Date and Time column, null if the cell is blank
+- exit_datetime: ISO 8601 from Exit Date and Time column, null if the cell is blank
+- agency: the short agency code in the Agency column (e.g. "MdTA", "VDOT", "NJTP", "GSP"), null if blank
+- entry_plaza: the code or name in the Entry Plaza column, null if blank
+- exit_plaza: the code or name in the Exit Plaza column, null if blank
+- plaza_facility: the text in the Plaza Facility column (e.g. "I66 OUTSIDE BELTWAY", "495 EXPRESS LANES"), null if blank
+- amount: positive dollar amount, strip any minus sign
+Exclude rows where Transaction contains "CREDIT CARD PAYMENT" or "REPLENISHMENT".`;
 
 function getTripsPrompt() {
   const now = new Date();
@@ -155,15 +156,15 @@ If it is a car rental trip receipt/reservation/screenshot (shows renter name, ve
 Return: { "type": "trips", "data": [ { "renter_name", "vehicle", "plate", "start_datetime", "end_datetime", "trip_id" } ] }
 
 If it is an EZ-Pass toll statement/transaction history (shows toll transactions, transponder IDs, amounts):
-Return: { "type": "ezpass", "report_from": "<ISO 8601 date or null>", "report_to": "<ISO 8601 date or null>", "data": [ { "transponder_id", "entry_datetime", "exit_datetime", "agency", "entry_plaza", "exit_plaza", "plaza_facility", "amount" } ] }
+Return: { "type": "ezpass", "report_from": "<ISO 8601 date or null>", "report_to": "<ISO 8601 date or null>", "data": [ { "transponder_id": "...", "entry_datetime": "...", "exit_datetime": "...", "agency": "...", "entry_plaza": "...", "exit_plaza": "...", "plaza_facility": "...", "amount": 0.00 } ] }
 
 Rules:
 - Return ONLY raw JSON, no markdown, no explanation.
 - For trips: Today is ${year}-${String(month).padStart(2,'0')}. Use year ${year} for all dates if the year is not shown. Never use an older year like 2020.
 - For trips: "plate" is the license plate number that is explicitly written as text in the screenshot (e.g. "ABC1234"), or null if not found as text.
 - For trips: "vehicle" is the make/model/year string ONLY if it is explicitly written as text (e.g. "Nissan Altima 2020"). Do NOT visually identify the vehicle from photos or images of cars — if the vehicle name is not written as readable text, return null.
-- For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if not present). amount must be positive, strip minus signs. Exclude credit card payments and replenishments.
-- For ezpass: agency is the Agency column value, entry_plaza is Entry Plaza, exit_plaza is Exit Plaza, plaza_facility is Plaza Facility. Return null for any column that is blank.
+- For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if blank). amount must be positive, strip minus signs. Exclude CREDIT CARD PAYMENT and REPLENISHMENT rows.
+- For ezpass: agency = the short code in the Agency column (e.g. "MdTA", "VDOT", "NJTP"). entry_plaza = Entry Plaza column value. exit_plaza = Exit Plaza column value. plaza_facility = Plaza Facility column text (e.g. "I66 OUTSIDE BELTWAY"). Return null for any field whose cell is blank.
 - For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
 }
 
