@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 
 function MultiSelect({ label, icon, options, selected, setSelected, open, setOpen }) {
@@ -58,6 +59,9 @@ const COLS = [
 ];
 
 export default function EzPassPage() {
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
+  const highlightRef = useRef(null);
   const [tolls, setTolls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,6 +82,12 @@ export default function EzPassPage() {
   }, []);
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [loading, highlightId]);
 
   const load = async () => {
     setLoading(true);
@@ -284,8 +294,12 @@ export default function EzPassPage() {
           {isMobile ? (
             /* Mobile: card per record */
             <div>
-              {sorted.map((t) => (
-                <div key={t._id || t.id} className="card" style={{ marginBottom: 8, padding: '12px 14px' }}>
+              {sorted.map((t) => {
+                const isHighlighted = highlightId && (t._id || t.id) === highlightId;
+                return (
+                <div key={t._id || t.id} className="card"
+                  ref={isHighlighted ? highlightRef : null}
+                  style={{ marginBottom: 8, padding: '12px 14px', transition: 'background 0.4s', background: isHighlighted ? '#e8f0fb' : undefined }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontWeight: 600, fontSize: 14, color: '#1a1a1a', flex: 1 }}>{cleanLocation(t.location) || '—'}</span>
                     <span style={{ fontWeight: 700, fontSize: 16, color: '#185fa5', flexShrink: 0 }}>${parseFloat(t.amount).toFixed(2)}</span>
@@ -301,7 +315,8 @@ export default function EzPassPage() {
                       onClick={() => removeToll(t._id || t.id)}>✕</button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               <div style={{ fontSize: 12, color: '#888', textAlign: 'right', marginTop: 8 }}>
                 {filtered.length} record{filtered.length !== 1 ? 's' : ''}{(search || filterDateFrom || filterDateTo || filterTransponders.length) ? ' (filtered)' : ''} · Total <strong style={{ color: '#185fa5' }}>${total.toFixed(2)}</strong>
               </div>
@@ -327,8 +342,12 @@ export default function EzPassPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sorted.map((t, i) => (
-                      <tr key={t._id || t.id} style={{ borderBottom: i < sorted.length - 1 ? '0.5px solid #f0ede8' : 'none' }}>
+                    {sorted.map((t, i) => {
+                      const isHighlighted = highlightId && (t._id || t.id) === highlightId;
+                      return (
+                      <tr key={t._id || t.id}
+                        ref={isHighlighted ? highlightRef : null}
+                        style={{ borderBottom: i < sorted.length - 1 ? '0.5px solid #f0ede8' : 'none', background: isHighlighted ? '#e8f0fb' : undefined, transition: 'background 0.4s' }}>
                         {COLS.map(c => {
                           const raw = t[c.key];
                           const val = c.fmt ? c.fmt(raw) : (raw || '—');
@@ -349,7 +368,8 @@ export default function EzPassPage() {
                             onClick={() => removeToll(t._id || t.id)}>✕</button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr style={{ background: '#f8f7f4', borderTop: '1px solid #e5e3de' }}>

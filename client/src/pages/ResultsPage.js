@@ -159,7 +159,10 @@ export default function ResultsPage() {
                   {expandedTrips[t.trip_db_id || t.id] && t.toll_items && (
                     <div style={{ borderTop: '0.5px solid #f0ede8', marginTop: 10, paddingTop: 8 }}>
                       {t.toll_items.map((ti, i) => (
-                        <div className="toll-line" key={i}>
+                        <div className="toll-line" key={i}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => navigate(`/ezpass?highlight=${ti.toll_db_id}`)}
+                        >
                           <span>{(ti.location && ti.location !== '_') ? ti.location : 'Toll plaza'}</span>
                           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                             <span style={{ fontSize: 11, color: '#bbb' }}>{fmtDt(ti.exit_datetime || ti.entry_datetime)}</span>
