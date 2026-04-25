@@ -11,6 +11,14 @@ const { parseFileAutoDetect, parseMultipleImagesAutoDetect } = require('../servi
 const router = express.Router();
 router.use(auth);
 
+const PLACEHOLDER = /^[-_\s.]+$|^n\/?a$/i;
+function sanitizeLocation(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || PLACEHOLDER.test(trimmed)) return null;
+  return trimmed;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
@@ -515,13 +523,12 @@ router.post('/auto', upload.array('files', 20), async (req, res) => {
           });
           if (alreadyExists) continue;
 
-          console.log('TOLL LOCATION DEBUG:', JSON.stringify({ transponder, location: toll.location, amount }));
           const record = await TollTransaction.create({
             host_id: req.hostId,
             transponder_id: transponder,
             entry_datetime: entryDt,
             exit_datetime: exitDt,
-            location: toll.location,
+            location: sanitizeLocation(toll.location),
             amount,
             source_file: file.originalname,
           });
