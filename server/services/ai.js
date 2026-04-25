@@ -6,9 +6,9 @@ const EZPASS_PROMPT = `Extract all EZ-Pass toll transactions from this file.
 Return ONLY a raw JSON array, no markdown, no explanation.
 Each object must have:
 - transponder_id (string)
-- entry_datetime (ISO 8601 from "Entry Date and Time" column, null if not present)
-- exit_datetime (ISO 8601 from "Exit Date and Time" column, null if not present)
-- location (string — build from available columns in this order: Agency, Entry Plaza, Exit Plaza, Plaza Facility; join non-empty values with " - "; e.g. "MdTA - 522" or "MdTA - FMT" or "MdTA - 522 - FMT")
+- entry_datetime (ISO 8601 from any entry date/time column, null if not present)
+- exit_datetime (ISO 8601 from any exit date/time column, null if not present)
+- location (string — extract from ANY location-related columns available: Agency, Plaza, Location, Description, Entry Plaza, Exit Plaza, Plaza Facility, Facility, Lane, Toll Point, or any other column that identifies where the toll occurred; join multiple non-empty values with " - "; NEVER return null, "_", or empty — always return the best available location text)
 - amount (positive number in dollars, strip any minus sign)
 Exclude credit card payments, replenishments, and non-toll rows.`;
 
@@ -160,7 +160,7 @@ Rules:
 - For trips: "plate" is the license plate number that is explicitly written as text in the screenshot (e.g. "ABC1234"), or null if not found as text.
 - For trips: "vehicle" is the make/model/year string ONLY if it is explicitly written as text (e.g. "Nissan Altima 2020"). Do NOT visually identify the vehicle from photos or images of cars — if the vehicle name is not written as readable text, return null.
 - For ezpass: entry_datetime and exit_datetime must be ISO 8601 (null if not present). amount must be positive, strip minus signs. Exclude credit card payments and replenishments.
-- For ezpass: location must be built from Agency, Entry Plaza, Exit Plaza, and Plaza Facility columns — join whichever are non-empty with " - " (e.g. "MdTA - 522", "MdTA - FMT", "MdTA - 522 - FMT").
+- For ezpass: location must be extracted from ANY available location columns — Agency, Plaza, Location, Description, Entry Plaza, Exit Plaza, Plaza Facility, Facility, Lane, Toll Point, or any other location-identifying column; join non-empty values with " - "; NEVER return null, "_", or empty — always use the best available location text.
 - For ezpass: "report_from" and "report_to" are the statement's date range (e.g. "From: 3/2/2026 To: 4/1/2026" → report_from: "2026-03-02", report_to: "2026-04-01"). Use null if not found.`;
 }
 

@@ -160,7 +160,7 @@ export default function ResultsPage() {
                     <div style={{ borderTop: '0.5px solid #f0ede8', marginTop: 10, paddingTop: 8 }}>
                       {t.toll_items.map((ti, i) => (
                         <div className="toll-line" key={i}>
-                          <span>{ti.location || 'Toll plaza'}</span>
+                          <span>{(ti.location && ti.location !== '_') ? ti.location : 'Toll plaza'}</span>
                           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                             <span style={{ fontSize: 11, color: '#bbb' }}>{fmtDt(ti.exit_datetime || ti.entry_datetime)}</span>
                             <span style={{ fontWeight: 600, minWidth: 52, textAlign: 'right' }}>${parseFloat(ti.amount).toFixed(2)}</span>
