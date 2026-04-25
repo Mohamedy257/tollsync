@@ -26,8 +26,13 @@ function resolveMimeType(file) {
 
 // GET /api/ezpass
 router.get('/', async (req, res) => {
-  const tolls = await TollTransaction.find({ host_id: req.hostId }).sort({ exit_datetime: -1 });
-  res.json({ tolls });
+  try {
+    const tolls = await TollTransaction.find({ host_id: req.hostId }).sort({ exit_datetime: -1 });
+    res.json({ tolls });
+  } catch (err) {
+    console.error('EZPass fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to load toll records' });
+  }
 });
 
 // POST /api/ezpass/upload
