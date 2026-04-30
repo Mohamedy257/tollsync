@@ -322,6 +322,7 @@ export default function CalculatorPage() {
     return { trips: tr, tolls: tl, vehicles: veh };
   }, []);
 
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // Poll for background upload job completion
