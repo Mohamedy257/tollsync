@@ -24,6 +24,7 @@ function fmtDate(iso) {
 function TripCard({ t, reportRange, vehicles }) {
   const gridRef = useRef();
   const [exporting, setExporting] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [expanded, setExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
@@ -41,32 +42,23 @@ function TripCard({ t, reportRange, vehicles }) {
 
     try {
       const canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
-
-      // Try Web Share API first (iOS/Android native share sheet with "Save Image")
-      if (navigator.share && navigator.canShare) {
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], filename, { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Toll Charges' });
-          return;
-        }
-      }
-
-      // Desktop: trigger download link
       const dataUrl = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
 
-      // Mobile fallback: open image in new tab so user can long-press to save
-      if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-        window.open(dataUrl, '_blank');
+      // Desktop: trigger download
+      if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
       }
+
+      // Mobile: show image in overlay — user long-presses to save
+      setPreviewUrl(dataUrl);
     } catch (err) {
-      if (err.name !== 'AbortError') console.error('Export failed:', err);
+      console.error('Export failed:', err);
     } finally { setExporting(false); }
   };
 
@@ -90,6 +82,31 @@ function TripCard({ t, reportRange, vehicles }) {
 
   return (
     <div className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
+      {/* Mobile image preview overlay */}
+      {previewUrl && (
+        <div
+          onClick={() => setPreviewUrl(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <p style={{ color: '#fff', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+            Long-press the image below to save it
+          </p>
+          <img src={previewUrl} alt="Toll charges" style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 8 }} />
+          <button
+            onClick={() => setPreviewUrl(null)}
+            style={{ marginTop: 16, background: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 600, fontSize: 15 }}
+          >
+            Close
+          </button>
+        </div>
+      )}
+
       {coverageWarning && (
         <div style={{ background: '#faeeda', color: '#854f0b', fontSize: 12, padding: '6px 14px' }}>
           ⚠️ {coverageWarning}
