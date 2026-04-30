@@ -42,7 +42,7 @@ function TripCard({ t, reportRange, vehicles }) {
     try {
       const canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
 
-      // Try Web Share API first (iOS/Android "Save Image" / share sheet)
+      // Try Web Share API first (iOS/Android native share sheet with "Save Image")
       if (navigator.share && navigator.canShare) {
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         const file = new File([blob], filename, { type: 'image/png' });
@@ -52,13 +52,21 @@ function TripCard({ t, reportRange, vehicles }) {
         }
       }
 
-      // Desktop fallback: trigger download
+      // Desktop: trigger download link
+      const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
+      a.href = dataUrl;
       a.download = filename;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+
+      // Mobile fallback: open image in new tab so user can long-press to save
+      if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        window.open(dataUrl, '_blank');
+      }
     } catch (err) {
-      // User cancelled share — not an error
+      if (err.name !== 'AbortError') console.error('Export failed:', err);
     } finally { setExporting(false); }
   };
 
