@@ -327,6 +327,11 @@ export default function CalculatorPage() {
   // Poll for background upload job completion
   const startPolling = useCallback((jobId) => {
     if (pollRef.current) clearInterval(pollRef.current);
+    // Keep progress bar slowly crawling while AI processes on the server
+    clearInterval(progressTimerRef.current);
+    progressTimerRef.current = setInterval(() => {
+      setUploadProgress(p => p >= 90 ? 90 : p + (90 - p) * 0.03);
+    }, 500);
     pollRef.current = setInterval(async () => {
       try {
         const res = await api.get(`/upload/status/${jobId}`);
@@ -432,8 +437,9 @@ export default function CalculatorPage() {
       const { jobId } = res.data;
       // Persist jobId so we can resume if the user navigates away
       localStorage.setItem('upload_pending_job', JSON.stringify({ jobId, fileCount: files.length }));
-      // Stop fake progress and let polling drive the rest
+      // File is on the server — jump to 40% and let polling crawl the rest
       clearInterval(progressTimerRef.current);
+      setUploadProgress(40);
       startPolling(jobId);
     } catch (err) {
       clearInterval(progressTimerRef.current);
