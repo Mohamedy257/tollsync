@@ -157,6 +157,9 @@ async function parseEzpassPDF(buffer) {
       if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
       return m[0];
     }
+    // Agency code is captured in group 2 of AGENCY_RE (e.g. "MdTA", "VDOT")
+    const agency_val = trMatch[2] || null;
+
     const afterAgency = dataLine.slice(trMatch[0].length);
     const c1 = tryDateAt(afterAgency, 1); // 1-digit month
     const c2 = tryDateAt(afterAgency, 2); // 2-digit month
@@ -172,6 +175,20 @@ async function parseEzpassPDF(buffer) {
       entryDateStr = c1 || c2;
     }
 
+    // Entry plaza: the chars in afterAgency that sit between the agency code and the date.
+    // Example afterAgency: "9512/3/2026" — plaza is "951" (if date = "2/3/2026") or
+    // "95" (if date = "12/3/2026"). We derive the end offset from whichever date was chosen.
+    let entry_plaza_val = null;
+    const slashInAfter = afterAgency.indexOf('/');
+    if (entryDateStr && slashInAfter > 0) {
+      const backOffset = (entryDateStr === c2 && c2 !== c1) ? 2 : 1;
+      const plazaEnd = slashInAfter - backOffset;
+      if (plazaEnd > 0) {
+        const candidate = afterAgency.slice(0, plazaEnd).trim();
+        if (candidate) entry_plaza_val = candidate;
+      }
+    }
+
     // Walk forward from data line to collect time / exit date / exit time / amount
     let j = i + dataOffset + 1;
     const entryTime = isTime(lines[j]) ? lines[j++] : null;
@@ -182,12 +199,15 @@ async function parseEzpassPDF(buffer) {
       if (isTime(lines[j])) exitTime = lines[j++];
     }
 
-    // Skip any plaza facility lines until we hit the amount line
+    // Collect any plaza facility lines that appear between timestamps and the amount line
     const MAX_LOOK = 6;
     let amt = null;
+    const facilityLines = [];
     for (let k = 0; k < MAX_LOOK; k++) {
       amt = amountVal(lines[j]);
       if (amt !== null) { j++; break; }
+      // Lines between time and amount are plaza facility descriptions
+      if (lines[j] && !isDate(lines[j]) && !isTime(lines[j])) facilityLines.push(lines[j]);
       j++;
     }
     if (amt === null) { i++; continue; }
@@ -196,7 +216,18 @@ async function parseEzpassPDF(buffer) {
     const exit_datetime  = toISO(exitDateStr, exitTime);
     if (!entry_datetime && !exit_datetime) { i++; continue; }
 
-    tolls.push({ transponder_id, entry_datetime, exit_datetime, location: '', amount: amt });
+    const plaza_facility_val = facilityLines.length ? facilityLines.join(' ').trim() : null;
+
+    tolls.push({
+      transponder_id,
+      agency: agency_val,
+      entry_plaza: entry_plaza_val,
+      plaza_facility: plaza_facility_val,
+      entry_datetime,
+      exit_datetime,
+      location: '',
+      amount: amt,
+    });
     i = j; // resume after the amount line
   }
 
