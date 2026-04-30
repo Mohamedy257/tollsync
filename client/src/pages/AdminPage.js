@@ -42,6 +42,8 @@ export default function AdminPage() {
   const [impersonatingId, setImpersonatingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDeleteAllTolls, setConfirmDeleteAllTolls] = useState(false);
+  const [deletingAllTolls, setDeletingAllTolls] = useState(false);
   const [emailModal, setEmailModal] = useState(null); // { id, email }
   const [emailForm, setEmailForm] = useState({ subject: '', body: '' });
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -225,6 +227,17 @@ export default function AdminPage() {
     } finally { setDeletingId(null); }
   };
 
+  const deleteAllTolls = async () => {
+    setDeletingAllTolls(true);
+    try {
+      const res = await api.delete('/admin/tolls');
+      setConfirmDeleteAllTolls(false);
+      alert(`Deleted ${res.data.deleted} toll transaction(s).`);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete tolls');
+    } finally { setDeletingAllTolls(false); }
+  };
+
   const sendEmail = async (e) => {
     e.preventDefault();
     setSendingEmail(true); setEmailMsg('');
@@ -242,9 +255,14 @@ export default function AdminPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Admin</h2>
-        <p>Manage plans, pricing, and subscribers.</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h2>Admin</h2>
+          <p>Manage plans, pricing, and subscribers.</p>
+        </div>
+        <button className="btn btn-danger btn-sm" onClick={() => setConfirmDeleteAllTolls(true)}>
+          🗑 Delete all tolls
+        </button>
       </div>
 
       {/* Send Email Modal */}
@@ -291,6 +309,31 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </>
+      )}
+
+      {/* Delete All Tolls Confirmation Modal */}
+      {confirmDeleteAllTolls && (
+        <>
+          <div onClick={() => setConfirmDeleteAllTolls(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 1001, background: '#fff', borderRadius: 16, padding: 28,
+            width: '90%', maxWidth: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 40, margin: '0 0 12px' }}>⚠️</p>
+            <p style={{ fontWeight: 700, fontSize: 16, margin: '0 0 8px' }}>Delete ALL toll transactions?</p>
+            <p style={{ fontSize: 13, color: '#666', margin: '0 0 24px', lineHeight: 1.6 }}>
+              This permanently deletes every toll record across all users. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setConfirmDeleteAllTolls(false)}>Cancel</button>
+              <button className="btn btn-danger" disabled={deletingAllTolls} onClick={deleteAllTolls}>
+                {deletingAllTolls ? <><span className="spinner" /> Deleting...</> : 'Yes, delete all'}
+              </button>
+            </div>
           </div>
         </>
       )}

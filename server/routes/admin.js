@@ -302,6 +302,16 @@ router.delete('/users/:hostId', requireAdmin, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/tolls — wipe all toll transactions across all users
+router.delete('/tolls', requireAdmin, async (req, res) => {
+  try {
+    const result = await TollTransaction.deleteMany({});
+    res.json({ deleted: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/email/:hostId — send a custom email to a user
 router.post('/email/:hostId', requireAdmin, async (req, res) => {
   try {
