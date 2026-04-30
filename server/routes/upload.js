@@ -396,9 +396,11 @@ async function processUploadJob(jobId, files, hostId) {
         if (type === 'trips') {
           // Reject AI-parsed files where trips are missing time (AI defaults to 00:00 when no time visible)
           if (!skipTimeCheck) {
-            const hasTime = dt => dt && /T\d{2}:\d{2}/.test(dt) && !/T00:00(:\d{2})?$/.test(dt);
+            // Reject only if the datetime is completely missing (null/undefined).
+            // Do NOT reject midnight (T00:00) — Turo legitimately uses 12:00 AM for many trips.
+            const hasDatetime = dt => dt && /T\d{2}:\d{2}/.test(dt);
             const missingTime = data.filter(t => t.start_datetime || t.end_datetime)
-              .some(t => !hasTime(t.start_datetime) || !hasTime(t.end_datetime));
+              .some(t => !hasDatetime(t.start_datetime) || !hasDatetime(t.end_datetime));
             if (missingTime) {
               results.push({ file: file.originalname, error: 'Trip times are missing from this screenshot. Please upload a screenshot that shows the exact start and end times for each trip.' });
               continue;
