@@ -202,7 +202,7 @@ export default function ResultsPage() {
                 {results.unmatched_tolls.map((t, i) => (
                   <div className="row-item" key={i}>
                     <div>
-                      <p style={{ fontWeight: 500 }}>{t.location || 'Unknown plaza'}</p>
+                      <p style={{ fontWeight: 500 }}>{(t.location && !/^[-_\s.]+$/.test(t.location.trim())) ? t.location : 'Unknown plaza'}</p>
                       <p style={{ fontSize: 12, color: '#888' }}>Transponder: {t.transponder_id || '—'} &nbsp;·&nbsp; {fmtDt(t.match_datetime)}</p>
                     </div>
                     <span style={{ fontWeight: 600 }}>${parseFloat(t.amount).toFixed(2)}</span>
