@@ -11,6 +11,14 @@ const { parseFileAutoDetect, parseMultipleImagesAutoDetect } = require('../servi
 const router = express.Router();
 router.use(auth);
 
+// In-memory job store — entries expire after 1 hour
+const jobs = new Map();
+let jobSeq = 0;
+setInterval(() => {
+  const cutoff = Date.now() - 3_600_000;
+  for (const [id, job] of jobs) if (job.createdAt < cutoff) jobs.delete(id);
+}, 300_000).unref();
+
 const PLACEHOLDER = /^[-_\s.]+$|^n\/?a$/i;
 function sanitizeLocation(raw) {
   if (!raw || typeof raw !== 'string') return null;
@@ -290,268 +298,292 @@ function parseEarningsCSV(buffer) {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-// POST /api/upload/auto
-router.post('/auto', upload.array('files', 20), async (req, res) => {
+// ── Background job processor ─────────────────────────────────────────────────
+async function processUploadJob(jobId, files, hostId) {
+  const job = jobs.get(jobId);
+  const results = [];
+
+  try {
+    // If ALL uploaded files are images, process them together in one AI call
+    // so multi-page documents (e.g. EZPass spanning several screenshots) share full context.
+    const allImages = files.every(f => f.mimetype.startsWith('image/'));
+
+    let parsed;
+    if (allImages && files.length > 1) {
+      try {
+        const result = await parseMultipleImagesAutoDetect(
+          files.map(f => ({ buffer: f.buffer, mimeType: f.mimetype }))
+        );
+        // Treat the combined result as if it came from the first file
+        parsed = [{ file: files[0], result, error: null }];
+        // Mark remaining files as skipped (data already included in combined result)
+        for (let i = 1; i < files.length; i++) {
+          parsed.push({ file: files[i], result: null, error: null, skip: true });
+        }
+      } catch (err) {
+        parsed = [{ file: files[0], result: null, error: err }];
+        for (let i = 1; i < files.length; i++) {
+          parsed.push({ file: files[i], result: null, error: null, skip: true });
+        }
+      }
+    } else {
+      // Parse all files in parallel — AI calls are independent
+      // CSVs that match the earnings export format are parsed natively (no AI)
+      parsed = await Promise.all(
+        files.map(async file => {
+          // 1. Earnings CSV — native parse, no AI
+          if (file.mimetype === 'text/csv') {
+            const csvResult = parseEarningsCSV(file.buffer);
+            if (csvResult) return { file, result: csvResult, error: null };
+          }
+          // 2. PDF — try native EZPass parser first (avoids AI token limit on large statements)
+          if (file.mimetype === 'application/pdf') {
+            try {
+              const ezpassResult = await parseEzpassPDF(file.buffer);
+              if (ezpassResult) return { file, result: ezpassResult, error: null };
+            } catch (e) { /* fall through to AI */ }
+          }
+          // 3. AI fallback for everything else
+          return parseFileAutoDetect(file.buffer, file.mimetype)
+            .then(result => ({ file, result, error: null }))
+            .catch(err => ({ file, result: null, error: err }));
+        })
+      );
+    }
+
+    // Insert results sequentially to avoid race conditions
+    for (const { file, result, error, skip } of parsed) {
+      if (skip) continue; // already included in combined multi-image result
+      if (error) {
+        console.error('Auto-detect error:', error.message);
+        results.push({ file: file.originalname, error: error.message });
+        continue;
+      }
+      try {
+        const { type, data, skipTimeCheck } = result;
+
+        if (type === 'trips') {
+          // Reject AI-parsed files where trips are missing time (AI defaults to 00:00 when no time visible)
+          if (!skipTimeCheck) {
+            const hasTime = dt => dt && /T\d{2}:\d{2}/.test(dt) && !/T00:00(:\d{2})?$/.test(dt);
+            const missingTime = data.filter(t => t.start_datetime || t.end_datetime)
+              .some(t => !hasTime(t.start_datetime) || !hasTime(t.end_datetime));
+            if (missingTime) {
+              results.push({ file: file.originalname, error: 'Trip times are missing from this screenshot. Please upload a screenshot that shows the exact start and end times for each trip.' });
+              continue;
+            }
+          }
+
+          const inserted = [];
+          for (const trip of data) {
+            if (!trip.start_datetime || !trip.end_datetime) continue;
+
+            const vehicleName = (trip.vehicle || '').trim();
+            const plate = (trip.plate || '').trim().toUpperCase();
+
+            // Deduplicate
+            const alreadyExists = await Trip.findOne({
+              host_id: hostId,
+              $or: [
+                ...(trip.trip_id ? [{ trip_id: trip.trip_id }] : []),
+                {
+                  renter_name: trip.renter_name,
+                  start_datetime: trip.start_datetime,
+                  end_datetime: trip.end_datetime,
+                },
+              ],
+            });
+            if (alreadyExists) continue;
+
+            let vehicle_id = null;
+            const myVehicles = await Vehicle.find({ host_id: hostId });
+
+            // 1. Plate match against any existing vehicle (with or without transponder)
+            if (plate) {
+              const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate);
+              if (plateMatch) {
+                vehicle_id = plateMatch.id;
+                // Fill in name from CSV if the existing vehicle has none
+                if (vehicleName && !plateMatch.name) {
+                  plateMatch.name = vehicleName;
+                  await plateMatch.save();
+                }
+              }
+            }
+
+            // 2. Name match if no plate match
+            if (!vehicle_id && vehicleName) {
+              const nameMatches = myVehicles.filter(
+                v => v.name.toLowerCase() === vehicleName.toLowerCase()
+              );
+              if (nameMatches.length === 1) {
+                const existing = nameMatches[0];
+                const existingPlate = (existing.plate || '').toUpperCase();
+                if (!plate || !existingPlate || plate === existingPlate) {
+                  vehicle_id = existing.id;
+                  // Fill in plate from CSV if missing
+                  if (plate && !existing.plate) {
+                    existing.plate = plate;
+                    await existing.save();
+                  }
+                }
+              }
+            }
+
+            // 3. If still no match and we have a plate — auto-create the vehicle
+            //    User will be prompted to add transponder later if needed
+            if (!vehicle_id && plate) {
+              const newVehicle = await Vehicle.create({
+                host_id: hostId,
+                name: vehicleName || plate,
+                plate,
+                transponder_id: '',
+                auto_added: true,
+              });
+              vehicle_id = newVehicle.id;
+            } else if (!vehicle_id && !plate && !vehicleName) {
+              // No info at all — create blank placeholder
+              const newVehicle = await Vehicle.create({
+                host_id: hostId, name: '',
+                plate: '', transponder_id: '', auto_added: true,
+              });
+              vehicle_id = newVehicle.id;
+            } else if (!vehicle_id && vehicleName) {
+              // Name only (AI parsed, no plate) — create placeholder
+              const newVehicle = await Vehicle.create({
+                host_id: hostId, name: vehicleName,
+                plate: '', transponder_id: '', auto_added: true,
+              });
+              vehicle_id = newVehicle.id;
+            }
+
+            const record = await Trip.create({
+              host_id: hostId,
+              renter_name: trip.renter_name, vehicle: vehicleName,
+              plate: plate || '', vehicle_id,
+              start_datetime: trip.start_datetime, end_datetime: trip.end_datetime,
+              trip_id: trip.trip_id, source_file: file.originalname,
+            });
+            inserted.push(record);
+          }
+          results.push({
+            file: file.originalname, type: 'trips',
+            count: inserted.length,
+          });
+
+        } else if (type === 'ezpass') {
+          // Expand report range to cover all uploaded files
+          if (result.report_from || result.report_to) {
+            const existing = await EzpassReportRange.findOne({ host_id: hostId });
+            const newFrom = result.report_from || null;
+            const newTo = result.report_to || null;
+            const updatedFrom = (!existing?.from || (newFrom && newFrom < existing.from)) ? newFrom : existing.from;
+            const updatedTo = (!existing?.to || (newTo && newTo > existing.to)) ? newTo : existing.to;
+            await EzpassReportRange.findOneAndUpdate(
+              { host_id: hostId },
+              { from: updatedFrom, to: updatedTo },
+              { upsert: true }
+            );
+          }
+
+          // Normalize ISO datetime string to "YYYY-MM-DDTHH:MM:SS" (no Z, no ms)
+          // so strings from AI ("...Z" or "....000Z") match those from the native parser.
+          function normDt(s) {
+            if (!s) return null;
+            return s.replace(/\.\d+Z?$/, '').replace(/Z$/, '');
+          }
+
+          const inserted = [];
+          for (const toll of data) {
+            if (!toll.entry_datetime && !toll.exit_datetime) continue;
+            if (!toll.amount) continue;
+            const amount = Math.abs(parseFloat(toll.amount));
+            const transponder = (toll.transponder_id || '').trim();
+            const entryDt = normDt(toll.entry_datetime);
+            const exitDt  = normDt(toll.exit_datetime);
+
+            // Deduplicate: same transponder + same amount + same datetime(s).
+            // Use minute-level prefix matching to handle format differences ("Z", ".000Z", etc.).
+            // Also check both entry and exit fields — AI and native parser may swap them
+            // for single-datetime rows (one stores it as entry, the other as exit).
+            function dtPrefixQuery(val) {
+              return { $regex: `^${val.slice(0, 16)}` };
+            }
+            // Collect the non-null datetimes we're about to insert
+            const dts = [entryDt, exitDt].filter(Boolean);
+            // A duplicate is any record with same transponder+amount where every one of
+            // our datetimes appears somewhere in the record (either field).
+            const dtConditions = dts.map(dt => ({
+              $or: [
+                { entry_datetime: dtPrefixQuery(dt) },
+                { exit_datetime:  dtPrefixQuery(dt) },
+              ],
+            }));
+            const alreadyExists = dts.length > 0 && await TollTransaction.findOne({
+              host_id: hostId,
+              transponder_id: transponder,
+              amount: { $gte: amount - 0.001, $lte: amount + 0.001 },
+              ...(dtConditions.length > 0 ? { $and: dtConditions } : {}),
+            });
+            if (alreadyExists) continue;
+
+            const agency = sanitizeLocation(toll.agency);
+            const entryPlaza = sanitizeLocation(toll.entry_plaza);
+            const exitPlaza = sanitizeLocation(toll.exit_plaza);
+            const plazaFacility = sanitizeLocation(toll.plaza_facility);
+            const location = [agency, entryPlaza, exitPlaza, plazaFacility].filter(Boolean).join(' - ') || null;
+            const record = await TollTransaction.create({
+              host_id: hostId,
+              transponder_id: transponder,
+              entry_datetime: entryDt,
+              exit_datetime: exitDt,
+              agency,
+              entry_plaza: entryPlaza,
+              exit_plaza: exitPlaza,
+              plaza_facility: plazaFacility,
+              location,
+              amount,
+              source_file: file.originalname,
+            });
+            inserted.push(record);
+          }
+          results.push({ file: file.originalname, type: 'ezpass', count: inserted.length });
+        }
+      } catch (err) {
+        console.error('Insert error:', err.message);
+        results.push({ file: file.originalname, error: err.message });
+      }
+    }
+
+    job.status = 'done';
+    job.results = results;
+  } catch (err) {
+    console.error('Background upload job error:', err.message);
+    job.status = 'error';
+    job.error = err.message;
+  }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+// POST /api/upload/auto — receive files, start background job, return jobId immediately
+router.post('/auto', upload.array('files', 20), (req, res) => {
   const files = req.files;
   if (!files || !files.length) return res.status(400).json({ error: 'No files uploaded' });
 
   // Resolve reliable MIME types before any processing
   files.forEach(f => { f.mimetype = resolveMimeType(f); });
 
-  const results = [];
+  const jobId = `j${Date.now()}${++jobSeq}`;
+  jobs.set(jobId, { status: 'processing', createdAt: Date.now() });
+  processUploadJob(jobId, files, req.hostId); // fire-and-forget
+  res.json({ jobId });
+});
 
-  // If ALL uploaded files are images, process them together in one AI call
-  // so multi-page documents (e.g. EZPass spanning several screenshots) share full context.
-  const allImages = files.every(f => f.mimetype.startsWith('image/'));
-
-  let parsed;
-  if (allImages && files.length > 1) {
-    try {
-      const result = await parseMultipleImagesAutoDetect(
-        files.map(f => ({ buffer: f.buffer, mimeType: f.mimetype }))
-      );
-      // Treat the combined result as if it came from the first file
-      parsed = [{ file: files[0], result, error: null }];
-      // Mark remaining files as skipped (data already included in combined result)
-      for (let i = 1; i < files.length; i++) {
-        parsed.push({ file: files[i], result: null, error: null, skip: true });
-      }
-    } catch (err) {
-      parsed = [{ file: files[0], result: null, error: err }];
-      for (let i = 1; i < files.length; i++) {
-        parsed.push({ file: files[i], result: null, error: null, skip: true });
-      }
-    }
-  } else {
-    // Parse all files in parallel — AI calls are independent
-    // CSVs that match the earnings export format are parsed natively (no AI)
-    parsed = await Promise.all(
-      files.map(async file => {
-        // 1. Earnings CSV — native parse, no AI
-        if (file.mimetype === 'text/csv') {
-          const csvResult = parseEarningsCSV(file.buffer);
-          if (csvResult) return { file, result: csvResult, error: null };
-        }
-        // 2. PDF — try native EZPass parser first (avoids AI token limit on large statements)
-        if (file.mimetype === 'application/pdf') {
-          try {
-            const ezpassResult = await parseEzpassPDF(file.buffer);
-            if (ezpassResult) return { file, result: ezpassResult, error: null };
-          } catch (e) { /* fall through to AI */ }
-        }
-        // 3. AI fallback for everything else
-        return parseFileAutoDetect(file.buffer, file.mimetype)
-          .then(result => ({ file, result, error: null }))
-          .catch(err => ({ file, result: null, error: err }));
-      })
-    );
-  }
-
-  // Insert results sequentially to avoid race conditions
-  for (const { file, result, error, skip } of parsed) {
-    if (skip) continue; // already included in combined multi-image result
-    if (error) {
-      console.error('Auto-detect error:', error.message);
-      results.push({ file: file.originalname, error: error.message });
-      continue;
-    }
-    try {
-      const { type, data, skipTimeCheck } = result;
-
-      if (type === 'trips') {
-        // Reject AI-parsed files where trips are missing time (AI defaults to 00:00 when no time visible)
-        if (!skipTimeCheck) {
-          const hasTime = dt => dt && /T\d{2}:\d{2}/.test(dt) && !/T00:00(:\d{2})?$/.test(dt);
-          const missingTime = data.filter(t => t.start_datetime || t.end_datetime)
-            .some(t => !hasTime(t.start_datetime) || !hasTime(t.end_datetime));
-          if (missingTime) {
-            results.push({ file: file.originalname, error: 'Trip times are missing from this screenshot. Please upload a screenshot that shows the exact start and end times for each trip.' });
-            continue;
-          }
-        }
-
-        const inserted = [];
-        for (const trip of data) {
-          if (!trip.start_datetime || !trip.end_datetime) continue;
-
-          const vehicleName = (trip.vehicle || '').trim();
-          const plate = (trip.plate || '').trim().toUpperCase();
-
-          // Deduplicate
-          const alreadyExists = await Trip.findOne({
-            host_id: req.hostId,
-            $or: [
-              ...(trip.trip_id ? [{ trip_id: trip.trip_id }] : []),
-              {
-                renter_name: trip.renter_name,
-                start_datetime: trip.start_datetime,
-                end_datetime: trip.end_datetime,
-              },
-            ],
-          });
-          if (alreadyExists) continue;
-
-          let vehicle_id = null;
-          const myVehicles = await Vehicle.find({ host_id: req.hostId });
-
-          // 1. Plate match against any existing vehicle (with or without transponder)
-          if (plate) {
-            const plateMatch = myVehicles.find(v => v.plate && v.plate.toUpperCase() === plate);
-            if (plateMatch) {
-              vehicle_id = plateMatch.id;
-              // Fill in name from CSV if the existing vehicle has none
-              if (vehicleName && !plateMatch.name) {
-                plateMatch.name = vehicleName;
-                await plateMatch.save();
-              }
-            }
-          }
-
-          // 2. Name match if no plate match
-          if (!vehicle_id && vehicleName) {
-            const nameMatches = myVehicles.filter(
-              v => v.name.toLowerCase() === vehicleName.toLowerCase()
-            );
-            if (nameMatches.length === 1) {
-              const existing = nameMatches[0];
-              const existingPlate = (existing.plate || '').toUpperCase();
-              if (!plate || !existingPlate || plate === existingPlate) {
-                vehicle_id = existing.id;
-                // Fill in plate from CSV if missing
-                if (plate && !existing.plate) {
-                  existing.plate = plate;
-                  await existing.save();
-                }
-              }
-            }
-          }
-
-          // 3. If still no match and we have a plate — auto-create the vehicle
-          //    User will be prompted to add transponder later if needed
-          if (!vehicle_id && plate) {
-            const newVehicle = await Vehicle.create({
-              host_id: req.hostId,
-              name: vehicleName || plate,
-              plate,
-              transponder_id: '',
-              auto_added: true,
-            });
-            vehicle_id = newVehicle.id;
-          } else if (!vehicle_id && !plate && !vehicleName) {
-            // No info at all — create blank placeholder
-            const newVehicle = await Vehicle.create({
-              host_id: req.hostId, name: '',
-              plate: '', transponder_id: '', auto_added: true,
-            });
-            vehicle_id = newVehicle.id;
-          } else if (!vehicle_id && vehicleName) {
-            // Name only (AI parsed, no plate) — create placeholder
-            const newVehicle = await Vehicle.create({
-              host_id: req.hostId, name: vehicleName,
-              plate: '', transponder_id: '', auto_added: true,
-            });
-            vehicle_id = newVehicle.id;
-          }
-
-          const record = await Trip.create({
-            host_id: req.hostId,
-            renter_name: trip.renter_name, vehicle: vehicleName,
-            plate: plate || '', vehicle_id,
-            start_datetime: trip.start_datetime, end_datetime: trip.end_datetime,
-            trip_id: trip.trip_id, source_file: file.originalname,
-          });
-          inserted.push(record);
-        }
-        results.push({
-          file: file.originalname, type: 'trips',
-          count: inserted.length,
-        });
-
-      } else if (type === 'ezpass') {
-        // Expand report range to cover all uploaded files
-        if (result.report_from || result.report_to) {
-          const existing = await EzpassReportRange.findOne({ host_id: req.hostId });
-          const newFrom = result.report_from || null;
-          const newTo = result.report_to || null;
-          const updatedFrom = (!existing?.from || (newFrom && newFrom < existing.from)) ? newFrom : existing.from;
-          const updatedTo = (!existing?.to || (newTo && newTo > existing.to)) ? newTo : existing.to;
-          await EzpassReportRange.findOneAndUpdate(
-            { host_id: req.hostId },
-            { from: updatedFrom, to: updatedTo },
-            { upsert: true }
-          );
-        }
-
-        // Normalize ISO datetime string to "YYYY-MM-DDTHH:MM:SS" (no Z, no ms)
-        // so strings from AI ("...Z" or "....000Z") match those from the native parser.
-        function normDt(s) {
-          if (!s) return null;
-          return s.replace(/\.\d+Z?$/, '').replace(/Z$/, '');
-        }
-
-        const inserted = [];
-        for (const toll of data) {
-          if (!toll.entry_datetime && !toll.exit_datetime) continue;
-          if (!toll.amount) continue;
-          const amount = Math.abs(parseFloat(toll.amount));
-          const transponder = (toll.transponder_id || '').trim();
-          const entryDt = normDt(toll.entry_datetime);
-          const exitDt  = normDt(toll.exit_datetime);
-
-          // Deduplicate: same transponder + same amount + same datetime(s).
-          // Use minute-level prefix matching to handle format differences ("Z", ".000Z", etc.).
-          // Also check both entry and exit fields — AI and native parser may swap them
-          // for single-datetime rows (one stores it as entry, the other as exit).
-          function dtPrefixQuery(val) {
-            return { $regex: `^${val.slice(0, 16)}` };
-          }
-          // Collect the non-null datetimes we're about to insert
-          const dts = [entryDt, exitDt].filter(Boolean);
-          // A duplicate is any record with same transponder+amount where every one of
-          // our datetimes appears somewhere in the record (either field).
-          const dtConditions = dts.map(dt => ({
-            $or: [
-              { entry_datetime: dtPrefixQuery(dt) },
-              { exit_datetime:  dtPrefixQuery(dt) },
-            ],
-          }));
-          const alreadyExists = dts.length > 0 && await TollTransaction.findOne({
-            host_id: req.hostId,
-            transponder_id: transponder,
-            amount: { $gte: amount - 0.001, $lte: amount + 0.001 },
-            ...(dtConditions.length > 0 ? { $and: dtConditions } : {}),
-          });
-          if (alreadyExists) continue;
-
-          const agency = sanitizeLocation(toll.agency);
-          const entryPlaza = sanitizeLocation(toll.entry_plaza);
-          const exitPlaza = sanitizeLocation(toll.exit_plaza);
-          const plazaFacility = sanitizeLocation(toll.plaza_facility);
-          const location = [agency, entryPlaza, exitPlaza, plazaFacility].filter(Boolean).join(' - ') || null;
-          const record = await TollTransaction.create({
-            host_id: req.hostId,
-            transponder_id: transponder,
-            entry_datetime: entryDt,
-            exit_datetime: exitDt,
-            agency,
-            entry_plaza: entryPlaza,
-            exit_plaza: exitPlaza,
-            plaza_facility: plazaFacility,
-            location,
-            amount,
-            source_file: file.originalname,
-          });
-          inserted.push(record);
-        }
-        results.push({ file: file.originalname, type: 'ezpass', count: inserted.length });
-      }
-    } catch (err) {
-      console.error('Insert error:', err.message);
-      results.push({ file: file.originalname, error: err.message });
-    }
-  }
-
-  res.json({ results });
+// GET /api/upload/status/:jobId — poll for job result
+router.get('/status/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found or expired' });
+  res.json({ status: job.status, results: job.results || null, error: job.error || null });
 });
 
 // POST /api/upload/resolve-vehicle

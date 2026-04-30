@@ -289,6 +289,7 @@ export default function CalculatorPage() {
   const [uploading, setUploading] = useState(0); // 0 = idle, N = number of files being parsed
   const [uploadProgress, setUploadProgress] = useState(0);
   const progressTimerRef = useRef(null);
+  const pollRef = useRef(null);
   const [uploadResults, setUploadResults] = useState([]);
   const [uploadError, setUploadError] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -322,6 +323,52 @@ export default function CalculatorPage() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Poll for background upload job completion
+  const startPolling = useCallback((jobId) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`/upload/status/${jobId}`);
+        const job = res.data;
+        if (job.status === 'done') {
+          clearInterval(pollRef.current); pollRef.current = null;
+          localStorage.removeItem('upload_pending_job');
+          setUploadResults(job.results || []);
+          clearInterval(progressTimerRef.current);
+          setUploadProgress(100);
+          setTimeout(() => setUploadProgress(0), 600);
+          setUploading(0);
+          await loadAll();
+          setCalcNeeded(true);
+          if (fileRef.current) fileRef.current.value = '';
+        } else if (job.status === 'error') {
+          clearInterval(pollRef.current); pollRef.current = null;
+          localStorage.removeItem('upload_pending_job');
+          setUploadError(job.error || 'Upload failed');
+          clearInterval(progressTimerRef.current);
+          setUploadProgress(0);
+          setUploading(0);
+          if (fileRef.current) fileRef.current.value = '';
+        }
+        // status === 'processing' → keep polling
+      } catch { /* network error — keep polling */ }
+    }, 3000);
+  }, [loadAll]);
+
+  // On mount: resume any upload job that was in-flight when the user left
+  useEffect(() => {
+    const pending = localStorage.getItem('upload_pending_job');
+    if (pending) {
+      try {
+        const { jobId, fileCount } = JSON.parse(pending);
+        setUploading(fileCount || 1);
+        setUploadProgress(30);
+        startPolling(jobId);
+      } catch { localStorage.removeItem('upload_pending_job'); }
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [startPolling]);
 
   const calculate = useCallback(async () => {
     setCalculating(true); setCalcError('');
@@ -370,7 +417,7 @@ export default function CalculatorPage() {
     setUploadProgress(0);
     clearInterval(progressTimerRef.current);
     progressTimerRef.current = setInterval(() => {
-      setUploadProgress(p => p >= 90 ? 90 : p + (90 - p) * 0.06);
+      setUploadProgress(p => p >= 85 ? 85 : p + (85 - p) * 0.06);
     }, 300);
 
     // Normalize HEIC → JPEG before upload
@@ -382,19 +429,20 @@ export default function CalculatorPage() {
       const res = await api.post('/upload/auto', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setUploadResults(res.data.results);
-      await loadAll();
-      setCalcNeeded(true);
-    } catch (err) {
-      setUploadError(err.response?.data?.error || 'Upload failed');
-    } finally {
+      const { jobId } = res.data;
+      // Persist jobId so we can resume if the user navigates away
+      localStorage.setItem('upload_pending_job', JSON.stringify({ jobId, fileCount: files.length }));
+      // Stop fake progress and let polling drive the rest
       clearInterval(progressTimerRef.current);
-      setUploadProgress(100);
-      setTimeout(() => setUploadProgress(0), 600);
+      startPolling(jobId);
+    } catch (err) {
+      clearInterval(progressTimerRef.current);
+      setUploadProgress(0);
       setUploading(0);
+      setUploadError(err.response?.data?.error || 'Upload failed');
       if (fileRef.current) fileRef.current.value = '';
     }
-  }, [loadAll]);
+  }, [startPolling]);
 
   // Paste support
   useEffect(() => {
