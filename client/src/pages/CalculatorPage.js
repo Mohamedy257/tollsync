@@ -344,6 +344,7 @@ export default function CalculatorPage() {
           setUploadProgress(100);
           setTimeout(() => setUploadProgress(0), 600);
           setUploading(0);
+          setSortMode('recent');
           await loadAll();
           setCalcNeeded(true);
           if (fileRef.current) fileRef.current.value = '';
@@ -580,8 +581,12 @@ export default function CalculatorPage() {
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'ongoing' | 'ended'
   const [guestDropOpen, setGuestDropOpen] = useState(false);
   const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
+  // 'endDate' = default sort by trip end desc; 'recent' = sort by upload date after a fresh upload
+  const [sortMode, setSortMode] = useState('endDate');
 
-  const byEndDateDesc = (a, b) => new Date(b.end_datetime) - new Date(a.end_datetime);
+  const sortTrips = sortMode === 'recent'
+    ? (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    : (a, b) => new Date(b.end_datetime) - new Date(a.end_datetime);
 
   const allTrips = results?.trips || [];
   const allGuests = [...new Set(allTrips.map(t => t.renter_name).filter(Boolean))].sort();
@@ -602,8 +607,8 @@ export default function CalculatorPage() {
     return true;
   });
 
-  const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(byEndDateDesc);
-  const noTolls = filteredTrips.filter(t => !t.toll_items?.length).sort(byEndDateDesc);
+  const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(sortTrips);
+  const noTolls = filteredTrips.filter(t => !t.toll_items?.length).sort(sortTrips);
   const totalLoaded = tolls.reduce((s, t) => s + parseFloat(t.amount), 0);
 
   return (
