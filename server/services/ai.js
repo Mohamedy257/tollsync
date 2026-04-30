@@ -113,9 +113,17 @@ function matchTollsToTrips(vehicles, trips, tolls) {
       const tollMs = new Date(matchTime).getTime();
       if (isNaN(tollMs) || tollMs < tripStart || tollMs > tripEnd) continue;
 
-      // Match by transponder AND/OR plate — both are checked for every trip
+      // Match by transponder AND/OR plate — both are checked for every trip.
+      // EZ-Pass reports sometimes strip leading digits from the transponder
+      // (e.g. "01010504474" appears as "10504474"), so use suffix matching:
+      // two IDs match when one ends with the other (min 6 digits to avoid false positives).
       const tollKey = (toll.transponder_id || '').replace(/\s/g, '');
-      const byTransponder = transponder && tollKey === transponder;
+      const byTransponder = transponder && tollKey && (() => {
+        if (transponder === tollKey) return true;
+        const shorter = transponder.length < tollKey.length ? transponder : tollKey;
+        const longer  = transponder.length < tollKey.length ? tollKey : transponder;
+        return shorter.length >= 6 && longer.endsWith(shorter);
+      })();
       const byPlate = plate && tollKey.toUpperCase() === plate;
       if (!byTransponder && !byPlate) continue;
 
