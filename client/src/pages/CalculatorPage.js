@@ -186,7 +186,7 @@ function TripCard({ t, reportRange, vehicles }) {
                   {t.toll_items.map((ti, i) => (
                     <div key={i} style={{ padding: '10px 18px', borderBottom: '0.5px solid #e5e7eb', background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#111', flex: 1, paddingRight: 8 }}>{ti.location || '—'}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#111', flex: 1, paddingRight: 8 }}>{(ti.location && !/^[-_\s.]+$/.test(ti.location.trim())) ? ti.location : '—'}</span>
                         <span style={{ fontSize: 14, fontWeight: 700, color: '#0d3b6e', flexShrink: 0 }}>${parseFloat(ti.amount).toFixed(2)}</span>
                       </div>
                       <div style={{ fontSize: 11, color: '#6b7280' }}>
@@ -218,7 +218,7 @@ function TripCard({ t, reportRange, vehicles }) {
                         <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: '#374151', whiteSpace: 'nowrap' }}>{ti.transponder_id || '—'}</td>
                         <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDt(ti.entry_datetime)}</td>
                         <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDt(ti.exit_datetime)}</td>
-                        <td style={{ padding: '8px 14px', color: '#111' }}>{ti.location || '—'}</td>
+                        <td style={{ padding: '8px 14px', color: '#111' }}>{(ti.location && !/^[-_\s.]+$/.test(ti.location.trim())) ? ti.location : '—'}</td>
                         <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, color: '#0d3b6e', whiteSpace: 'nowrap' }}>${parseFloat(ti.amount).toFixed(2)}</td>
                       </tr>
                     ))}
