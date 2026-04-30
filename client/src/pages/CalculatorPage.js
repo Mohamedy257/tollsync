@@ -1320,21 +1320,34 @@ export default function CalculatorPage() {
             );
           })()}
 
-          {withTolls.length > 0 && (
+          {sortMode === 'recent' ? (
+            /* After upload: single list sorted by upload date so new trips always appear first */
+            filteredTrips.sort(sortTrips).length > 0 && (
+              <>
+                <p className="section-title">All trips — recently added first</p>
+                {filteredTrips.sort(sortTrips).map(t => (
+                  <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+                ))}
+              </>
+            )
+          ) : (
             <>
-              <p className="section-title">Trips with toll charges</p>
-              {withTolls.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-              ))}
-            </>
-          )}
-
-          {noTolls.length > 0 && (
-            <>
-              <p className="section-title" style={{ marginTop: '1.5rem' }}>Trips with no tolls</p>
-              {noTolls.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-              ))}
+              {withTolls.length > 0 && (
+                <>
+                  <p className="section-title">Trips with toll charges</p>
+                  {withTolls.map(t => (
+                    <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+                  ))}
+                </>
+              )}
+              {noTolls.length > 0 && (
+                <>
+                  <p className="section-title" style={{ marginTop: '1.5rem' }}>Trips with no tolls</p>
+                  {noTolls.map(t => (
+                    <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+                  ))}
+                </>
+              )}
             </>
           )}
 
