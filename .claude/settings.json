@@ -24,7 +24,12 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('proxy:', d.get\\('proxy', 'NOT SET'\\)\\)\")",
       "Bash(git commit:*)",
       "Bash(git revert *)",
-      "Bash(npx --prefix client react-scripts build)"
+      "Bash(npx --prefix client react-scripts build)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc status)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc log --oneline -5)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc add client/src/pages/CalculatorPage.js server/routes/upload.js)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc commit -m ' *)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc push origin main)"
     ]
   }
 }
