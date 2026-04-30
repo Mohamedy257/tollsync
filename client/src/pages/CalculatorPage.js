@@ -679,12 +679,23 @@ export default function CalculatorPage() {
                       for (const type of item.types) {
                         if (type.startsWith('image/')) {
                           const blob = await item.getType(type);
-                          imageFiles.push(new File([blob], `pasted.${type.split('/')[1]}`, { type }));
+                          const ext = type.split('/')[1] || 'png';
+                          imageFiles.push(new File([blob], `pasted.${ext}`, { type }));
                         }
                       }
                     }
-                    if (imageFiles.length) handleFiles(imageFiles);
-                  } catch {}
+                    if (imageFiles.length) {
+                      handleFiles(imageFiles);
+                    } else {
+                      setUploadError('No image found in clipboard. Copy a screenshot first, then tap Paste.');
+                    }
+                  } catch (err) {
+                    if (err?.name === 'NotAllowedError') {
+                      setUploadError('Clipboard access was denied. Allow clipboard access in your browser settings, or use "Choose from library" instead.');
+                    } else {
+                      setUploadError('Could not read clipboard. Try "Choose from library" instead.');
+                    }
+                  }
                 }}
               >
                 📋 &nbsp; Paste from clipboard
