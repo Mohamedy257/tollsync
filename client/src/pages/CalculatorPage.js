@@ -614,10 +614,19 @@ export default function CalculatorPage() {
     return true;
   });
 
-  // Trips from the most recent upload (shown alone right after upload)
-  const recentTrips = [...allTrips]
-    .filter(t => recentSources.has(t.source_file))
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  // Trips from the most recent upload — pulled from raw `trips` state so they
+  // show immediately even before calculation has run, then enriched with toll
+  // data if results are already available.
+  const recentTrips = viewMode === 'uploaded' && recentSources.size > 0
+    ? trips
+        .filter(t => recentSources.has(t.source_file))
+        .map(t => {
+          const tid = (t._id || t.id || '').toString();
+          const withData = (results?.trips || []).find(r => r.trip_db_id === tid);
+          return withData ?? { ...t, trip_db_id: tid, toll_items: [], total_tolls: 0, toll_count: 0 };
+        })
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    : [];
 
   const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(byEndDateDesc);
   const noTolls   = filteredTrips.filter(t => !t.toll_items?.length).sort(byEndDateDesc);
@@ -1213,8 +1222,33 @@ export default function CalculatorPage() {
       )}
       {calcError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{calcError}</div>}
 
-      {/* Results */}
-      {!calculating && results && (
+      {/* ── Uploaded view — shown right after upload, works even without results ── */}
+      {viewMode === 'uploaded' && !calculating && (
+        <div>
+          <button
+            onClick={() => { setViewMode('all'); setRecentSources(new Set()); }}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 8, background: '#185fa5', color: '#fff', border: 'none', borderRadius: 12,
+              padding: '14px 20px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              marginBottom: 16,
+            }}
+          >
+            ← View all trips
+          </button>
+          {recentTrips.length > 0
+            ? recentTrips.map(t => (
+                <TripCard key={t.trip_db_id} t={t} reportRange={results?.report_range} vehicles={vehicles} />
+              ))
+            : <div style={{ textAlign: 'center', padding: '2rem', color: '#aaa', fontSize: 13 }}>
+                Processing trip data…
+              </div>
+          }
+        </div>
+      )}
+
+      {/* ── Normal all-trips results ── */}
+      {viewMode === 'all' && !calculating && results && (
         <div>
           <div className="metrics">
             <div className="metric">
@@ -1332,51 +1366,22 @@ export default function CalculatorPage() {
             );
           })()}
 
-          {viewMode === 'uploaded' ? (
-            /* Right after upload: show only the new trip(s) */
+          {withTolls.length > 0 && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <p className="section-title" style={{ margin: 0 }}>
-                  Uploaded trip{recentTrips.length !== 1 ? 's' : ''}
-                </p>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => { setViewMode('all'); setRecentSources(new Set()); }}
-                >
-                  ← All trips
-                </button>
-              </div>
-              {recentTrips.length > 0
-                ? recentTrips.map(t => (
-                    <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-                  ))
-                : <div className="card" style={{ textAlign: 'center', padding: '2rem', color: '#aaa', fontSize: 13 }}>
-                    No trips found from this upload.
-                  </div>
-              }
-            </>
-          ) : (
-            /* Normal view: two sections sorted by end date desc */
-            <>
-              {withTolls.length > 0 && (
-                <>
-                  <p className="section-title">Trips with toll charges</p>
-                  {withTolls.map(t => (
-                    <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-                  ))}
-                </>
-              )}
-              {noTolls.length > 0 && (
-                <>
-                  <p className="section-title" style={{ marginTop: '1.5rem' }}>Trips with no tolls</p>
-                  {noTolls.map(t => (
-                    <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-                  ))}
-                </>
-              )}
+              <p className="section-title">Trips with toll charges</p>
+              {withTolls.map(t => (
+                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+              ))}
             </>
           )}
-
+          {noTolls.length > 0 && (
+            <>
+              <p className="section-title" style={{ marginTop: '1.5rem' }}>Trips with no tolls</p>
+              {noTolls.map(t => (
+                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+              ))}
+            </>
+          )}
 
           <div className="action-bar">
             <button className="btn" onClick={exportCSV}>⬇ Export CSV</button>
