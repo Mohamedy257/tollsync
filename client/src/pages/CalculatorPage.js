@@ -345,7 +345,14 @@ export default function CalculatorPage() {
           setUploadProgress(100);
           setTimeout(() => setUploadProgress(0), 600);
           setUploading(0);
-          setSortMode('recent');
+          // Identify which trip files were just uploaded so we can spotlight them
+          const tripFiles = new Set(
+            (job.results || []).filter(r => r.type === 'trips' && !r.error).map(r => r.file)
+          );
+          if (tripFiles.size > 0) {
+            setRecentSources(tripFiles);
+            setViewMode('uploaded');
+          }
           await loadAll();
           setCalcNeeded(true);
           if (fileRef.current) fileRef.current.value = '';
@@ -582,12 +589,11 @@ export default function CalculatorPage() {
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'ongoing' | 'ended'
   const [guestDropOpen, setGuestDropOpen] = useState(false);
   const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
-  // 'endDate' = default sort by trip end desc; 'recent' = sort by upload date after a fresh upload
-  const [sortMode, setSortMode] = useState('endDate');
+  // 'all' = normal view sorted by end date; 'uploaded' = show only the just-uploaded trip(s)
+  const [viewMode, setViewMode] = useState('all');
+  const [recentSources, setRecentSources] = useState(new Set());
 
-  const sortTrips = sortMode === 'recent'
-    ? (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-    : (a, b) => new Date(b.end_datetime) - new Date(a.end_datetime);
+  const byEndDateDesc = (a, b) => new Date(b.end_datetime) - new Date(a.end_datetime);
 
   const allTrips = results?.trips || [];
   const allGuests = [...new Set(allTrips.map(t => t.renter_name).filter(Boolean))].sort();
@@ -608,8 +614,13 @@ export default function CalculatorPage() {
     return true;
   });
 
-  const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(sortTrips);
-  const noTolls = filteredTrips.filter(t => !t.toll_items?.length).sort(sortTrips);
+  // Trips from the most recent upload (shown alone right after upload)
+  const recentTrips = [...allTrips]
+    .filter(t => recentSources.has(t.source_file))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(byEndDateDesc);
+  const noTolls   = filteredTrips.filter(t => !t.toll_items?.length).sort(byEndDateDesc);
   const totalLoaded = tolls.reduce((s, t) => s + parseFloat(t.amount), 0);
 
   return (
@@ -1321,17 +1332,31 @@ export default function CalculatorPage() {
             );
           })()}
 
-          {sortMode === 'recent' ? (
-            /* After upload: single list sorted by upload date so new trips always appear first */
-            filteredTrips.sort(sortTrips).length > 0 && (
-              <>
-                <p className="section-title">All trips — recently added first</p>
-                {filteredTrips.sort(sortTrips).map(t => (
-                  <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-                ))}
-              </>
-            )
+          {viewMode === 'uploaded' ? (
+            /* Right after upload: show only the new trip(s) */
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <p className="section-title" style={{ margin: 0 }}>
+                  Uploaded trip{recentTrips.length !== 1 ? 's' : ''}
+                </p>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => { setViewMode('all'); setRecentSources(new Set()); }}
+                >
+                  ← All trips
+                </button>
+              </div>
+              {recentTrips.length > 0
+                ? recentTrips.map(t => (
+                    <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+                  ))
+                : <div className="card" style={{ textAlign: 'center', padding: '2rem', color: '#aaa', fontSize: 13 }}>
+                    No trips found from this upload.
+                  </div>
+              }
+            </>
           ) : (
+            /* Normal view: two sections sorted by end date desc */
             <>
               {withTolls.length > 0 && (
                 <>
