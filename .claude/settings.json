@@ -29,7 +29,10 @@
       "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc log --oneline -5)",
       "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc add client/src/pages/CalculatorPage.js server/routes/upload.js)",
       "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc commit -m ' *)",
-      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc push origin main)"
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc push origin main)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc add server/routes/upload.js)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc add client/src/pages/CalculatorPage.js)",
+      "Bash(git -C /Users/mohamedyousif/Downloads/turo-toll-calc add server/services/ai.js)"
     ]
   }
 }
