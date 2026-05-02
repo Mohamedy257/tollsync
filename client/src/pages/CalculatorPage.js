@@ -300,7 +300,7 @@ export default function CalculatorPage() {
   const [vehicleSelections, setVehicleSelections] = useState({}); // vehicleId → candidateId or 'new'
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [showActionSheet, setShowActionSheet] = useState(false);
-  const [calcNeeded, setCalcNeeded] = useState(true); // true on mount → calc on first load
+  const [calcNeeded, setCalcNeeded] = useState(false);
   const navigate = useNavigate();
   const fileRef = useRef();
 
@@ -323,7 +323,10 @@ export default function CalculatorPage() {
   }, []);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    loadAll();
+    api.get('/results').then(r => { if (r.data.trips?.length) setResults(r.data); }).catch(() => {});
+  }, [loadAll]);
 
   // Poll for background upload job completion
   const startPolling = useCallback((jobId) => {
@@ -1215,7 +1218,7 @@ export default function CalculatorPage() {
         );
       })()}
 
-      {calculating && (
+      {calculating && viewMode === 'all' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, color: '#888', fontSize: 13 }}>
           <span className="spinner" /> Calculating...
         </div>
@@ -1223,7 +1226,7 @@ export default function CalculatorPage() {
       {calcError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{calcError}</div>}
 
       {/* ── Uploaded view — shown right after upload, works even without results ── */}
-      {viewMode === 'uploaded' && !calculating && (
+      {viewMode === 'uploaded' && (
         <div>
           <button
             onClick={() => { setViewMode('all'); setRecentSources(new Set()); }}
@@ -1236,13 +1239,20 @@ export default function CalculatorPage() {
           >
             ← View all trips
           </button>
+          {calculating && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#888', fontSize: 13 }}>
+              <span className="spinner" /> Matching tolls to trip…
+            </div>
+          )}
           {recentTrips.length > 0
             ? recentTrips.map(t => (
                 <TripCard key={t.trip_db_id} t={t} reportRange={results?.report_range} vehicles={vehicles} />
               ))
-            : <div style={{ textAlign: 'center', padding: '2rem', color: '#aaa', fontSize: 13 }}>
-                Processing trip data…
-              </div>
+            : !calculating && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#aaa', fontSize: 13 }}>
+                  Processing trip data…
+                </div>
+              )
           }
         </div>
       )}

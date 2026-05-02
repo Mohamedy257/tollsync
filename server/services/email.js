@@ -103,6 +103,163 @@ async function sendWelcome(to, name) {
   `);
 }
 
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function fmtAmount(cents) {
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+async function sendSubscriptionWelcome(to, name, planName, priceCents, periodEnd, trialDays) {
+  const firstName = (name || to).split(' ')[0];
+  const isTrial = trialDays > 0;
+  const billingLine = isTrial
+    ? `Your <strong>${trialDays}-day free trial</strong> ends on <strong>${fmtDate(periodEnd)}</strong>, then ${fmtAmount(priceCents)}/month.`
+    : `You'll be billed <strong>${fmtAmount(priceCents)}/month</strong>. Next charge: <strong>${fmtDate(periodEnd)}</strong>.`;
+
+  await sendEmail(to, `You're subscribed to ${planName || 'TollSync Pro'} ⚡`, `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <div style="background:linear-gradient(135deg,#185fa5,#1577d4);border-radius:10px;padding:18px 20px;margin-bottom:24px">
+          <p style="margin:0;font-size:20px;font-weight:800;color:#fff">⚡ ${planName || 'TollSync Pro'}</p>
+          <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.75)">Subscription active</p>
+        </div>
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">You're all set, ${firstName}!</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">${billingLine}</p>
+
+        <div style="background:#f0f4fa;border-radius:10px;padding:16px 18px;margin-bottom:24px">
+          <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">What's included</p>
+          ${['Unlimited trip & toll uploads', 'AI-powered file parsing (screenshots, PDFs, CSVs)', 'Auto toll matching to trips', 'Per-renter toll reports with export', 'Gmail sync for trip data'].map(f => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="color:#185fa5;font-size:14px;font-weight:700">✓</span>
+            <span style="font-size:13px;color:#374151">${f}</span>
+          </div>`).join('')}
+        </div>
+
+        <a href="${APP_URL()}" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+          Open TollSync →
+        </a>
+
+        <p style="color:#aaa;font-size:12px;margin-top:24px;line-height:1.6">
+          Questions? Reply to this email — we're happy to help.<br/>— The TollSync team
+        </p>
+      </div>
+    </div>
+  `);
+}
+
+async function sendCancellation(to, name, periodEnd) {
+  const firstName = (name || to).split(' ')[0];
+  await sendEmail(to, 'Your TollSync subscription has been canceled', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">We're sorry to see you go, ${firstName}</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">
+          Your TollSync subscription has been canceled.
+          ${periodEnd ? `You'll retain full access until <strong>${fmtDate(periodEnd)}</strong>.` : 'Your access has ended.'}
+        </p>
+
+        <div style="background:#fff8f0;border:1px solid #fde8c8;border-radius:10px;padding:16px 18px;margin-bottom:24px">
+          <p style="margin:0;font-size:13px;color:#854f0b;line-height:1.6">
+            Changed your mind? You can resubscribe at any time and pick up right where you left off — all your vehicles, trips, and toll records are still saved.
+          </p>
+        </div>
+
+        <a href="${APP_URL()}/subscribe" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+          Resubscribe →
+        </a>
+
+        <p style="color:#aaa;font-size:12px;margin-top:24px;line-height:1.6">
+          If there's something we could improve, reply to this email and let us know.<br/>— The TollSync team
+        </p>
+      </div>
+    </div>
+  `);
+}
+
+async function sendPaymentFailed(to, name) {
+  const firstName = (name || to).split(' ')[0];
+  await sendEmail(to, '⚠️ Payment failed — action required', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+          <p style="margin:0;font-size:14px;font-weight:700;color:#dc2626">⚠️ Payment failed</p>
+        </div>
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">Hi ${firstName}, we couldn't process your payment</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">
+          Your TollSync subscription payment failed. Please update your billing information to keep your access uninterrupted.
+        </p>
+        <a href="${APP_URL()}/billing" style="display:inline-block;padding:13px 28px;background:#dc2626;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+          Update billing info →
+        </a>
+        <p style="color:#aaa;font-size:12px;margin-top:24px;line-height:1.6">
+          If you continue to have trouble, reply to this email and we'll help sort it out.<br/>— The TollSync team
+        </p>
+      </div>
+    </div>
+  `);
+}
+
+async function sendSubscriptionRenewed(to, name, periodEnd, amountCents) {
+  const firstName = (name || to).split(' ')[0];
+  await sendEmail(to, 'TollSync subscription renewed ✓', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+          <p style="margin:0;font-size:14px;font-weight:700;color:#15803d">✓ Payment successful</p>
+        </div>
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">Your subscription has renewed, ${firstName}</h2>
+        <div style="background:#f8f7f4;border-radius:10px;padding:14px 18px;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;color:#6b7280">Plan</span>
+            <span style="font-size:13px;font-weight:600;color:#1a1a1a">TollSync Pro</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;color:#6b7280">Amount charged</span>
+            <span style="font-size:13px;font-weight:600;color:#1a1a1a">${amountCents ? fmtAmount(amountCents) : '—'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:13px;color:#6b7280">Next renewal</span>
+            <span style="font-size:13px;font-weight:600;color:#1a1a1a">${fmtDate(periodEnd)}</span>
+          </div>
+        </div>
+        <a href="${APP_URL()}" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+          Open TollSync →
+        </a>
+        <p style="color:#aaa;font-size:12px;margin-top:24px">— The TollSync team</p>
+      </div>
+    </div>
+  `);
+}
+
+async function sendTrialEnding(to, name, trialEndDate) {
+  const firstName = (name || to).split(' ')[0];
+  await sendEmail(to, '⏰ Your TollSync free trial ends in 3 days', `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">Your free trial ends soon, ${firstName}</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">
+          Your TollSync free trial ends on <strong>${fmtDate(trialEndDate)}</strong>. After that, your subscription will automatically continue at the monthly rate — no action needed.
+        </p>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">
+          To cancel before being charged, go to your billing settings.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <a href="${APP_URL()}" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+            Keep using TollSync →
+          </a>
+          <a href="${APP_URL()}/billing" style="display:inline-block;padding:13px 20px;background:#fff;color:#185fa5;border:1.5px solid #185fa5;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+            Manage billing
+          </a>
+        </div>
+        <p style="color:#aaa;font-size:12px;margin-top:24px">— The TollSync team</p>
+      </div>
+    </div>
+  `);
+}
+
 async function sendCustom(to, subject, body) {
   const htmlBody = body.replace(/\n/g, '<br>');
   await sendEmail(to, subject, `
@@ -116,4 +273,8 @@ async function sendCustom(to, subject, body) {
   `);
 }
 
-module.exports = { sendPasswordReset, sendWelcome, sendVerificationEmail, sendCustom };
+module.exports = {
+  sendPasswordReset, sendWelcome, sendVerificationEmail, sendCustom,
+  sendSubscriptionWelcome, sendCancellation, sendPaymentFailed,
+  sendSubscriptionRenewed, sendTrialEnding,
+};

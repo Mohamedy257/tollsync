@@ -288,11 +288,19 @@ router.post('/forgot-password', async (req, res) => {
     host.reset_token_expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await host.save();
 
-    await sendPasswordReset(host.email, token);
-    res.json({ ok: true });
+    const APP_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+    const resetLink = `${APP_URL}/reset-password?token=${token}`;
+    try {
+      await sendPasswordReset(host.email, token);
+      res.json({ ok: true });
+    } catch (emailErr) {
+      console.error('Forgot password email error:', emailErr.message);
+      // Email delivery failed (e.g. unverified domain) — return the link directly
+      // so the user can still reset their password
+      res.json({ ok: true, reset_link: resetLink });
+    }
   } catch (err) {
     console.error('Forgot password error:', err.message);
-    // Don't expose whether email exists or email sending failed
     res.json({ ok: true });
   }
 });

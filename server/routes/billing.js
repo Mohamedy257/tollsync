@@ -2,6 +2,10 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const Host = require('../models/Host');
 const PlanConfig = require('../models/PlanConfig');
+const {
+  sendSubscriptionWelcome, sendCancellation, sendPaymentFailed,
+  sendSubscriptionRenewed, sendTrialEnding,
+} = require('../services/email');
 
 const router = express.Router();
 
@@ -216,6 +220,15 @@ router.post('/webhook', async (req, res) => {
             host.subscription_status = sub.status;
             host.subscription_current_period_end = new Date(sub.current_period_end * 1000);
             await host.save();
+            const plan = await PlanConfig.findOne();
+            const trialDays = sub.trial_end ? Math.round((sub.trial_end - Date.now() / 1000) / 86400) : 0;
+            sendSubscriptionWelcome(
+              host.email, host.name,
+              plan?.name || 'TollSync Pro',
+              plan?.price_cents || 1000,
+              host.subscription_current_period_end,
+              trialDays > 0 ? trialDays : 0
+            ).catch(err => console.error('Welcome email error:', err.message));
           }
         }
         break;
@@ -235,10 +248,12 @@ router.post('/webhook', async (req, res) => {
         const sub = event.data.object;
         const host = await Host.findOne({ stripe_customer_id: sub.customer });
         if (host) {
+          const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
           host.subscription_status = 'canceled';
-          host.subscription_current_period_end = sub.current_period_end
-            ? new Date(sub.current_period_end * 1000) : null;
+          host.subscription_current_period_end = periodEnd;
           await host.save();
+          sendCancellation(host.email, host.name, periodEnd)
+            .catch(err => console.error('Cancellation email error:', err.message));
         }
         break;
       }
@@ -248,6 +263,31 @@ router.post('/webhook', async (req, res) => {
         if (host) {
           host.subscription_status = 'past_due';
           await host.save();
+          sendPaymentFailed(host.email, host.name)
+            .catch(err => console.error('Payment failed email error:', err.message));
+        }
+        break;
+      }
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        // Only send renewal email on recurring payments, not the first charge
+        if (invoice.billing_reason === 'subscription_cycle') {
+          const host = await Host.findOne({ stripe_customer_id: invoice.customer });
+          if (host) {
+            const periodEnd = invoice.lines?.data?.[0]?.period?.end
+              ? new Date(invoice.lines.data[0].period.end * 1000) : null;
+            sendSubscriptionRenewed(host.email, host.name, periodEnd, invoice.amount_paid)
+              .catch(err => console.error('Renewal email error:', err.message));
+          }
+        }
+        break;
+      }
+      case 'customer.subscription.trial_will_end': {
+        const sub = event.data.object;
+        const host = await Host.findOne({ stripe_customer_id: sub.customer });
+        if (host && sub.trial_end) {
+          sendTrialEnding(host.email, host.name, new Date(sub.trial_end * 1000))
+            .catch(err => console.error('Trial ending email error:', err.message));
         }
         break;
       }

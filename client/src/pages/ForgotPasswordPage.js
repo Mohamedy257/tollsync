@@ -6,6 +6,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resetLink, setResetLink] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -13,7 +14,8 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      await api.post('/auth/forgot-password', { email });
+      const res = await api.post('/auth/forgot-password', { email });
+      if (res.data.reset_link) setResetLink(res.data.reset_link);
       setSent(true);
     } catch {
       setError('Something went wrong. Please try again.');
@@ -30,11 +32,33 @@ export default function ForgotPasswordPage() {
 
         {sent ? (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📧</div>
-            <p style={{ fontWeight: 600, marginBottom: 8 }}>Check your email</p>
-            <p style={{ color: '#666', fontSize: 14, marginBottom: 24 }}>
-              If an account exists for <strong>{email}</strong>, we've sent a password reset link. It expires in 1 hour.
-            </p>
+            {resetLink ? (
+              <>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🔑</div>
+                <p style={{ fontWeight: 600, marginBottom: 8 }}>Reset your password</p>
+                <p style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>
+                  Email delivery is unavailable right now. Click the link below to reset your password. It expires in 1 hour.
+                </p>
+                <a
+                  href={resetLink}
+                  style={{
+                    display: 'block', background: '#185fa5', color: '#fff', borderRadius: 10,
+                    padding: '12px 20px', textDecoration: 'none', fontWeight: 700, fontSize: 15,
+                    marginBottom: 16,
+                  }}
+                >
+                  Reset password →
+                </a>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>📧</div>
+                <p style={{ fontWeight: 600, marginBottom: 8 }}>Check your email</p>
+                <p style={{ color: '#666', fontSize: 14, marginBottom: 24 }}>
+                  If an account exists for <strong>{email}</strong>, we've sent a password reset link. It expires in 1 hour.
+                </p>
+              </>
+            )}
             <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => navigate('/login')}>
               Back to sign in
             </button>
