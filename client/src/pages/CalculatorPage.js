@@ -290,6 +290,7 @@ export default function CalculatorPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const progressTimerRef = useRef(null);
   const pollRef = useRef(null);
+  const tripsRef = useRef([]);
   const [uploadResults, setUploadResults] = useState([]);
   const [uploadError, setUploadError] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -322,6 +323,7 @@ export default function CalculatorPage() {
     return { trips: tr, tolls: tl, vehicles: veh };
   }, []);
 
+  useEffect(() => { tripsRef.current = trips; }, [trips]);
   useEffect(() => { window.scrollTo(0, 0); }, []);
   useEffect(() => {
     loadAll();
@@ -348,15 +350,21 @@ export default function CalculatorPage() {
           setUploadProgress(100);
           setTimeout(() => setUploadProgress(0), 600);
           setUploading(0);
-          // Identify which trip files were just uploaded so we can spotlight them
-          const tripFiles = new Set(
-            (job.results || []).filter(r => r.type === 'trips' && !r.error).map(r => r.file)
-          );
-          if (tripFiles.size > 0) {
-            setRecentSources(tripFiles);
-            setViewMode('uploaded');
+          const hasTripFiles = (job.results || []).some(r => r.type === 'trips' && !r.error);
+          // Snapshot trip IDs before loading fresh data so we can find genuinely new trips
+          const oldTripIds = new Set(tripsRef.current.map(t => (t._id || t.id || '').toString()));
+          const { trips: freshTrips } = await loadAll();
+          if (hasTripFiles) {
+            const newIds = new Set(
+              freshTrips
+                .filter(t => !oldTripIds.has((t._id || t.id || '').toString()))
+                .map(t => (t._id || t.id || '').toString())
+            );
+            if (newIds.size > 0) {
+              setRecentTripIds(newIds);
+              setViewMode('uploaded');
+            }
           }
-          await loadAll();
           setCalcNeeded(true);
           if (fileRef.current) fileRef.current.value = '';
         } else if (job.status === 'error') {
@@ -594,7 +602,7 @@ export default function CalculatorPage() {
   const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
   // 'all' = normal view sorted by end date; 'uploaded' = show only the just-uploaded trip(s)
   const [viewMode, setViewMode] = useState('all');
-  const [recentSources, setRecentSources] = useState(new Set());
+  const [recentTripIds, setRecentTripIds] = useState(new Set());
 
   const byEndDateDesc = (a, b) => new Date(b.end_datetime) - new Date(a.end_datetime);
 
@@ -617,18 +625,17 @@ export default function CalculatorPage() {
     return true;
   });
 
-  // Trips from the most recent upload — pulled from raw `trips` state so they
-  // show immediately even before calculation has run, then enriched with toll
-  // data if results are already available.
-  const recentTrips = viewMode === 'uploaded' && recentSources.size > 0
+  // Trips from the most recent upload — matched by exact trip ID (not filename,
+  // which repeats when pasting from clipboard) so only truly new trips appear.
+  const recentTrips = viewMode === 'uploaded' && recentTripIds.size > 0
     ? trips
-        .filter(t => recentSources.has(t.source_file))
+        .filter(t => recentTripIds.has((t._id || t.id || '').toString()))
         .map(t => {
           const tid = (t._id || t.id || '').toString();
           const withData = (results?.trips || []).find(r => r.trip_db_id === tid);
           return withData ?? { ...t, trip_db_id: tid, toll_items: [], total_tolls: 0, toll_count: 0 };
         })
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .sort((a, b) => new Date(b.end_datetime || 0) - new Date(a.end_datetime || 0))
     : [];
 
   const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(byEndDateDesc);
@@ -1229,7 +1236,7 @@ export default function CalculatorPage() {
       {viewMode === 'uploaded' && (
         <div>
           <button
-            onClick={() => { setViewMode('all'); setRecentSources(new Set()); }}
+            onClick={() => { setViewMode('all'); setRecentTripIds(new Set()); }}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 8, background: '#185fa5', color: '#fff', border: 'none', borderRadius: 12,
