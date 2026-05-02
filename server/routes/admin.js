@@ -47,6 +47,8 @@ router.get('/config', requireAdmin, async (req, res) => {
       stripe_secret_key_set: !!(plan.stripe_secret_key || process.env.STRIPE_SECRET_KEY),
       stripe_publishable_key: plan.stripe_publishable_key || process.env.STRIPE_PUBLISHABLE_KEY || '',
       stripe_webhook_secret_set: !!(plan.stripe_webhook_secret || process.env.STRIPE_WEBHOOK_SECRET),
+      // Legal
+      terms_text: plan.terms_text || '',
       // Contact
       whatsapp_number: plan.whatsapp_number || '16673598525',
       support_email: plan.support_email || '',
@@ -71,7 +73,7 @@ router.put('/config', requireAdmin, async (req, res) => {
       stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId,
       google_oauth_enabled, google_client_id, google_client_secret,
       facebook_oauth_enabled, facebook_app_id, facebook_app_secret,
-      whatsapp_number, support_email,
+      whatsapp_number, support_email, terms_text,
     } = req.body;
     const existing = await PlanConfig.findOne();
 
@@ -111,6 +113,10 @@ router.put('/config', requireAdmin, async (req, res) => {
       stripe_price_id = price.id;
     }
 
+    // Legal updates
+    const legalUpdates = {};
+    if (terms_text !== undefined) legalUpdates.terms_text = terms_text || null;
+
     // Contact updates
     const contactUpdates = {};
     if (whatsapp_number !== undefined) contactUpdates.whatsapp_number = whatsapp_number.trim().replace(/^\+/, '');
@@ -136,6 +142,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         stripe_price_id,
         stripe_product_id,
         ...restKeyUpdates,
+        ...legalUpdates,
         ...contactUpdates,
         ...oauthUpdates,
       },

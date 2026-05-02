@@ -242,6 +242,16 @@ export default function Layout({ children }) {
         )}
 
         {children}
+
+        {/* Disclosure */}
+        <div style={{
+          marginTop: 32, padding: '12px 16px',
+          borderTop: '0.5px solid #f0ede8',
+          fontSize: 11, color: '#bbb', lineHeight: 1.6, textAlign: 'center',
+        }}>
+          ⚠️ TollSync provides toll estimates based on AI-parsed data. Results may contain errors or omissions.
+          We are not responsible for calculation inaccuracies. Always verify charges independently before billing renters.
+        </div>
       </main>
 
       {/* Mobile bottom nav */}

@@ -30,6 +30,7 @@ router.get('/plan', async (req, res) => {
       description: plan.description || 'Unlimited toll calculations for rental hosts',
       price_cents: plan.price_cents || 1000,
       trial_days: plan.trial_days ?? 0,
+      terms_text: plan.terms_text || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

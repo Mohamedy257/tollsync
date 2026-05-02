@@ -31,6 +31,9 @@ export default function AdminPage() {
   const [contactForm, setContactForm] = useState({ whatsapp_number: '', support_email: '' });
   const [savingContact, setSavingContact] = useState(false);
   const [contactMsg, setContactMsg] = useState('');
+  const [termsText, setTermsText] = useState('');
+  const [savingTerms, setSavingTerms] = useState(false);
+  const [termsMsg, setTermsMsg] = useState('');
   const [subscribers, setSubscribers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savingStripe, setSavingStripe] = useState(false);
@@ -87,6 +90,7 @@ export default function AdminPage() {
         whatsapp_number: cfgRes.data.whatsapp_number || '16673598525',
         support_email: cfgRes.data.support_email || '',
       });
+      setTermsText(cfgRes.data.terms_text || '');
       setSubscribers(subRes.data.subscribers);
       setMessages(msgRes.data.messages || []);
     } catch (err) {
@@ -183,6 +187,18 @@ export default function AdminPage() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save contact settings');
     } finally { setSavingContact(false); }
+  };
+
+  const saveTerms = async e => {
+    e.preventDefault();
+    setSavingTerms(true); setTermsMsg(''); setError('');
+    try {
+      await api.put('/admin/config', { terms_text: termsText });
+      setTermsMsg('Terms saved');
+      setTimeout(() => setTermsMsg(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save terms');
+    } finally { setSavingTerms(false); }
   };
 
   const impersonateUser = async (id) => {
@@ -576,6 +592,33 @@ export default function AdminPage() {
               {savingOauth ? <><span className="spinner" /> Saving...</> : 'Save OAuth settings'}
             </button>
             {oauthMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{oauthMsg}</span>}
+          </div>
+        </form>
+      </div>
+
+      {/* Terms & Conditions */}
+      <p className="section-title">Terms &amp; Conditions</p>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <form onSubmit={saveTerms}>
+          <div style={{ marginBottom: 10 }}>
+            <label style={lbl}>Terms text shown to users during sign-up</label>
+            <textarea
+              className="form-control"
+              rows={12}
+              style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+              placeholder="Enter your Terms & Conditions here. Plain text or simple paragraphs. Leave blank to use the built-in default terms."
+              value={termsText}
+              onChange={e => setTermsText(e.target.value)}
+            />
+            <p style={{ fontSize: 11, color: '#aaa', margin: '4px 0 0' }}>
+              Plain text. Use blank lines between paragraphs. Leave empty to show the built-in default terms.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn btn-primary btn-sm" type="submit" disabled={savingTerms}>
+              {savingTerms ? <><span className="spinner" /> Saving...</> : 'Save terms'}
+            </button>
+            {termsMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{termsMsg}</span>}
           </div>
         </form>
       </div>
