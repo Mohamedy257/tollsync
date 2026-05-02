@@ -246,11 +246,15 @@ export default function Layout({ children }) {
         {/* Disclosure */}
         <div style={{
           marginTop: 32, padding: '12px 16px',
-          borderTop: '0.5px solid #f0ede8',
-          fontSize: 11, color: '#bbb', lineHeight: 1.6, textAlign: 'center',
+          background: '#fffbeb', border: '1px solid #fde68a',
+          borderRadius: 10, fontSize: 12, color: '#92400e',
+          lineHeight: 1.6, display: 'flex', gap: 10, alignItems: 'flex-start',
         }}>
-          ⚠️ TollSync provides toll estimates based on AI-parsed data. Results may contain errors or omissions.
-          We are not responsible for calculation inaccuracies. Always verify charges independently before billing renters.
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+          <span>
+            <strong>Disclaimer:</strong> TollSync provides toll estimates based on AI-parsed data. Results may contain errors or omissions.
+            We are not responsible for calculation inaccuracies. Always verify charges independently before billing renters.
+          </span>
         </div>
       </main>
 
