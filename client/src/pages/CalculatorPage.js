@@ -836,8 +836,8 @@ export default function CalculatorPage() {
       {trips.length === 0 && !results && (() => {
         const steps = [
           {
-            n: 1, icon: '📸', title: 'Upload trip screenshots',
-            desc: 'Go to Trips and upload screenshots or PDFs of your trip list.',
+            n: 1, icon: '📸', title: 'Upload trip data',
+            desc: 'Go to Trips and upload screenshots, CSVs, or PDFs of your trip list.',
             done: false, active: true, action: { label: 'Go to Trips', path: '/trips' },
           },
           {
