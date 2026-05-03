@@ -1,5 +1,15 @@
-const FROM = () => process.env.SMTP_FROM || 'TollSync <onboarding@resend.dev>';
+const FROM = () => process.env.SMTP_FROM || 'TollSync <noreply@tollsync.app>';
+const REPLY_TO = () => process.env.REPLY_TO_EMAIL || process.env.ADMIN_EMAIL || 'support@tollsync.app';
 const APP_URL = () => process.env.CLIENT_URL || 'http://localhost:3000';
+
+function htmlToText(html) {
+  return html
+    .replace(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, '$2: $1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -11,7 +21,17 @@ async function sendEmail(to, subject, html) {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: FROM(), to, subject, html }),
+    body: JSON.stringify({
+      from: FROM(),
+      to,
+      subject,
+      html,
+      text: htmlToText(html),
+      reply_to: REPLY_TO(),
+      headers: {
+        'List-Unsubscribe': `<mailto:${REPLY_TO()}?subject=unsubscribe>`,
+      },
+    }),
   });
 
   if (!res.ok) {
@@ -39,7 +59,7 @@ async function sendPasswordReset(to, token) {
 async function sendVerificationEmail(to, token, name) {
   const firstName = (name || to).split(' ')[0];
   const link = `${APP_URL()}/verify-email?token=${token}`;
-  await sendEmail(to, 'Verify your TollSync email ⚡', `
+  await sendEmail(to, 'Please verify your TollSync email address', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
         <h2 style="margin:0 0 8px;font-size:22px;color:#1a1a1a">⚡ Welcome to TollSync, ${firstName}!</h2>
@@ -60,7 +80,7 @@ async function sendVerificationEmail(to, token, name) {
 
 async function sendWelcome(to, name) {
   const firstName = (name || to).split(' ')[0];
-  await sendEmail(to, 'Welcome to TollSync ⚡', `
+  await sendEmail(to, 'Welcome to TollSync', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
         <h2 style="margin:0 0 4px;font-size:22px;color:#1a1a1a">⚡ Welcome to TollSync, ${firstName}!</h2>
@@ -119,7 +139,7 @@ async function sendSubscriptionWelcome(to, name, planName, priceCents, periodEnd
     ? `Your <strong>${trialDays}-day free trial</strong> ends on <strong>${fmtDate(periodEnd)}</strong>, then ${fmtAmount(priceCents)}/month.`
     : `You'll be billed <strong>${fmtAmount(priceCents)}/month</strong>. Next charge: <strong>${fmtDate(periodEnd)}</strong>.`;
 
-  await sendEmail(to, `You're subscribed to ${planName || 'TollSync Pro'} ⚡`, `
+  await sendEmail(to, `Your TollSync subscription is active`, `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
         <div style="background:linear-gradient(135deg,#185fa5,#1577d4);border-radius:10px;padding:18px 20px;margin-bottom:24px">
@@ -181,7 +201,7 @@ async function sendCancellation(to, name, periodEnd) {
 
 async function sendPaymentFailed(to, name) {
   const firstName = (name || to).split(' ')[0];
-  await sendEmail(to, '⚠️ Payment failed — action required', `
+  await sendEmail(to, 'Action required: payment failed for your TollSync subscription', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
         <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:20px">
@@ -204,7 +224,7 @@ async function sendPaymentFailed(to, name) {
 
 async function sendSubscriptionRenewed(to, name, periodEnd, amountCents) {
   const firstName = (name || to).split(' ')[0];
-  await sendEmail(to, 'TollSync subscription renewed ✓', `
+  await sendEmail(to, 'Your TollSync subscription has been renewed', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin-bottom:20px">
@@ -236,7 +256,7 @@ async function sendSubscriptionRenewed(to, name, periodEnd, amountCents) {
 
 async function sendTrialEnding(to, name, trialEndDate) {
   const firstName = (name || to).split(' ')[0];
-  await sendEmail(to, '⏰ Your TollSync free trial ends in 3 days', `
+  await sendEmail(to, 'Your TollSync trial ends in 3 days', `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
         <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">Your free trial ends soon, ${firstName}</h2>
