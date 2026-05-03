@@ -201,6 +201,65 @@ router.post('/create-price', requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/subscribers
+router.get('/stats', requireAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const startOf30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const startOf7  = new Date(now - 7  * 24 * 60 * 60 * 1000);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [
+      totalUsers,
+      newToday,
+      newLast7,
+      newLast30,
+      activeSubscribers,
+      trialUsers,
+      cancelledUsers,
+      totalTrips,
+      totalTolls,
+      unreadMessages,
+      recentSignups,
+    ] = await Promise.all([
+      Host.countDocuments(),
+      Host.countDocuments({ createdAt: { $gte: startOfToday } }),
+      Host.countDocuments({ createdAt: { $gte: startOf7 } }),
+      Host.countDocuments({ createdAt: { $gte: startOf30 } }),
+      Host.countDocuments({ subscription_status: 'active' }),
+      Host.countDocuments({ subscription_status: 'trialing' }),
+      Host.countDocuments({ subscription_status: 'canceled' }),
+      Trip.countDocuments(),
+      TollTransaction.countDocuments(),
+      ContactMessage.countDocuments({ read: { $ne: true } }),
+      Host.find({ createdAt: { $gte: startOf30 } })
+        .select('email name subscription_status createdAt')
+        .sort({ createdAt: -1 })
+        .limit(10),
+    ]);
+
+    // Daily signups for the last 30 days (sparkline data)
+    const dailySignups = await Host.aggregate([
+      { $match: { createdAt: { $gte: startOf30 } } },
+      { $group: {
+        _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+        count: { $sum: 1 },
+      }},
+      { $sort: { _id: 1 } },
+    ]);
+
+    res.json({
+      users: { total: totalUsers, today: newToday, last7: newLast7, last30: newLast30 },
+      subscriptions: { active: activeSubscribers, trialing: trialUsers, cancelled: cancelledUsers },
+      content: { trips: totalTrips, tolls: totalTolls },
+      unreadMessages,
+      recentSignups,
+      dailySignups,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/subscribers', requireAdmin, async (req, res) => {
   try {
     const subscribers = await Host.find({})

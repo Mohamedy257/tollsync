@@ -53,15 +53,17 @@ export default function AdminPage() {
   const [emailMsg, setEmailMsg] = useState('');
   const [messages, setMessages] = useState([]);
   const [expandedMsg, setExpandedMsg] = useState(null);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
     try {
-      const [cfgRes, subRes, msgRes] = await Promise.all([
+      const [cfgRes, subRes, msgRes, statsRes] = await Promise.all([
         api.get('/admin/config'),
         api.get('/admin/subscribers'),
         api.get('/admin/messages'),
+        api.get('/admin/stats'),
       ]);
       setConfig(cfgRes.data);
       setForm({
@@ -93,6 +95,7 @@ export default function AdminPage() {
       setTermsText(cfgRes.data.terms_text || '');
       setSubscribers(subRes.data.subscribers);
       setMessages(msgRes.data.messages || []);
+      setStats(statsRes.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load admin data');
     }
@@ -712,6 +715,82 @@ export default function AdminPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Dashboard KPIs ── */}
+      <p className="section-title">Dashboard</p>
+      {stats && (() => {
+        const kpis = [
+          { label: 'Total Users',       value: stats.users.total,                color: '#185fa5' },
+          { label: 'New Today',         value: stats.users.today,                color: '#7c3aed' },
+          { label: 'New (7 days)',       value: stats.users.last7,               color: '#0891b2' },
+          { label: 'New (30 days)',      value: stats.users.last30,              color: '#0891b2' },
+          { label: 'Active Subs',        value: stats.subscriptions.active,      color: '#16a34a' },
+          { label: 'Trialing',           value: stats.subscriptions.trialing,    color: '#f59e0b' },
+          { label: 'Cancelled',          value: stats.subscriptions.cancelled,   color: '#e24b4a' },
+          { label: 'Total Trips',        value: stats.content.trips,             color: '#64748b' },
+          { label: 'Total Toll Records', value: stats.content.tolls,             color: '#64748b' },
+          { label: 'Unread Messages',    value: stats.unreadMessages,            color: stats.unreadMessages > 0 ? '#e24b4a' : '#64748b' },
+        ];
+        return (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+              {kpis.map(k => (
+                <div key={k.label} style={{ background: '#fff', border: '1px solid #f0ede8', borderRadius: 12, padding: '14px 16px' }}>
+                  <p style={{ fontSize: 11, color: '#999', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{k.label}</p>
+                  <p style={{ fontSize: 26, fontWeight: 700, color: k.color, margin: 0, lineHeight: 1 }}>{k.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Sparkline — daily signups last 30 days */}
+            {stats.dailySignups?.length > 0 && (() => {
+              const max = Math.max(...stats.dailySignups.map(d => d.count), 1);
+              const H = 48, W = 4, GAP = 3;
+              return (
+                <div className="card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily signups — last 30 days</p>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: GAP, height: H + 20 }}>
+                    {stats.dailySignups.map(d => (
+                      <div key={d._id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <div title={`${d._id}: ${d.count}`} style={{
+                          width: W + 4, height: Math.max(4, Math.round((d.count / max) * H)),
+                          background: '#185fa5', borderRadius: 3, cursor: 'default',
+                        }} />
+                        <span style={{ fontSize: 8, color: '#ccc', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                          {d._id.slice(5)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Recent signups */}
+            {stats.recentSignups?.length > 0 && (
+              <div className="card" style={{ marginBottom: 20, padding: 0, overflow: 'hidden' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: 0, padding: '12px 16px', borderBottom: '1px solid #f0ede8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent signups</p>
+                {stats.recentSignups.map(u => (
+                  <div key={u._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '0.5px solid #f5f3f0', fontSize: 13 }}>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 600 }}>{u.name || u.email}</p>
+                      {u.name && <p style={{ margin: 0, fontSize: 11, color: '#999' }}>{u.email}</p>}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99,
+                        background: u.subscription_status === 'active' ? '#dcfce7' : u.subscription_status === 'trialing' ? '#fef9c3' : '#f3f4f6',
+                        color: u.subscription_status === 'active' ? '#16a34a' : u.subscription_status === 'trialing' ? '#b45309' : '#6b7280',
+                      }}>{u.subscription_status || 'none'}</span>
+                      <p style={{ margin: '3px 0 0', fontSize: 11, color: '#aaa' }}>{fmtDate(u.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Subscribers */}
       <p className="section-title">Users</p>
