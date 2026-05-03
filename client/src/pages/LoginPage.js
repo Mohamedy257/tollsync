@@ -54,6 +54,16 @@ function TermsModal({ onClose }) {
   );
 }
 
+function passwordRules(pw) {
+  return [
+    { label: '8+ characters',         ok: pw.length >= 8 },
+    { label: 'Uppercase letter',       ok: /[A-Z]/.test(pw) },
+    { label: 'Lowercase letter',       ok: /[a-z]/.test(pw) },
+    { label: 'Number',                 ok: /[0-9]/.test(pw) },
+    { label: 'Special character',      ok: /[^A-Za-z0-9]/.test(pw) },
+  ];
+}
+
 export default function LoginPage() {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', name: '' });
@@ -84,6 +94,10 @@ export default function LoginPage() {
     e.preventDefault();
     if (mode === 'register' && !agreed) {
       setError('You must agree to the Terms & Conditions to create an account.');
+      return;
+    }
+    if (mode === 'register' && !passwordRules(form.password).every(r => r.ok)) {
+      setError('Password does not meet the requirements.');
       return;
     }
     setError(''); setLoading(true);
@@ -194,7 +208,28 @@ export default function LoginPage() {
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input className="form-control" name="password" type="password" placeholder="••••••••" value={form.password} onChange={handle} required minLength={6} />
+            <input className="form-control" name="password" type="password" placeholder="••••••••" value={form.password} onChange={handle} required minLength={mode === 'register' ? 8 : 6} />
+            {mode === 'register' && form.password.length > 0 && (() => {
+              const rules = passwordRules(form.password);
+              const passed = rules.filter(r => r.ok).length;
+              const colors = ['#e24b4a', '#e24b4a', '#f59e0b', '#f59e0b', '#22c55e'];
+              return (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                    {rules.map((r, i) => (
+                      <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < passed ? colors[passed - 1] : '#e5e3de', transition: 'background 0.2s' }} />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 12px' }}>
+                    {rules.map((r, i) => (
+                      <span key={i} style={{ fontSize: 11, color: r.ok ? '#16a34a' : '#999', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        {r.ok ? '✓' : '○'} {r.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {mode === 'register' && (
