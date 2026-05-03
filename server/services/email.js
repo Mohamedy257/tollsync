@@ -2,6 +2,21 @@ const FROM = () => process.env.SMTP_FROM || 'TollSync <noreply@tollsync.app>';
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || process.env.ADMIN_EMAIL || 'support@tollsync.app';
 const APP_URL = () => process.env.CLIENT_URL || 'http://localhost:3000';
 
+const EMAIL_FOOTER = () => `
+  <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e3de;text-align:center;font-size:11px;color:#aaa;line-height:1.8">
+    <p style="margin:0">TollSync &mdash; Rental toll calculator for Turo hosts</p>
+    <p style="margin:4px 0">© ${new Date().getFullYear()} TollSync. All rights reserved.</p>
+    <p style="margin:4px 0">
+      <a href="${APP_URL()}/unsubscribe" style="color:#aaa;text-decoration:underline">Unsubscribe</a>
+      &nbsp;&middot;&nbsp;
+      <a href="${APP_URL()}/support" style="color:#aaa;text-decoration:underline">Support</a>
+    </p>
+  </div>`;
+
+function withFooter(html) {
+  return html.replace(/(<\/div>\s*<\/div>\s*)$/, `${EMAIL_FOOTER()}$1`);
+}
+
 function htmlToText(html) {
   return html
     .replace(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, '$2: $1')
@@ -15,6 +30,7 @@ async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('Email not configured. Set RESEND_API_KEY environment variable.');
 
+  const finalHtml = withFooter(html);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -25,11 +41,12 @@ async function sendEmail(to, subject, html) {
       from: FROM(),
       to,
       subject,
-      html,
-      text: htmlToText(html),
+      html: finalHtml,
+      text: htmlToText(finalHtml),
       reply_to: REPLY_TO(),
       headers: {
-        'List-Unsubscribe': `<mailto:${REPLY_TO()}?subject=unsubscribe>`,
+        'List-Unsubscribe': `<mailto:${REPLY_TO()}?subject=unsubscribe>, <${APP_URL()}/unsubscribe>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
     }),
   });
