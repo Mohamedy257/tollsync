@@ -105,9 +105,10 @@ export default function LoginPage() {
     }
     setError(''); setLoading(true);
     try {
-      if (mode === 'login') await login(form.email, form.password);
-      else await register(form.email, form.password, form.name);
-      navigate('/');
+      let h;
+      if (mode === 'login') h = await login(form.email, form.password);
+      else h = await register(form.email, form.password, form.name);
+      navigate(h?.email_verified === false ? '/verify-pending' : '/');
     } catch (err) {
       const code = err.response?.data?.code;
       if (code === 'EMAIL_NOT_FOUND') {

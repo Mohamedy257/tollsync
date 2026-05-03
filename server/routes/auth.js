@@ -87,7 +87,6 @@ router.post('/login', async (req, res) => {
     if (!host.password_hash) return res.status(401).json({ error: `This account uses ${host.oauth_provider || 'social'} login. Please sign in with that provider.` });
     const valid = await bcrypt.compare(password, host.password_hash);
     if (!valid) return res.status(401).json({ error: 'Incorrect password.' });
-    if (host.email_verified === false) return res.status(401).json({ error: 'Please verify your email before signing in. Check your inbox for the verification link.', code: 'EMAIL_NOT_VERIFIED' });
     const token = issueToken(host.id);
     res.json({ token, host: serializeHost(host) });
   } catch (err) {
