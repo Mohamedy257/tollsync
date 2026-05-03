@@ -48,12 +48,34 @@ function resolveMimeType(file) {
   return file.mimetype || 'application/octet-stream';
 }
 
+const EXCEL_AI_CHUNK = 90000; // chars — stay under the 100k AI window
+
 function excelToCSVText(buffer) {
   const wb = XLSX.read(buffer, { type: 'buffer' });
   return wb.SheetNames.map(name => {
     const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
     return `Sheet: ${name}\n${csv}`;
   }).join('\n\n');
+}
+
+// Split CSV text into chunks that share the header row, each under EXCEL_AI_CHUNK chars.
+function splitCSVChunks(csvText) {
+  const lines = csvText.split('\n');
+  const header = lines[0] || '';
+  const dataLines = lines.slice(1);
+  const chunks = [];
+  let current = header;
+  for (const line of dataLines) {
+    const next = current + '\n' + line;
+    if (next.length > EXCEL_AI_CHUNK && current !== header) {
+      chunks.push(current);
+      current = header + '\n' + line;
+    } else {
+      current = next;
+    }
+  }
+  if (current && current !== header) chunks.push(current);
+  return chunks.length ? chunks : [csvText];
 }
 
 function isExcel(mimetype) {
@@ -388,12 +410,39 @@ async function processUploadJob(jobId, files, hostId) {
             try {
               const csvText = excelToCSVText(file.buffer);
               const csvBuffer = Buffer.from(csvText, 'utf8');
+
+              // Try native earnings CSV parse first (no AI needed)
               const csvResult = parseEarningsCSV(csvBuffer);
               if (csvResult) return { file, result: csvResult, error: null };
-              // Send the CSV text to AI as plain text
-              return parseFileAutoDetect(csvBuffer, 'text/csv')
-                .then(result => ({ file, result, error: null }))
-                .catch(err => ({ file, result: null, error: err }));
+
+              // For large files chunk into 90k-char slices so no rows are dropped
+              const chunks = splitCSVChunks(csvText);
+              if (chunks.length === 1) {
+                return parseFileAutoDetect(csvBuffer, 'text/csv')
+                  .then(result => ({ file, result, error: null }))
+                  .catch(err => ({ file, result: null, error: err }));
+              }
+
+              // Multiple chunks — parse each and merge ezpass rows
+              const chunkResults = await Promise.all(
+                chunks.map(chunk =>
+                  parseFileAutoDetect(Buffer.from(chunk, 'utf8'), 'text/csv').catch(() => null)
+                )
+              );
+              const merged = { type: 'ezpass', report_from: null, report_to: null, data: [] };
+              for (const r of chunkResults) {
+                if (!r) continue;
+                if (r.type === 'ezpass' && Array.isArray(r.data)) {
+                  merged.data.push(...r.data);
+                  if (!merged.report_from && r.report_from) merged.report_from = r.report_from;
+                  if (!merged.report_to && r.report_to) merged.report_to = r.report_to;
+                } else if (r.type === 'trips' && Array.isArray(r.data)) {
+                  // trips file split into chunks — merge under trips type
+                  if (merged.type !== 'trips') { merged.type = 'trips'; merged.data = []; }
+                  merged.data.push(...r.data);
+                }
+              }
+              return { file, result: merged, error: null };
             } catch (err) {
               return { file, result: null, error: err };
             }
