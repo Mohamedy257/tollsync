@@ -638,8 +638,7 @@ export default function CalculatorPage() {
         .sort((a, b) => new Date(b.end_datetime || 0) - new Date(a.end_datetime || 0))
     : [];
 
-  const withTolls = filteredTrips.filter(t => t.toll_items?.length > 0).sort(byEndDateDesc);
-  const noTolls   = filteredTrips.filter(t => !t.toll_items?.length).sort(byEndDateDesc);
+  const sortedTrips = [...filteredTrips].sort(byEndDateDesc);
   const totalLoaded = tolls.reduce((s, t) => s + parseFloat(t.amount), 0);
 
   return (
@@ -1275,7 +1274,7 @@ export default function CalculatorPage() {
             <div className="metric">
               <p className="metric-label">Trips with tolls</p>
               <p className="metric-value">
-                {withTolls.length}
+                {sortedTrips.filter(t => t.toll_items?.length > 0).length}
                 <span className="metric-sub">/ {results.trips.length}</span>
               </p>
             </div>
@@ -1383,22 +1382,9 @@ export default function CalculatorPage() {
             );
           })()}
 
-          {withTolls.length > 0 && (
-            <>
-              <p className="section-title">Trips with toll charges</p>
-              {withTolls.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-              ))}
-            </>
-          )}
-          {noTolls.length > 0 && (
-            <>
-              <p className="section-title" style={{ marginTop: '1.5rem' }}>Trips with no tolls</p>
-              {noTolls.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
-              ))}
-            </>
-          )}
+          {sortedTrips.map(t => (
+            <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+          ))}
 
           <div className="action-bar">
             <button className="btn" onClick={exportCSV}>⬇ Export CSV</button>
