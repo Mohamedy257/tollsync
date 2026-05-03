@@ -293,6 +293,24 @@ router.delete('/users/:hostId', requireAdmin, async (req, res) => {
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (target.email === adminEmail) return res.status(403).json({ error: 'Cannot delete admin account' });
 
+    // Cancel Stripe subscription and delete customer so no further charges occur
+    if (target.stripe_customer_id) {
+      try {
+        const stripe = getStripe();
+        if (stripe) {
+          const subs = await stripe.subscriptions.list({ customer: target.stripe_customer_id, status: 'all', limit: 10 });
+          await Promise.all(
+            subs.data
+              .filter(s => ['active', 'trialing', 'past_due'].includes(s.status))
+              .map(s => stripe.subscriptions.cancel(s.id))
+          );
+          await stripe.customers.del(target.stripe_customer_id);
+        }
+      } catch (e) {
+        console.error('Stripe cleanup error (non-fatal):', e.message);
+      }
+    }
+
     await Promise.all([
       Vehicle.deleteMany({ host_id: hostId }),
       Trip.deleteMany({ host_id: hostId }),
