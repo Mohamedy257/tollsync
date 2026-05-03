@@ -97,7 +97,7 @@ function matchTollsToTrips(vehicles, trips, tolls) {
     const vehicle = vehicleById[trip.vehicle_id];
     if (!vehicle) continue;
 
-    const transponder = (vehicle.transponder || '').replace(/\s/g, '');
+    const transponder = (vehicle.transponder || '').replace(/\D/g, ''); // digits only
     const plate = (vehicle.plate || '').replace(/\s/g, '').toUpperCase();
     if (!transponder && !plate) continue; // vehicle has no identifiers yet
 
@@ -113,16 +113,18 @@ function matchTollsToTrips(vehicles, trips, tolls) {
       const tollMs = new Date(matchTime).getTime();
       if (isNaN(tollMs) || tollMs < tripStart || tollMs > tripEnd) continue;
 
-      // Match by transponder AND/OR plate — both are checked for every trip.
-      // EZ-Pass reports sometimes strip leading digits from the transponder
-      // (e.g. "01010504474" appears as "10504474"), so use suffix matching:
-      // two IDs match when one ends with the other (min 6 digits to avoid false positives).
-      const tollKey = (toll.transponder_id || '').replace(/\s/g, '');
+      // Normalize toll transponder to digits only — handles dashes, spaces, etc.
+      const tollKey = (toll.transponder_id || '').replace(/\D/g, '');
       const byTransponder = transponder && tollKey && (() => {
         if (transponder === tollKey) return true;
+        // Suffix match: toll files sometimes strip leading digits
+        // e.g. vehicle "01010504474" → toll shows "10504474"
         const shorter = transponder.length < tollKey.length ? transponder : tollKey;
         const longer  = transponder.length < tollKey.length ? tollKey : transponder;
-        return shorter.length >= 6 && longer.endsWith(shorter);
+        if (shorter.length >= 4 && longer.endsWith(shorter)) return true;
+        // Zero-pad the shorter one to the longer's length and compare
+        // handles cases where exactly N leading zeros/digits are stripped
+        return shorter.padStart(longer.length, '0') === longer;
       })();
       const byPlate = plate && tollKey.toUpperCase() === plate;
       if (!byTransponder && !byPlate) continue;
