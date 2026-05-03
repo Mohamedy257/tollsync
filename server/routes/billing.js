@@ -90,10 +90,12 @@ router.post('/checkout', auth, async (req, res) => {
 
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     const trialDays = plan?.trial_days || 0;
+    const taxRateId = plan?.stripe_tax_rate_id || process.env.STRIPE_TAX_RATE_ID || null;
+
     const sessionParams = {
       customer: customerId,
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1, ...(taxRateId ? { tax_rates: [taxRateId] } : {}) }],
       success_url: from === 'wizard'
         ? `${clientUrl}/?session_id={CHECKOUT_SESSION_ID}`
         : `${clientUrl}/subscribe?session_id={CHECKOUT_SESSION_ID}`,

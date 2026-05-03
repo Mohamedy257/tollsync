@@ -9,6 +9,7 @@ const schema = new mongoose.Schema({
   stripe_secret_key: { type: String, default: null },
   stripe_publishable_key: { type: String, default: null },
   stripe_webhook_secret: { type: String, default: null },
+  stripe_tax_rate_id: { type: String, default: null },
   // Legal
   terms_text: { type: String, default: null },
   // Contact / support

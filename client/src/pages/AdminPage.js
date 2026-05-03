@@ -19,7 +19,7 @@ export default function AdminPage() {
   const { impersonate } = useAuth();
   const [config, setConfig] = useState(null);
   const [form, setForm] = useState({ name: '', description: '', price_cents: '', trial_days: 0 });
-  const [stripeForm, setStripeForm] = useState({ stripe_secret_key: '', stripe_publishable_key: '', stripe_webhook_secret: '' });
+  const [stripeForm, setStripeForm] = useState({ stripe_secret_key: '', stripe_publishable_key: '', stripe_webhook_secret: '', stripe_tax_rate_id: '' });
   const [stripeStatus, setStripeStatus] = useState({ secret_set: false, webhook_set: false });
   const [oauthForm, setOauthForm] = useState({
     google_oauth_enabled: false, google_client_id: '', google_client_secret: '',
@@ -70,7 +70,7 @@ export default function AdminPage() {
         price_cents: cfgRes.data.price_cents || 1000,
         trial_days: cfgRes.data.trial_days ?? 0,
       });
-      setStripeForm(f => ({ ...f, stripe_publishable_key: cfgRes.data.stripe_publishable_key || '' }));
+      setStripeForm(f => ({ ...f, stripe_publishable_key: cfgRes.data.stripe_publishable_key || '', stripe_tax_rate_id: cfgRes.data.stripe_tax_rate_id || '' }));
       setStripeStatus({
         secret_set: cfgRes.data.stripe_secret_key_set || false,
         webhook_set: cfgRes.data.stripe_webhook_secret_set || false,
@@ -125,6 +125,7 @@ export default function AdminPage() {
         stripe_publishable_key: stripeForm.stripe_publishable_key,
         stripe_webhook_secret: stripeForm.stripe_webhook_secret || undefined,
         stripe_price_id: stripeForm.stripe_price_id || undefined,
+        stripe_tax_rate_id: stripeForm.stripe_tax_rate_id,
       });
       const updated = res.data.plan || res.data.config;
       setStripeStatus({
@@ -503,6 +504,16 @@ export default function AdminPage() {
                 value={stripeForm.stripe_webhook_secret}
                 onChange={e => setStripeForm(f => ({ ...f, stripe_webhook_secret: e.target.value }))}
               />
+            </div>
+            <div>
+              <label style={lbl}>Tax Rate ID (optional)</label>
+              <input
+                className="form-control"
+                placeholder={config?.stripe_tax_rate_id || 'txr_... (leave blank for no tax)'}
+                value={stripeForm.stripe_tax_rate_id || ''}
+                onChange={e => setStripeForm(f => ({ ...f, stripe_tax_rate_id: e.target.value }))}
+              />
+              <p style={{ fontSize: 11, color: '#aaa', margin: '3px 0 0' }}>Create in Stripe → Billing → Tax Rates. Leave blank to disable tax.</p>
             </div>
           </div>
           <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>

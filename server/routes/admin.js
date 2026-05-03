@@ -47,6 +47,7 @@ router.get('/config', requireAdmin, async (req, res) => {
       stripe_secret_key_set: !!(plan.stripe_secret_key || process.env.STRIPE_SECRET_KEY),
       stripe_publishable_key: plan.stripe_publishable_key || process.env.STRIPE_PUBLISHABLE_KEY || '',
       stripe_webhook_secret_set: !!(plan.stripe_webhook_secret || process.env.STRIPE_WEBHOOK_SECRET),
+      stripe_tax_rate_id: plan.stripe_tax_rate_id || process.env.STRIPE_TAX_RATE_ID || '',
       // Legal
       terms_text: plan.terms_text || '',
       // Contact
@@ -70,7 +71,7 @@ router.put('/config', requireAdmin, async (req, res) => {
   try {
     const {
       name, description, price_cents, trial_days,
-      stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId,
+      stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId, stripe_tax_rate_id,
       google_oauth_enabled, google_client_id, google_client_secret,
       facebook_oauth_enabled, facebook_app_id, facebook_app_secret,
       whatsapp_number, support_email, terms_text,
@@ -83,6 +84,7 @@ router.put('/config', requireAdmin, async (req, res) => {
     if (stripe_publishable_key !== undefined) keyUpdates.stripe_publishable_key = stripe_publishable_key.trim();
     if (stripe_webhook_secret && stripe_webhook_secret.trim()) keyUpdates.stripe_webhook_secret = stripe_webhook_secret.trim();
     if (manualPriceId && manualPriceId.trim()) keyUpdates.stripe_price_id = manualPriceId.trim();
+    if (stripe_tax_rate_id !== undefined) keyUpdates.stripe_tax_rate_id = stripe_tax_rate_id.trim();
 
     let stripe_price_id = keyUpdates.stripe_price_id || existing?.stripe_price_id || process.env.STRIPE_PRICE_ID || null;
     let stripe_product_id = existing?.stripe_product_id || null;
