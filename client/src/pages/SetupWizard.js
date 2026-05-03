@@ -296,7 +296,7 @@ const STEPS = [
   { n: 1, label: 'Subscribe' },
   { n: 2, label: 'Terms & Conditions' },
   { n: 3, label: 'Add vehicles' },
-  { n: 4, label: 'EZ-Pass' },
+  { n: 4, label: 'Tolls Data' },
 ];
 
 export default function SetupWizard() {
@@ -475,7 +475,7 @@ export default function SetupWizard() {
     1: { title: 'Activate your subscription', sub: 'One plan, everything included. Cancel anytime.' },
     2: { title: 'Terms & Conditions', sub: 'Scroll through and read the full terms before agreeing.' },
     3: { title: 'Add your vehicles', sub: 'Add each car you host. TollSync uses this to match toll charges to trips.' },
-    4: { title: 'Upload EZ-Pass statement', sub: 'Optional — upload now or anytime later from Toll Records.' },
+    4: { title: 'Upload tolls data', sub: 'Optional — upload now or anytime later from Toll Records.' },
   };
 
   // Stripe session verifying overlay
