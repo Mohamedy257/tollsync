@@ -712,7 +712,7 @@ export default function CalculatorPage() {
               className="btn"
               style={{ width: '100%', justifyContent: 'flex-start', marginBottom: 8, fontSize: 15, padding: '12px 16px', borderRadius: 12, cursor: 'pointer' }}
             >
-              <input type="file" multiple accept=".csv,.pdf,image/*" style={{ display: 'none' }}
+              <input type="file" multiple accept=".csv,.xlsx,.xls,.pdf,image/*" style={{ display: 'none' }}
                 onChange={e => { setShowActionSheet(false); handleFiles(e.target.files); }} />
               📁 &nbsp; Choose from library
             </label>
@@ -774,7 +774,7 @@ export default function CalculatorPage() {
           onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
           onClick={isMobile && uploading === 0 ? e => { e.preventDefault(); setShowActionSheet(true); } : undefined}
         >
-          <input ref={fileRef} type="file" multiple accept=".csv,.pdf,image/*"
+          <input ref={fileRef} type="file" multiple accept=".csv,.xlsx,.xls,.pdf,image/*"
             onChange={e => handleFiles(e.target.files)} />
           {uploading > 0
             ? (
@@ -804,7 +804,7 @@ export default function CalculatorPage() {
                     </>
                   : <>
                       <p className="upload-label">Drop files, click to browse, or paste (⌘V)</p>
-                      <p className="upload-hint">Trip screenshots · EZ-Pass PDF/CSV — AI detects which is which</p>
+                      <p className="upload-hint">Screenshots · PDF · CSV · Excel — AI detects which is which</p>
                     </>
                 }
               </>

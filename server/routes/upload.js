@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
+const XLSX = require('xlsx');
 const auth = require('../middleware/auth');
 const Vehicle = require('../models/Vehicle');
 const Trip = require('../models/Trip');
@@ -38,11 +39,26 @@ function resolveMimeType(file) {
   const name = (file.originalname || '').toLowerCase();
   if (name.endsWith('.pdf')) return 'application/pdf';
   if (name.endsWith('.csv')) return 'text/csv';
+  if (name.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (name.endsWith('.xls')) return 'application/vnd.ms-excel';
   if (name.endsWith('.heic') || name.endsWith('.heif')) return 'image/jpeg'; // should be converted client-side already
   if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
   if (name.endsWith('.png')) return 'image/png';
   if (name.endsWith('.webp')) return 'image/webp';
   return file.mimetype || 'application/octet-stream';
+}
+
+function excelToCSVText(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer' });
+  return wb.SheetNames.map(name => {
+    const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+    return `Sheet: ${name}\n${csv}`;
+  }).join('\n\n');
+}
+
+function isExcel(mimetype) {
+  return mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    mimetype === 'application/vnd.ms-excel';
 }
 
 // ── E-ZPass PDF parser ──────────────────────────────────────────────────────
@@ -367,14 +383,29 @@ async function processUploadJob(jobId, files, hostId) {
             const csvResult = parseEarningsCSV(file.buffer);
             if (csvResult) return { file, result: csvResult, error: null };
           }
-          // 2. PDF — try native EZPass parser first (avoids AI token limit on large statements)
+          // 2. Excel — convert to CSV text, try native earnings parse then AI
+          if (isExcel(file.mimetype)) {
+            try {
+              const csvText = excelToCSVText(file.buffer);
+              const csvBuffer = Buffer.from(csvText, 'utf8');
+              const csvResult = parseEarningsCSV(csvBuffer);
+              if (csvResult) return { file, result: csvResult, error: null };
+              // Send the CSV text to AI as plain text
+              return parseFileAutoDetect(csvBuffer, 'text/csv')
+                .then(result => ({ file, result, error: null }))
+                .catch(err => ({ file, result: null, error: err }));
+            } catch (err) {
+              return { file, result: null, error: err };
+            }
+          }
+          // 3. PDF — try native EZPass parser first (avoids AI token limit on large statements)
           if (file.mimetype === 'application/pdf') {
             try {
               const ezpassResult = await parseEzpassPDF(file.buffer);
               if (ezpassResult) return { file, result: ezpassResult, error: null };
             } catch (e) { /* fall through to AI */ }
           }
-          // 3. AI fallback for everything else
+          // 4. AI fallback for everything else
           return parseFileAutoDetect(file.buffer, file.mimetype)
             .then(result => ({ file, result, error: null }))
             .catch(err => ({ file, result: null, error: err }));
