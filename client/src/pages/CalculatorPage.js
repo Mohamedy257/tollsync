@@ -41,11 +41,28 @@ function TripCard({ t, reportRange, vehicles }) {
     const filename = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
 
     try {
-      const canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
+      const isDesktop = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+      let canvas;
+      if (isDesktop) {
+        // Force a wide render so the output is large enough for Turo / evidence uploads
+        const el = gridRef.current;
+        const saved = { width: el.style.width, minWidth: el.style.minWidth, maxWidth: el.style.maxWidth };
+        el.style.width = '900px';
+        el.style.minWidth = '900px';
+        el.style.maxWidth = '900px';
+        canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 3, width: 900 });
+        el.style.width = saved.width;
+        el.style.minWidth = saved.minWidth;
+        el.style.maxWidth = saved.maxWidth;
+      } else {
+        canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
+      }
+
       const dataUrl = canvas.toDataURL('image/png');
 
       // Desktop: trigger download
-      if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      if (isDesktop) {
         const a = document.createElement('a');
         a.href = dataUrl;
         a.download = filename;
