@@ -299,6 +299,7 @@ router.delete('/users/:hostId', requireAdmin, async (req, res) => {
       GmailToken.deleteMany({ host_id: hostId }),
       GmailConfig.deleteMany({ host_id: hostId }),
       EzpassReportRange.deleteMany({ host_id: hostId }),
+      ContactMessage.deleteMany({ host_id: hostId }),
     ]);
     await Host.findByIdAndDelete(hostId);
 
