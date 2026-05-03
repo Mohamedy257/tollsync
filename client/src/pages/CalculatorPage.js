@@ -72,7 +72,15 @@ function TripCard({ t, reportRange, vehicles }) {
         return;
       }
 
-      // Mobile: show image in overlay — user long-presses to save
+      // Mobile: try native share sheet (Save to Photos), fall back to overlay
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Toll charges' });
+          return;
+        }
+      } catch (e) { /* user cancelled or share not supported — fall through */ }
       setPreviewUrl(dataUrl);
     } catch (err) {
       console.error('Export failed:', err);
@@ -111,16 +119,30 @@ function TripCard({ t, reportRange, vehicles }) {
             padding: 16,
           }}
         >
-          <p style={{ color: '#fff', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
-            Long-press the image below to save it
-          </p>
-          <img src={previewUrl} alt="Toll charges" style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 8 }} />
-          <button
-            onClick={() => setPreviewUrl(null)}
-            style={{ marginTop: 16, background: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 600, fontSize: 15 }}
-          >
-            Close
-          </button>
+          <img
+            src={previewUrl} alt="Toll charges"
+            style={{ maxWidth: '100%', maxHeight: '65vh', borderRadius: 8 }}
+            onClick={e => e.stopPropagation()}
+          />
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }} onClick={e => e.stopPropagation()}>
+            <a
+              href={previewUrl}
+              download={`tollsync_${new Date().toISOString().slice(0, 10)}.png`}
+              style={{
+                background: '#185fa5', color: '#fff', border: 'none', borderRadius: 10,
+                padding: '12px 28px', fontWeight: 700, fontSize: 15, textDecoration: 'none',
+                display: 'flex', alignItems: 'center', gap: 7,
+              }}
+            >
+              Save Image
+            </a>
+            <button
+              onClick={() => setPreviewUrl(null)}
+              style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 10, padding: '12px 20px', fontWeight: 600, fontSize: 15 }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 
