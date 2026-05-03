@@ -48,7 +48,7 @@ function resolveMimeType(file) {
   return file.mimetype || 'application/octet-stream';
 }
 
-const AI_CHUNK = 90000; // chars — stay under the 100k AI window
+const AI_CHUNK = 20000; // chars per chunk — ~200 rows → ~10k tokens of JSON output, well under max_tokens
 
 function excelToCSVText(buffer) {
   const wb = XLSX.read(buffer, { type: 'buffer' });

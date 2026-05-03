@@ -53,12 +53,12 @@ async function parseFileWithAI(fileBuffer, mimeType, type) {
   } else {
     // CSV and any other text-based format
     const text = fileBuffer.toString('utf-8');
-    content = `${prompt}\n\nFile content:\n${text.slice(0, 100000)}`;
+    content = `${prompt}\n\nFile content:\n${text.slice(0, 25000)}`;
   }
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 16000,
+    max_tokens: 32000,
     messages: [{ role: 'user', content }]
   });
 
@@ -197,12 +197,12 @@ async function parseFileAutoDetect(fileBuffer, mimeType) {
   } else {
     // CSV and any other text-based format
     const text = fileBuffer.toString('utf-8');
-    content = `${prompt}\n\nFile content:\n${text.slice(0, 100000)}`;
+    content = `${prompt}\n\nFile content:\n${text.slice(0, 25000)}`;
   }
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 16000,
+    max_tokens: 32000,
     messages: [{ role: 'user', content }]
   });
 
@@ -229,7 +229,7 @@ async function parseMultipleImagesAutoDetect(fileItems) {
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 16000,
+    max_tokens: 32000,
     messages: [{ role: 'user', content }]
   });
 
@@ -265,7 +265,7 @@ For trip modification/extension emails: extract the updated end_datetime and the
 Return [] if no trips found.
 
 Text:
-${text.slice(0, 100000)}`;
+${text.slice(0, 25000)}`;
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
