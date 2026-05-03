@@ -637,18 +637,7 @@ export default function AdminPage() {
       </div>
 
       {/* Contact / support channels */}
-      {/* Google Analytics */}
-      <p className="section-title">Google Analytics</p>
-      <div className="card" style={{ marginBottom: 20, fontSize: 13, color: '#555', lineHeight: 1.7 }}>
-        <p style={{ margin: '0 0 8px' }}>To enable site visit tracking, set the environment variable on Railway:</p>
-        <code style={{ background: '#f5f3f0', padding: '6px 12px', borderRadius: 8, display: 'block', fontSize: 12, marginBottom: 10 }}>
-          REACT_APP_GA_ID=G-XXXXXXXXXX
-        </code>
-        <p style={{ margin: 0 }}>Get your Measurement ID from <strong>analytics.google.com</strong> → Admin → Data Streams → your stream → Measurement ID (starts with G-).</p>
-        <p style={{ margin: '6px 0 0', fontSize: 12, color: '#aaa' }}>Requires a client rebuild after setting the variable. GA4 is free and tracks page views, sessions, geography, and device types.</p>
-      </div>
-
-      <p className="section-title">Contact channels</p>
+<p className="section-title">Contact channels</p>
       <div className="card" style={{ marginBottom: 20 }}>
         <form onSubmit={saveContact}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px 12px', marginBottom: 12 }}>
