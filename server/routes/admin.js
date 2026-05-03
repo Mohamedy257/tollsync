@@ -11,6 +11,7 @@ const TripResult = require('../models/TripResult');
 const GmailToken = require('../models/GmailToken');
 const GmailConfig = require('../models/GmailConfig');
 const EzpassReportRange = require('../models/EzpassReportRange');
+const FunnelEvent = require('../models/FunnelEvent');
 const { sendCustom } = require('../services/email');
 
 const router = express.Router();
@@ -238,13 +239,14 @@ router.get('/stats', requireAdmin, async (req, res) => {
     ]);
 
     // Daily signups for the last 30 days (sparkline data)
-    const dailySignups = await Host.aggregate([
-      { $match: { createdAt: { $gte: startOf30 } } },
-      { $group: {
-        _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-        count: { $sum: 1 },
-      }},
-      { $sort: { _id: 1 } },
+    const [dailySignups, funnelStarts, funnelSubmits] = await Promise.all([
+      Host.aggregate([
+        { $match: { createdAt: { $gte: startOf30 } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      FunnelEvent.countDocuments({ event: 'register_start',  createdAt: { $gte: startOf30 } }),
+      FunnelEvent.countDocuments({ event: 'register_submit', createdAt: { $gte: startOf30 } }),
     ]);
 
     res.json({
@@ -254,6 +256,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
       unreadMessages,
       recentSignups,
       dailySignups,
+      funnel: { starts: funnelStarts, submits: funnelSubmits, completed: newLast30 },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

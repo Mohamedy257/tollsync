@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const Host = require('../models/Host');
+const FunnelEvent = require('../models/FunnelEvent');
 const { sendPasswordReset, sendWelcome, sendVerificationEmail, sendAdminNewUser } = require('../services/email');
 const PlanConfig = require('../models/PlanConfig');
 const auth = require('../middleware/auth');
@@ -421,5 +422,16 @@ async function findOrCreateOAuthUser({ email, name, provider, providerId, field 
   if (adminEmail) sendAdminNewUser(adminEmail, host.email, host.name, provider).catch(() => {});
   return host;
 }
+
+// POST /api/auth/funnel — lightweight registration funnel tracking (no auth)
+router.post('/funnel', async (req, res) => {
+  try {
+    const { event, email } = req.body;
+    if (!['register_start', 'register_submit'].includes(event)) return res.json({ ok: true });
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+    await FunnelEvent.create({ event, email: email?.toLowerCase() || null, ip, user_agent: req.headers['user-agent'] || null });
+    res.json({ ok: true });
+  } catch { res.json({ ok: true }); }
+});
 
 module.exports = router;

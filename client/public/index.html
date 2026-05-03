@@ -19,6 +19,23 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 
     <title>TollSync</title>
+
+    <!-- Google Analytics (GA4) — injected only when REACT_APP_GA_ID is set -->
+    <script>
+      (function() {
+        var id = '%REACT_APP_GA_ID%';
+        if (!id || id === '%REACT_APP_GA_ID%') return;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', id);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

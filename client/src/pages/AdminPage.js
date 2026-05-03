@@ -638,6 +638,17 @@ export default function AdminPage() {
       </div>
 
       {/* Contact / support channels */}
+      {/* Google Analytics */}
+      <p className="section-title">Google Analytics</p>
+      <div className="card" style={{ marginBottom: 20, fontSize: 13, color: '#555', lineHeight: 1.7 }}>
+        <p style={{ margin: '0 0 8px' }}>To enable site visit tracking, set the environment variable on Railway:</p>
+        <code style={{ background: '#f5f3f0', padding: '6px 12px', borderRadius: 8, display: 'block', fontSize: 12, marginBottom: 10 }}>
+          REACT_APP_GA_ID=G-XXXXXXXXXX
+        </code>
+        <p style={{ margin: 0 }}>Get your Measurement ID from <strong>analytics.google.com</strong> → Admin → Data Streams → your stream → Measurement ID (starts with G-).</p>
+        <p style={{ margin: '6px 0 0', fontSize: 12, color: '#aaa' }}>Requires a client rebuild after setting the variable. GA4 is free and tracks page views, sessions, geography, and device types.</p>
+      </div>
+
       <p className="section-title">Contact channels</p>
       <div className="card" style={{ marginBottom: 20 }}>
         <form onSubmit={saveContact}>
@@ -762,6 +773,38 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              );
+            })()}
+
+            {/* Registration funnel */}
+            {stats.funnel && (() => {
+              const { starts, submits, completed } = stats.funnel;
+              const steps = [
+                { label: 'Clicked Register', value: starts, color: '#185fa5' },
+                { label: 'Submitted Form',   value: submits, color: '#7c3aed' },
+                { label: 'Completed Signup', value: completed, color: '#16a34a' },
+              ];
+              const max = Math.max(...steps.map(s => s.value), 1);
+              return (
+                <div className="card" style={{ marginBottom: 20, padding: '16px 20px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: '#888', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Registration funnel — last 30 days</p>
+                  {steps.map((s, i) => (
+                    <div key={s.label} style={{ marginBottom: i < steps.length - 1 ? 10 : 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                        <span style={{ color: '#555' }}>{s.label}</span>
+                        <span style={{ fontWeight: 700, color: s.color }}>{s.value}</span>
+                      </div>
+                      <div style={{ height: 8, background: '#f0ede8', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.round((s.value / max) * 100)}%`, background: s.color, borderRadius: 99, transition: 'width 0.4s' }} />
+                      </div>
+                      {i < steps.length - 1 && steps[i + 1].value < s.value && (
+                        <p style={{ fontSize: 11, color: '#e24b4a', margin: '3px 0 0', textAlign: 'right' }}>
+                          {s.value - steps[i + 1].value} dropped off ({s.value > 0 ? Math.round(((s.value - steps[i + 1].value) / s.value) * 100) : 0}%)
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               );
             })()}

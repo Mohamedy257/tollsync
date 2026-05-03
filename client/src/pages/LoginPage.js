@@ -100,6 +100,9 @@ export default function LoginPage() {
       setError('Password does not meet the requirements.');
       return;
     }
+    if (mode === 'register') {
+      api.post('/auth/funnel', { event: 'register_submit', email: form.email }).catch(() => {});
+    }
     setError(''); setLoading(true);
     try {
       if (mode === 'login') await login(form.email, form.password);
@@ -120,7 +123,11 @@ export default function LoginPage() {
   };
 
   const switchMode = (forceTo) => {
-    setMode(m => forceTo || (m === 'login' ? 'register' : 'login'));
+    const next = forceTo || (mode === 'login' ? 'register' : 'login');
+    if (next === 'register') {
+      api.post('/auth/funnel', { event: 'register_start' }).catch(() => {});
+    }
+    setMode(next);
     setError('');
     setNotFound(false);
     setAgreed(false);
