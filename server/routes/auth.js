@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const Host = require('../models/Host');
-const { sendPasswordReset, sendWelcome, sendVerificationEmail } = require('../services/email');
+const { sendPasswordReset, sendWelcome, sendVerificationEmail, sendAdminNewUser } = require('../services/email');
 const PlanConfig = require('../models/PlanConfig');
 const auth = require('../middleware/auth');
 
@@ -63,6 +63,8 @@ router.post('/register', async (req, res) => {
     sendVerificationEmail(host.email, verificationToken, host.name)
       .then(() => console.log('Verification email sent to', host.email))
       .catch(err => console.error('Verification email FAILED for', host.email, ':', err.message));
+    const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+    if (adminEmail) sendAdminNewUser(adminEmail, host.email, host.name, null).catch(() => {});
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -410,6 +412,8 @@ async function findOrCreateOAuthUser({ email, name, provider, providerId, field 
     email_verified: true, // OAuth providers verify the email for us
   });
   sendWelcome(host.email, host.name).catch(err => console.warn('Welcome email failed:', err.message));
+  const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+  if (adminEmail) sendAdminNewUser(adminEmail, host.email, host.name, provider).catch(() => {});
   return host;
 }
 

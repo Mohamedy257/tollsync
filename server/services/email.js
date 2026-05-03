@@ -260,6 +260,26 @@ async function sendTrialEnding(to, name, trialEndDate) {
   `);
 }
 
+async function sendAdminNewUser(adminEmail, newUserEmail, newUserName, provider) {
+  const via = provider ? `via ${provider}` : 'email/password';
+  await sendEmail(adminEmail, `New signup: ${newUserEmail}`, `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:24px;border:0.5px solid #e5e3de">
+        <h2 style="margin:0 0 16px;font-size:17px;color:#1a1a1a">⚡ New TollSync signup</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr><td style="padding:6px 0;color:#6b7280;width:90px">Name</td><td style="padding:6px 0;font-weight:600;color:#111">${newUserName || '—'}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Email</td><td style="padding:6px 0;font-weight:600;color:#111">${newUserEmail}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Signed up</td><td style="padding:6px 0;color:#111">${via}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Time</td><td style="padding:6px 0;color:#111">${new Date().toUTCString()}</td></tr>
+        </table>
+        <a href="${APP_URL()}/admin" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#185fa5;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">
+          View in Admin →
+        </a>
+      </div>
+    </div>
+  `);
+}
+
 async function sendCustom(to, subject, body) {
   const htmlBody = body.replace(/\n/g, '<br>');
   await sendEmail(to, subject, `
@@ -276,5 +296,5 @@ async function sendCustom(to, subject, body) {
 module.exports = {
   sendPasswordReset, sendWelcome, sendVerificationEmail, sendCustom,
   sendSubscriptionWelcome, sendCancellation, sendPaymentFailed,
-  sendSubscriptionRenewed, sendTrialEnding,
+  sendSubscriptionRenewed, sendTrialEnding, sendAdminNewUser,
 };
