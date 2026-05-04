@@ -309,6 +309,21 @@ router.post('/grant-trial/:hostId', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/expire-trial/:hostId — immediately expire a user's free trial
+router.post('/expire-trial/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const host = await Host.findByIdAndUpdate(
+      req.params.hostId,
+      { free_trial_ends_at: new Date(0) },
+      { new: true }
+    );
+    if (!host) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/revoke/:hostId — revoke subscription
 router.post('/revoke/:hostId', requireAdmin, async (req, res) => {
   try {

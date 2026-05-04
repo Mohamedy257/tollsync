@@ -276,6 +276,17 @@ export default function AdminPage() {
     } finally { setBackfilling(false); }
   };
 
+  const expireTrial = async (id) => {
+    try {
+      await api.post(`/admin/expire-trial/${id}`);
+      setSubscribers(prev => prev.map(s =>
+        (s.id || s._id) === id ? { ...s, free_trial_ends_at: new Date(0).toISOString() } : s
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to expire trial');
+    }
+  };
+
   const grantTrialToUser = async () => {
     const days = parseInt(trialDaysInput, 10);
     if (!days || days < 1) return;
@@ -899,6 +910,16 @@ export default function AdminPage() {
                 >
                   ⏱ Trial
                 </button>
+                {s.free_trial_ends_at && new Date(s.free_trial_ends_at) > new Date() && (
+                  <button
+                    className="btn btn-sm btn-danger"
+                    style={{ fontSize: 11 }}
+                    onClick={() => expireTrial(s.id || s._id)}
+                    title="Expire trial immediately"
+                  >
+                    Expire
+                  </button>
+                )}
                 <button
                   className="btn btn-sm btn-danger"
                   style={{ fontSize: 11 }}
