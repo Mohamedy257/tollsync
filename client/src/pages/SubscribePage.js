@@ -17,6 +17,21 @@ export default function SubscribePage() {
     api.get('/billing/plan').then(r => setPlan(r.data)).catch(() => {});
   }, []);
 
+  // On mount, refresh host — if admin granted a trial since last login, redirect to app
+  useEffect(() => {
+    if (!host) return;
+    refreshHost().then(updated => {
+      if (
+        updated?.is_admin ||
+        updated?.subscription_status === 'active' ||
+        updated?.subscription_status === 'trialing' ||
+        (updated?.free_trial_ends_at && new Date(updated.free_trial_ends_at) > new Date())
+      ) {
+        navigate('/', { replace: true });
+      }
+    }).catch(() => {});
+  }, []); // eslint-disable-line
+
   // Handle return from Stripe (?session_id=...)
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
@@ -123,17 +138,24 @@ export default function SubscribePage() {
         ) : (
           /* Paywall */
           <div className="card" style={{ padding: 28 }}>
-            {trialExpired && (
-              <div style={{ background: '#fff8f0', border: '1px solid #fde8c8', borderRadius: 10, padding: '12px 16px', marginBottom: 20, textAlign: 'center' }}>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#9a4f00' }}>Your free trial has ended</p>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#b36200' }}>Subscribe to keep using TollSync</p>
-              </div>
-            )}
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 6px' }}>{plan?.name || 'TollSync Pro'}</p>
-              <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>{plan?.description || 'Unlimited toll calculations for rental hosts'}</p>
+              {trialExpired ? (
+                <>
+                  <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
+                  <p style={{ fontWeight: 800, fontSize: 20, margin: '0 0 8px', color: '#1a1a1a' }}>Your free trial has ended</p>
+                  <p style={{ fontSize: 14, color: '#666', margin: '0 0 4px', lineHeight: 1.5 }}>
+                    Your {Math.round((new Date(host.free_trial_ends_at) - new Date(host.createdAt)) / 86400000)}-day free trial expired on <strong>{new Date(host.free_trial_ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong>.
+                  </p>
+                  <p style={{ fontSize: 14, color: '#666', margin: '0 0 20px' }}>Subscribe below to restore full access.</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 6px' }}>{plan?.name || 'TollSync Pro'}</p>
+                  <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>{plan?.description || 'Unlimited toll calculations for rental hosts'}</p>
+                </>
+              )}
               <p style={{ fontSize: 36, fontWeight: 800, color: '#185fa5', margin: 0 }}>{price}</p>
-              {trialDays > 0 && (
+              {trialDays > 0 && !trialExpired && (
                 <p style={{ fontSize: 13, color: '#3b6d11', fontWeight: 600, margin: '6px 0 0' }}>
                   {trialDays}-day free trial included
                 </p>
