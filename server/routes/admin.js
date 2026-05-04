@@ -276,6 +276,23 @@ router.get('/subscribers', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/notify-trial/:hostId — send trial email to a specific user
+router.post('/notify-trial/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const plan = await PlanConfig.findOne();
+    const days = plan?.free_trial_days ?? 7;
+    const host = await Host.findById(req.params.hostId);
+    if (!host) return res.status(404).json({ error: 'User not found' });
+    if (!host.free_trial_ends_at) return res.status(400).json({ error: 'User has no active trial' });
+    await sendFreeTrialGranted(host.email, host.name, host.free_trial_ends_at, days);
+    host.free_trial_notified = true;
+    await host.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/grant/:hostId — manually grant subscription (for testing/comps)
 router.post('/grant/:hostId', requireAdmin, async (req, res) => {
   try {

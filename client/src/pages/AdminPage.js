@@ -276,6 +276,16 @@ export default function AdminPage() {
     } finally { setBackfilling(false); }
   };
 
+  const [notifyingTrialId, setNotifyingTrialId] = useState(null);
+  const notifyTrialUser = async (id) => {
+    setNotifyingTrialId(id);
+    try {
+      await api.post(`/admin/notify-trial/${id}`);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to send email');
+    } finally { setNotifyingTrialId(null); }
+  };
+
   const expireTrial = async (id) => {
     try {
       await api.post(`/admin/expire-trial/${id}`);
@@ -910,6 +920,17 @@ export default function AdminPage() {
                 >
                   ⏱ Trial
                 </button>
+                {s.free_trial_ends_at && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ fontSize: 11 }}
+                    disabled={notifyingTrialId === (s.id || s._id)}
+                    onClick={() => notifyTrialUser(s.id || s._id)}
+                    title="Send trial email to this user"
+                  >
+                    {notifyingTrialId === (s.id || s._id) ? <span className="spinner" /> : '📧 Trial email'}
+                  </button>
+                )}
                 {s.free_trial_ends_at && new Date(s.free_trial_ends_at) > new Date() && (
                   <button
                     className="btn btn-sm btn-danger"
