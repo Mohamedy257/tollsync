@@ -57,6 +57,8 @@ export default function AdminPage() {
   const [expandedMsg, setExpandedMsg] = useState(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMsg, setBackfillMsg] = useState('');
+  const [notifying, setNotifying] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -271,6 +273,16 @@ export default function AdminPage() {
     } finally { setBackfilling(false); }
   };
 
+  const notifyTrialUsers = async () => {
+    setNotifying(true); setNotifyMsg('');
+    try {
+      const res = await api.post('/admin/notify-trial-users');
+      setNotifyMsg(`Sent ${res.data.sent} email(s)${res.data.failed > 0 ? `, ${res.data.failed} failed` : ''}`);
+    } catch (err) {
+      setNotifyMsg(err.response?.data?.error || 'Failed');
+    } finally { setNotifying(false); }
+  };
+
   const sendEmail = async (e) => {
     e.preventDefault();
     setSendingEmail(true); setEmailMsg('');
@@ -473,8 +485,12 @@ export default function AdminPage() {
             <button type="button" className="btn btn-sm" onClick={backfillTrials} disabled={backfilling}>
               {backfilling ? <><span className="spinner" /> Backfilling...</> : 'Apply trial to existing users'}
             </button>
+            <button type="button" className="btn btn-sm" onClick={notifyTrialUsers} disabled={notifying}>
+              {notifying ? <><span className="spinner" /> Sending...</> : 'Email trial users'}
+            </button>
             {saveMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{saveMsg}</span>}
             {backfillMsg && <span style={{ fontSize: 13, color: backfillMsg.startsWith('Done') ? '#3b6d11' : '#e24b4a' }}>{backfillMsg}</span>}
+            {notifyMsg && <span style={{ fontSize: 13, color: notifyMsg.startsWith('Sent') ? '#3b6d11' : '#e24b4a' }}>{notifyMsg}</span>}
           </div>
         </form>
       </div>

@@ -12,7 +12,7 @@ const GmailToken = require('../models/GmailToken');
 const GmailConfig = require('../models/GmailConfig');
 const EzpassReportRange = require('../models/EzpassReportRange');
 const FunnelEvent = require('../models/FunnelEvent');
-const { sendCustom } = require('../services/email');
+const { sendCustom, sendFreeTrialGranted } = require('../services/email');
 
 const router = express.Router();
 router.use(auth);
@@ -417,6 +417,38 @@ router.post('/email/:hostId', requireAdmin, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Send email error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/notify-trial-users — email users who have a free trial but haven't been notified
+router.post('/notify-trial-users', requireAdmin, async (req, res) => {
+  try {
+    const plan = await PlanConfig.findOne();
+    const days = plan?.free_trial_days ?? 7;
+
+    const users = await Host.find({
+      free_trial_ends_at: { $ne: null },
+      free_trial_notified: { $ne: true },
+    });
+
+    let sent = 0;
+    let failed = 0;
+    await Promise.all(users.map(async u => {
+      try {
+        await sendFreeTrialGranted(u.email, u.name, u.free_trial_ends_at, days);
+        u.free_trial_notified = true;
+        await u.save();
+        sent++;
+      } catch (e) {
+        console.error('Trial notify failed for', u.email, e.message);
+        failed++;
+      }
+    }));
+
+    res.json({ sent, failed });
+  } catch (err) {
+    console.error('Notify trial users error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

@@ -317,6 +317,44 @@ async function sendAdminNewUser(adminEmail, newUserEmail, newUserName, provider)
   `);
 }
 
+async function sendFreeTrialGranted(to, name, trialEndsAt, trialDays) {
+  const firstName = (name || to).split(' ')[0];
+  const endDate = fmtDate(trialEndsAt);
+  await sendEmail(to, `You have ${trialDays}-day free access to TollSync`, `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <div style="background:linear-gradient(135deg,#185fa5,#1577d4);border-radius:10px;padding:18px 20px;margin-bottom:24px">
+          <p style="margin:0;font-size:20px;font-weight:800;color:#fff">⚡ TollSync</p>
+          <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.75)">Free trial — no credit card required</p>
+        </div>
+
+        <h2 style="margin:0 0 10px;font-size:20px;color:#1a1a1a">Hi ${firstName}, your free trial is ready!</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">
+          You have full access to TollSync for <strong>${trialDays} days</strong>, completely free — no credit card needed.
+          Your trial runs until <strong>${endDate}</strong>.
+        </p>
+
+        <div style="background:#f0f4fa;border-radius:10px;padding:16px 18px;margin-bottom:24px">
+          <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">What you can do</p>
+          ${['Upload trip screenshots, PDFs, CSVs, or Excel files', 'Upload EZ-Pass / toll statements', 'AI matches tolls to each renter automatically', 'Get exact per-renter toll amounts to charge back', 'Export reports for your records'].map(f => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="color:#185fa5;font-size:14px;font-weight:700">✓</span>
+            <span style="font-size:13px;color:#374151">${f}</span>
+          </div>`).join('')}
+        </div>
+
+        <a href="${APP_URL()}" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+          Open TollSync →
+        </a>
+
+        <p style="color:#aaa;font-size:12px;margin-top:24px;line-height:1.6">
+          Questions? Reply to this email — we're happy to help.<br/>— The TollSync team
+        </p>
+      </div>
+    </div>
+  `);
+}
+
 async function sendCustom(to, subject, body) {
   const htmlBody = body.replace(/\n/g, '<br>');
   await sendEmail(to, subject, `
@@ -334,4 +372,5 @@ module.exports = {
   sendPasswordReset, sendWelcome, sendVerificationEmail, sendCustom,
   sendSubscriptionWelcome, sendCancellation, sendPaymentFailed,
   sendSubscriptionRenewed, sendTrialEnding, sendAdminNewUser,
+  sendFreeTrialGranted,
 };
