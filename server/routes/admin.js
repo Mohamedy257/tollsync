@@ -421,4 +421,30 @@ router.post('/email/:hostId', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/backfill-trials — set free_trial_ends_at for users who don't have it yet
+router.post('/backfill-trials', requireAdmin, async (req, res) => {
+  try {
+    const plan = await PlanConfig.findOne();
+    const days = plan?.free_trial_days ?? 7;
+
+    const users = await Host.find({
+      free_trial_ends_at: null,
+      subscription_status: { $nin: ['active', 'trialing'] },
+    });
+
+    let updated = 0;
+    await Promise.all(users.map(u => {
+      const ends = new Date(u.createdAt.getTime() + days * 24 * 60 * 60 * 1000);
+      u.free_trial_ends_at = ends;
+      updated++;
+      return u.save();
+    }));
+
+    res.json({ updated, trial_days: days });
+  } catch (err) {
+    console.error('Backfill trials error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

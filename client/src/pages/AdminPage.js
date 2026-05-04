@@ -55,6 +55,8 @@ export default function AdminPage() {
   const [emailMsg, setEmailMsg] = useState('');
   const [messages, setMessages] = useState([]);
   const [expandedMsg, setExpandedMsg] = useState(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillMsg, setBackfillMsg] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -259,6 +261,16 @@ export default function AdminPage() {
     } finally { setDeletingAllTolls(false); }
   };
 
+  const backfillTrials = async () => {
+    setBackfilling(true); setBackfillMsg('');
+    try {
+      const res = await api.post('/admin/backfill-trials');
+      setBackfillMsg(`Done — applied trial to ${res.data.updated} user(s) (${res.data.trial_days} days each)`);
+    } catch (err) {
+      setBackfillMsg(err.response?.data?.error || 'Failed');
+    } finally { setBackfilling(false); }
+  };
+
   const sendEmail = async (e) => {
     e.preventDefault();
     setSendingEmail(true); setEmailMsg('');
@@ -454,11 +466,15 @@ export default function AdminPage() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-primary btn-sm" type="submit" disabled={saving}>
               {saving ? <><span className="spinner" /> Saving...</> : 'Save plan'}
             </button>
+            <button type="button" className="btn btn-sm" onClick={backfillTrials} disabled={backfilling}>
+              {backfilling ? <><span className="spinner" /> Backfilling...</> : 'Apply trial to existing users'}
+            </button>
             {saveMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{saveMsg}</span>}
+            {backfillMsg && <span style={{ fontSize: 13, color: backfillMsg.startsWith('Done') ? '#3b6d11' : '#e24b4a' }}>{backfillMsg}</span>}
           </div>
         </form>
       </div>
