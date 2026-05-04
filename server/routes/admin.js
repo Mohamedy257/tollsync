@@ -268,7 +268,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
 router.get('/subscribers', requireAdmin, async (req, res) => {
   try {
     const subscribers = await Host.find({})
-      .select('email name subscription_status subscription_current_period_end stripe_subscription_id createdAt')
+      .select('email name subscription_status subscription_current_period_end stripe_subscription_id free_trial_ends_at createdAt')
       .sort({ createdAt: -1 });
     res.json({ subscribers });
   } catch (err) {
@@ -286,6 +286,24 @@ router.post('/grant/:hostId', requireAdmin, async (req, res) => {
     );
     if (!host) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/grant-trial/:hostId — grant X days of free trial access
+router.post('/grant-trial/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const days = parseInt(req.body.days, 10);
+    if (!days || days < 1) return res.status(400).json({ error: 'days must be a positive number' });
+    const ends = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const host = await Host.findByIdAndUpdate(
+      req.params.hostId,
+      { free_trial_ends_at: ends, free_trial_notified: false },
+      { new: true }
+    );
+    if (!host) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true, free_trial_ends_at: host.free_trial_ends_at });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

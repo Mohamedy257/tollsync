@@ -59,6 +59,9 @@ export default function AdminPage() {
   const [backfillMsg, setBackfillMsg] = useState('');
   const [notifying, setNotifying] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState('');
+  const [trialModal, setTrialModal] = useState(null); // { id, email, name }
+  const [trialDaysInput, setTrialDaysInput] = useState('7');
+  const [grantingTrial, setGrantingTrial] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -273,6 +276,23 @@ export default function AdminPage() {
     } finally { setBackfilling(false); }
   };
 
+  const grantTrialToUser = async () => {
+    const days = parseInt(trialDaysInput, 10);
+    if (!days || days < 1) return;
+    setGrantingTrial(true);
+    try {
+      const res = await api.post(`/admin/grant-trial/${trialModal.id}`, { days });
+      setSubscribers(prev => prev.map(s =>
+        (s.id || s._id) === trialModal.id
+          ? { ...s, free_trial_ends_at: res.data.free_trial_ends_at }
+          : s
+      ));
+      setTrialModal(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to grant trial');
+    } finally { setGrantingTrial(false); }
+  };
+
   const notifyTrialUsers = async () => {
     setNotifying(true); setNotifyMsg('');
     try {
@@ -354,6 +374,49 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </>
+      )}
+
+      {/* Grant Trial Modal */}
+      {trialModal && (
+        <>
+          <div onClick={() => setTrialModal(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 1001, background: '#fff', borderRadius: 16, padding: 28,
+            width: '90%', maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Grant trial access</p>
+              <button onClick={() => setTrialModal(null)}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>✕</button>
+            </div>
+            <p style={{ fontSize: 13, color: '#555', margin: '0 0 16px' }}>
+              {trialModal.name || trialModal.email}
+            </p>
+            <div className="form-group">
+              <label style={lbl}>Number of days</label>
+              <input
+                className="form-control"
+                type="number" min="1" max="365"
+                value={trialDaysInput}
+                onChange={e => setTrialDaysInput(e.target.value)}
+                autoFocus
+              />
+              {trialDaysInput > 0 && (
+                <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                  Access until {new Date(Date.now() + trialDaysInput * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button type="button" className="btn" onClick={() => setTrialModal(null)}>Cancel</button>
+              <button type="button" className="btn btn-primary" disabled={grantingTrial || !trialDaysInput || trialDaysInput < 1} onClick={grantTrialToUser}>
+                {grantingTrial ? <><span className="spinner" /> Granting...</> : `Grant ${trialDaysInput || '?'} days`}
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -783,6 +846,12 @@ export default function AdminPage() {
                   {s.subscription_current_period_end && (
                     <> · renews {fmtDate(s.subscription_current_period_end)}</>
                   )}
+                  {s.free_trial_ends_at && (() => {
+                    const left = Math.ceil((new Date(s.free_trial_ends_at) - new Date()) / 86400000);
+                    return left > 0
+                      ? <span style={{ color: '#f59e0b', marginLeft: 4 }}>· trial: {left}d left</span>
+                      : <span style={{ color: '#e24b4a', marginLeft: 4 }}>· trial expired</span>;
+                  })()}
                 </p>
               </div>
               <span style={{
@@ -822,6 +891,14 @@ export default function AdminPage() {
                     Revoke
                   </button>
                 )}
+                <button
+                  className="btn btn-sm"
+                  style={{ fontSize: 11 }}
+                  onClick={() => { setTrialModal({ id: s.id || s._id, email: s.email, name: s.name }); setTrialDaysInput('7'); }}
+                  title="Grant free trial access"
+                >
+                  ⏱ Trial
+                </button>
                 <button
                   className="btn btn-sm btn-danger"
                   style={{ fontSize: 11 }}
