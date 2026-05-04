@@ -59,6 +59,7 @@ export default function AdminPage() {
   const [backfillMsg, setBackfillMsg] = useState('');
   const [notifying, setNotifying] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState('');
+  const [openDropdownId, setOpenDropdownId] = useState(null);
   const [trialModal, setTrialModal] = useState(null); // { id, email, name }
   const [trialDaysInput, setTrialDaysInput] = useState('7');
   const [grantingTrial, setGrantingTrial] = useState(false);
@@ -881,74 +882,55 @@ export default function AdminPage() {
               }}>
                 {s.subscription_status || 'none'}
               </span>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
                 <button
                   className="btn btn-sm"
                   style={{ fontSize: 11, background: '#185fa5', color: '#fff', borderColor: 'transparent' }}
                   disabled={impersonatingId === (s.id || s._id)}
                   onClick={() => impersonateUser(s.id || s._id)}
-                  title="Log in as this user for support"
                 >
                   {impersonatingId === (s.id || s._id) ? <span className="spinner" /> : '👤 View as'}
                 </button>
-                <button
-                  className="btn btn-sm"
-                  style={{ fontSize: 11 }}
-                  onClick={() => { setEmailModal({ id: s.id || s._id, email: s.email }); setEmailForm({ subject: '', body: '' }); setEmailMsg(''); }}
-                  title="Send email to this user"
-                >
-                  ✉️ Email
-                </button>
-                {s.subscription_status !== 'active' ? (
-                  <button className="btn btn-sm" style={{ fontSize: 11 }}
-                    disabled={grantingId === (s.id || s._id)}
-                    onClick={() => grant(s.id || s._id)}>
-                    Grant
-                  </button>
-                ) : (
-                  <button className="btn btn-sm btn-danger" style={{ fontSize: 11 }}
-                    disabled={grantingId === (s.id || s._id)}
-                    onClick={() => revoke(s.id || s._id)}>
-                    Revoke
-                  </button>
-                )}
-                <button
-                  className="btn btn-sm"
-                  style={{ fontSize: 11 }}
-                  onClick={() => { setTrialModal({ id: s.id || s._id, email: s.email, name: s.name }); setTrialDaysInput('7'); }}
-                  title="Grant free trial access"
-                >
-                  ⏱ Trial
-                </button>
-                {s.free_trial_ends_at && (
+                <div style={{ position: 'relative' }}>
                   <button
                     className="btn btn-sm"
                     style={{ fontSize: 11 }}
-                    disabled={notifyingTrialId === (s.id || s._id)}
-                    onClick={() => notifyTrialUser(s.id || s._id)}
-                    title="Send trial email to this user"
+                    onClick={() => setOpenDropdownId(openDropdownId === (s.id || s._id) ? null : (s.id || s._id))}
                   >
-                    {notifyingTrialId === (s.id || s._id) ? <span className="spinner" /> : '📧 Trial email'}
+                    Actions ▾
                   </button>
-                )}
-                {s.free_trial_ends_at && new Date(s.free_trial_ends_at) > new Date() && (
-                  <button
-                    className="btn btn-sm btn-danger"
-                    style={{ fontSize: 11 }}
-                    onClick={() => expireTrial(s.id || s._id)}
-                    title="Expire trial immediately"
-                  >
-                    Expire
-                  </button>
-                )}
-                <button
-                  className="btn btn-sm btn-danger"
-                  style={{ fontSize: 11 }}
-                  onClick={() => setConfirmDeleteId(s.id || s._id)}
-                  title="Permanently delete this user"
-                >
-                  🗑️
-                </button>
+                  {openDropdownId === (s.id || s._id) && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpenDropdownId(null)} />
+                      <div style={{
+                        position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 100,
+                        background: '#fff', border: '1px solid #e5e3de', borderRadius: 10,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 160, overflow: 'hidden',
+                      }}>
+                        {[
+                          { label: '✉️ Send email', action: () => { setEmailModal({ id: s.id || s._id, email: s.email }); setEmailForm({ subject: '', body: '' }); setEmailMsg(''); setOpenDropdownId(null); } },
+                          { label: s.subscription_status === 'active' ? '🚫 Revoke access' : '✅ Grant access', action: () => { s.subscription_status === 'active' ? revoke(s.id || s._id) : grant(s.id || s._id); setOpenDropdownId(null); } },
+                          { label: '⏱ Grant trial', action: () => { setTrialModal({ id: s.id || s._id, email: s.email, name: s.name }); setTrialDaysInput('7'); setOpenDropdownId(null); } },
+                          ...(s.free_trial_ends_at ? [{ label: notifyingTrialId === (s.id || s._id) ? 'Sending...' : '📧 Send trial email', action: () => { notifyTrialUser(s.id || s._id); setOpenDropdownId(null); } }] : []),
+                          ...(s.free_trial_ends_at && new Date(s.free_trial_ends_at) > new Date() ? [{ label: '⏹ Expire trial', danger: true, action: () => { expireTrial(s.id || s._id); setOpenDropdownId(null); } }] : []),
+                          { label: '🗑️ Delete user', danger: true, action: () => { setConfirmDeleteId(s.id || s._id); setOpenDropdownId(null); } },
+                        ].map(item => (
+                          <button key={item.label} onClick={item.action} style={{
+                            display: 'block', width: '100%', textAlign: 'left',
+                            padding: '9px 14px', fontSize: 13, background: 'none', border: 'none',
+                            cursor: 'pointer', color: item.danger ? '#e24b4a' : '#333',
+                            borderBottom: '0.5px solid #f5f3f0',
+                          }}
+                            onMouseEnter={e => e.currentTarget.style.background = item.danger ? '#fff5f5' : '#f8f7f4'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ))
