@@ -6,6 +6,7 @@ const schema = new mongoose.Schema({
   stripe_price_id: { type: String, default: null },
   stripe_product_id: { type: String, default: null },
   trial_days: { type: Number, default: 0 },
+  free_trial_days: { type: Number, default: 7 },
   stripe_secret_key: { type: String, default: null },
   stripe_publishable_key: { type: String, default: null },
   stripe_webhook_secret: { type: String, default: null },

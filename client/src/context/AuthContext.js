@@ -101,7 +101,10 @@ export function AuthProvider({ children }) {
   };
 
   const isSubscribed = host && (
-    host.is_admin || host.subscription_status === 'active' || host.subscription_status === 'trialing'
+    host.is_admin ||
+    host.subscription_status === 'active' ||
+    host.subscription_status === 'trialing' ||
+    (host.free_trial_ends_at && new Date(host.free_trial_ends_at) > new Date())
   );
 
   return (

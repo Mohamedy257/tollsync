@@ -90,6 +90,11 @@ export default function SubscribePage() {
   const trialDays = plan?.trial_days || 0;
   const alreadySubscribed = isSubscribed && !host?.is_admin;
 
+  const trialExpired = host?.free_trial_ends_at && new Date(host.free_trial_ends_at) <= new Date();
+  const trialDaysLeft = host?.free_trial_ends_at
+    ? Math.max(0, Math.ceil((new Date(host.free_trial_ends_at) - new Date()) / 86400000))
+    : null;
+
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
       <div style={{ width: '100%', maxWidth: 440 }}>
@@ -118,6 +123,12 @@ export default function SubscribePage() {
         ) : (
           /* Paywall */
           <div className="card" style={{ padding: 28 }}>
+            {trialExpired && (
+              <div style={{ background: '#fff8f0', border: '1px solid #fde8c8', borderRadius: 10, padding: '12px 16px', marginBottom: 20, textAlign: 'center' }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#9a4f00' }}>Your free trial has ended</p>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#b36200' }}>Subscribe to keep using TollSync</p>
+              </div>
+            )}
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 6px' }}>{plan?.name || 'TollSync Pro'}</p>
               <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>{plan?.description || 'Unlimited toll calculations for rental hosts'}</p>

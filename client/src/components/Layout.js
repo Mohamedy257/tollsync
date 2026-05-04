@@ -123,6 +123,29 @@ export default function Layout({ children }) {
         </div>
       )}
 
+      {/* Free trial countdown banner */}
+      {(() => {
+        if (!host?.free_trial_ends_at) return null;
+        const daysLeft = Math.ceil((new Date(host.free_trial_ends_at) - new Date()) / 86400000);
+        if (daysLeft <= 0 || daysLeft > 3) return null;
+        return (
+          <div style={{
+            position: 'fixed', top: showVerifyBanner ? 40 : 0, left: 0, right: 0, zIndex: 1998,
+            background: '#f59e0b', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            padding: '8px 16px', fontSize: 13, fontWeight: 600,
+          }}>
+            <span>{daysLeft === 1 ? 'Your free trial ends today!' : `${daysLeft} days left in your free trial`}</span>
+            <button onClick={() => navigate('/subscribe')} style={{
+              background: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.5)',
+              color: '#fff', borderRadius: 6, padding: '2px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 700,
+            }}>
+              Subscribe
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Impersonation banner */}
       {impersonating && (
         <div style={{

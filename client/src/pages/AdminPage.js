@@ -20,7 +20,7 @@ export default function AdminPage() {
   const { impersonate } = useAuth();
   const navigate = useNavigate();
   const [config, setConfig] = useState(null);
-  const [form, setForm] = useState({ name: '', description: '', price_cents: '', trial_days: 0 });
+  const [form, setForm] = useState({ name: '', description: '', price_cents: '', trial_days: 0, free_trial_days: 7 });
   const [stripeForm, setStripeForm] = useState({ stripe_secret_key: '', stripe_publishable_key: '', stripe_webhook_secret: '', stripe_tax_rate_id: '' });
   const [stripeStatus, setStripeStatus] = useState({ secret_set: false, webhook_set: false });
   const [oauthForm, setOauthForm] = useState({
@@ -71,6 +71,7 @@ export default function AdminPage() {
         description: cfgRes.data.description || '',
         price_cents: cfgRes.data.price_cents || 1000,
         trial_days: cfgRes.data.trial_days ?? 0,
+        free_trial_days: cfgRes.data.free_trial_days ?? 7,
       });
       setStripeForm(f => ({ ...f, stripe_publishable_key: cfgRes.data.stripe_publishable_key || '', stripe_tax_rate_id: cfgRes.data.stripe_tax_rate_id || '' }));
       setStripeStatus({
@@ -109,6 +110,7 @@ export default function AdminPage() {
         description: form.description,
         price_cents: parseInt(form.price_cents, 10),
         trial_days: parseInt(form.trial_days, 10) || 0,
+        free_trial_days: parseInt(form.free_trial_days, 10) || 0,
       });
       setConfig(res.data.plan || res.data.config);
       setSaveMsg('Saved successfully');
@@ -420,9 +422,14 @@ export default function AdminPage() {
                 onChange={e => setForm(f => ({ ...f, price_cents: e.target.value }))} />
             </div>
             <div>
-              <label style={lbl}>Free trial days — 0 = no trial</label>
+              <label style={lbl}>Stripe trial days — 0 = no Stripe trial</label>
               <input className="form-control" type="number" min="0" value={form.trial_days}
                 onChange={e => setForm(f => ({ ...f, trial_days: e.target.value }))} />
+            </div>
+            <div>
+              <label style={lbl}>Free trial days (no CC) — 0 = disabled</label>
+              <input className="form-control" type="number" min="0" value={form.free_trial_days}
+                onChange={e => setForm(f => ({ ...f, free_trial_days: e.target.value }))} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={lbl}>Description</label>

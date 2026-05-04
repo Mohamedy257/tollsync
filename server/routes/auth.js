@@ -23,6 +23,7 @@ function serializeHost(host) {
     oauth_provider: host.oauth_provider || null,
     // null = pre-feature user (treat as verified), false = pending, true = verified
     email_verified: host.email_verified,
+    free_trial_ends_at: host.free_trial_ends_at || null,
   };
 }
 
@@ -57,11 +58,17 @@ router.post('/register', async (req, res) => {
     if (existing) return res.status(409).json({ error: 'Email already registered' });
     const hash = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
+    const plan = await PlanConfig.findOne();
+    const freeTrialDays = plan?.free_trial_days ?? 7;
+    const free_trial_ends_at = freeTrialDays > 0
+      ? new Date(Date.now() + freeTrialDays * 24 * 60 * 60 * 1000)
+      : null;
     const host = await Host.create({
       email, password_hash: hash, name: name || null,
       setup_complete: false,
       email_verified: false,
       email_verification_token: verificationToken,
+      free_trial_ends_at,
     });
     const token = issueToken(host.id);
     res.json({ token, host: serializeHost(host) });

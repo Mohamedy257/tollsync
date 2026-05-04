@@ -42,6 +42,7 @@ router.get('/config', requireAdmin, async (req, res) => {
       description: plan.description || '',
       price_cents: plan.price_cents || 1000,
       trial_days: plan.trial_days ?? 0,
+      free_trial_days: plan.free_trial_days ?? 7,
       stripe_price_id: plan.stripe_price_id || process.env.STRIPE_PRICE_ID || null,
       stripe_product_id: plan.stripe_product_id || null,
       // Never expose actual key values — only whether they're set
@@ -71,7 +72,7 @@ router.get('/config', requireAdmin, async (req, res) => {
 router.put('/config', requireAdmin, async (req, res) => {
   try {
     const {
-      name, description, price_cents, trial_days,
+      name, description, price_cents, trial_days, free_trial_days,
       stripe_secret_key, stripe_publishable_key, stripe_webhook_secret, stripe_price_id: manualPriceId, stripe_tax_rate_id,
       google_oauth_enabled, google_client_id, google_client_secret,
       facebook_oauth_enabled, facebook_app_id, facebook_app_secret,
@@ -142,6 +143,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         description: description || '',
         price_cents: newPriceCents || existing?.price_cents || 1000,
         trial_days: trial_days !== undefined ? parseInt(trial_days, 10) : (existing?.trial_days ?? 0),
+        free_trial_days: free_trial_days !== undefined ? parseInt(free_trial_days, 10) : (existing?.free_trial_days ?? 7),
         stripe_price_id,
         stripe_product_id,
         ...restKeyUpdates,
