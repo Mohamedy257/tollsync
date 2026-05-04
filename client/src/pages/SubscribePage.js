@@ -143,10 +143,23 @@ export default function SubscribePage() {
                 <>
                   <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
                   <p style={{ fontWeight: 800, fontSize: 20, margin: '0 0 8px', color: '#1a1a1a' }}>Your free trial has ended</p>
-                  <p style={{ fontSize: 14, color: '#666', margin: '0 0 4px', lineHeight: 1.5 }}>
-                    Your {Math.round((new Date(host.free_trial_ends_at) - new Date(host.createdAt)) / 86400000)}-day free trial expired on <strong>{new Date(host.free_trial_ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong>.
-                  </p>
-                  <p style={{ fontSize: 14, color: '#666', margin: '0 0 20px' }}>Subscribe below to restore full access.</p>
+                  {(() => {
+                    const endsAt = new Date(host.free_trial_ends_at);
+                    const createdAt = host.createdAt ? new Date(host.createdAt) : null;
+                    const adminExpired = endsAt < new Date('2020-01-01');
+                    const days = createdAt && !adminExpired
+                      ? Math.round((endsAt - createdAt) / 86400000)
+                      : null;
+                    return (
+                      <p style={{ fontSize: 14, color: '#666', margin: '0 0 20px', lineHeight: 1.5 }}>
+                        {days > 0
+                          ? <>Your {days}-day free trial expired on <strong>{endsAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong>.</>
+                          : 'Your free trial access has been deactivated.'
+                        }
+                        {' '}Subscribe below to restore full access.
+                      </p>
+                    );
+                  })()}
                 </>
               ) : (
                 <>

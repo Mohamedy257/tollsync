@@ -24,6 +24,7 @@ function serializeHost(host) {
     // null = pre-feature user (treat as verified), false = pending, true = verified
     email_verified: host.email_verified,
     free_trial_ends_at: host.free_trial_ends_at || null,
+    createdAt: host.createdAt || null,
   };
 }
 
