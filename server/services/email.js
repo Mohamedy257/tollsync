@@ -1,4 +1,4 @@
-const FROM = () => process.env.SMTP_FROM || 'TollSync <noreply@tollsync.app>';
+const FROM = () => process.env.SMTP_FROM || 'TollSync <hello@tollsync.app>';
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || process.env.ADMIN_EMAIL || 'support@tollsync.app';
 const APP_URL = () => process.env.CLIENT_URL || 'http://localhost:3000';
 
