@@ -13,8 +13,30 @@ const EMAIL_FOOTER = () => `
     </p>
   </div>`;
 
-function withFooter(html) {
-  return html.replace(/(<\/div>\s*<\/div>\s*)$/, `${EMAIL_FOOTER()}$1`);
+function wrapDocument(inner) {
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <title></title>
+</head>
+<body style="margin:0;padding:0;background:#f8f7f4;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8f7f4">
+    <tr><td align="center" style="padding:24px 16px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px">
+        <tr><td>
+          ${inner}
+          ${EMAIL_FOOTER()}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 function htmlToText(html) {
@@ -30,7 +52,7 @@ async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('Email not configured. Set RESEND_API_KEY environment variable.');
 
-  const finalHtml = withFooter(html);
+  const finalHtml = wrapDocument(html);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -47,6 +69,7 @@ async function sendEmail(to, subject, html) {
       headers: {
         'List-Unsubscribe': `<mailto:${REPLY_TO()}?subject=unsubscribe>, <${APP_URL()}/unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Entity-Ref-ID': `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       },
     }),
   });
