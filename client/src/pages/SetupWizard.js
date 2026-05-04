@@ -293,26 +293,17 @@ const TERMS_TEXT = [
 ];
 
 const STEPS = [
-  { n: 1, label: 'Subscribe' },
-  { n: 2, label: 'Terms & Conditions' },
-  { n: 3, label: 'Add vehicles' },
-  { n: 4, label: 'Tolls Data' },
+  { n: 1, label: 'Terms & Conditions' },
+  { n: 2, label: 'Add vehicles' },
+  { n: 3, label: 'Tolls Data' },
 ];
 
 export default function SetupWizard() {
   const { completeSetup, logout } = useAuth();
 
-  // Restore step after Stripe redirect (sessionStorage)
-  const initStep = () => {
-    const saved = sessionStorage.getItem('wizard_step');
-    const urlParams = new URLSearchParams(window.location.search);
-    if (saved && urlParams.get('session_id')) return parseInt(saved, 10);
-    return 1;
-  };
+  const initStep = () => 1;
 
   const [step, setStep] = useState(initStep);
-  const [verifyingSession, setVerifyingSession] = useState(false);
-  const [verifyError, setVerifyError] = useState('');
 
   const [vehicles, setVehicles] = useState([EMPTY_VEHICLE()]);
   const [submitted, setSubmitted] = useState(false);
@@ -322,9 +313,6 @@ export default function SetupWizard() {
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [plan, setPlan] = useState(null);
-  const [subscribing, setSubscribing] = useState(false);
-  const [subscribeError, setSubscribeError] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [finishing, setFinishing] = useState(false);
 
@@ -339,50 +327,9 @@ export default function SetupWizard() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
+  // Reset T&C scroll state when entering step 1
   useEffect(() => {
-    api.get('/billing/plan').then(r => setPlan(r.data)).catch(() => {});
-  }, []);
-
-  // After Stripe redirect: verify the session, then advance
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
-    if (!sessionId) return;
-
-    setVerifyingSession(true);
-    let attempts = 0;
-    const poll = setInterval(async () => {
-      attempts++;
-      try {
-        const res = await api.get(`/billing/verify-session?session_id=${sessionId}`);
-        const status = res.data.subscription_status;
-        if (status === 'active' || status === 'trialing') {
-          clearInterval(poll);
-          sessionStorage.removeItem('wizard_step');
-          // Clean the URL without reloading
-          window.history.replaceState({}, '', '/');
-          setVerifyingSession(false);
-          setStep(2); // advance to T&C
-        }
-      } catch (err) {
-        if (err.response?.data?.error) {
-          clearInterval(poll);
-          setVerifyError(err.response.data.error);
-          setVerifyingSession(false);
-        }
-      }
-      if (attempts >= 8) {
-        clearInterval(poll);
-        setVerifyError('Could not confirm payment. Please contact support.');
-        setVerifyingSession(false);
-      }
-    }, 2000);
-    return () => clearInterval(poll);
-  }, []); // eslint-disable-line
-
-  // Reset T&C scroll state when entering step 2
-  useEffect(() => {
-    if (step === 2) {
+    if (step === 1) {
       setScrolledTerms(false);
       setAgreedTerms(false);
       setTimeout(() => {
@@ -405,21 +352,7 @@ export default function SetupWizard() {
 
   const allValid = vehicles.length > 0 && vehicles.every(isVehicleValid);
 
-  // Step 1: redirect to Stripe
-  const startSubscription = async () => {
-    setSubscribing(true); setSubscribeError('');
-    try {
-      sessionStorage.setItem('wizard_step', '2');
-      const res = await api.post('/billing/checkout', { from: 'wizard' });
-      window.location.href = res.data.url;
-    } catch (err) {
-      sessionStorage.removeItem('wizard_step');
-      setSubscribeError(err.response?.data?.error || 'Failed to start checkout');
-      setSubscribing(false);
-    }
-  };
-
-  // Step 3: save vehicles then advance
+  // Step 2: save vehicles then advance
   const saveVehicles = async () => {
     setSubmitted(true);
     if (!allValid) {
@@ -444,7 +377,7 @@ export default function SetupWizard() {
           vin: v.vin.trim(),
         });
       }
-      setStep(4);
+      setStep(3);
     } catch (err) {
       setSaveError(err.response?.data?.error || 'Failed to save vehicles');
     } finally { setSaving(false); }
@@ -472,27 +405,16 @@ export default function SetupWizard() {
   const bottomPad = isMobile ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : '48px';
 
   const stepHeadings = {
-    1: { title: 'Activate your subscription', sub: 'One plan, everything included. Cancel anytime.' },
-    2: { title: 'Terms & Conditions', sub: 'Scroll through and read the full terms before agreeing.' },
-    3: { title: 'Add your vehicles', sub: 'Add each car you host. TollSync uses this to match toll charges to trips.' },
-    4: { title: 'Upload tolls data', sub: 'Optional — upload now or anytime later from Toll Records.' },
+    1: { title: 'Terms & Conditions', sub: 'Scroll through and read the full terms before agreeing.' },
+    2: { title: 'Add your vehicles', sub: 'Add each car you host. TollSync uses this to match toll charges to trips.' },
+    3: { title: 'Upload tolls data', sub: 'Optional — upload now or anytime later from Toll Records.' },
   };
-
-  // Stripe session verifying overlay
-  if (verifyingSession) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8f7f4', padding: 24 }}>
-        <span className="spinner spinner-lg" style={{ marginBottom: 16 }} />
-        <p style={{ color: '#555', fontSize: 15 }}>Activating your subscription...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7f4' }}>
       <div style={{
         maxWidth: 520, margin: '0 auto',
-        padding: `calc(1.5rem + env(safe-area-inset-top, 0px)) 16px ${step === 2 ? (isMobile ? 'calc(140px + env(safe-area-inset-bottom, 0px))' : bottomPad) : bottomPad}`,
+        padding: `calc(1.5rem + env(safe-area-inset-top, 0px)) 16px ${step === 1 ? (isMobile ? 'calc(140px + env(safe-area-inset-bottom, 0px))' : bottomPad) : bottomPad}`,
       }}>
         {/* Header: logo + sign out */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
@@ -538,44 +460,8 @@ export default function SetupWizard() {
           <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.5 }}>{stepHeadings[step].sub}</p>
         </div>
 
-        {verifyError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{verifyError}</div>}
-
-        {/* Step 1 — Subscribe */}
+        {/* Step 1 — T&C */}
         {step === 1 && (
-          <div className="card" style={{ padding: 24, marginBottom: 12 }}>
-            <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 4px' }}>{plan?.name || 'TollSync Pro'}</p>
-              <p style={{ color: '#888', fontSize: 13, margin: '0 0 14px' }}>{plan?.description || 'Unlimited toll calculations for rental hosts'}</p>
-              <p style={{ fontSize: 34, fontWeight: 800, color: '#185fa5', margin: 0 }}>
-                ${((plan?.price_cents || 1000) / 100).toFixed(2)}/mo
-              </p>
-              {plan?.trial_days > 0 && (
-                <p style={{ fontSize: 13, color: '#3b6d11', fontWeight: 600, margin: '6px 0 0' }}>
-                  {plan.trial_days}-day free trial included
-                </p>
-              )}
-            </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {['Unlimited trip calculations', 'AI-powered file parsing', 'Multi-vehicle support', 'EZ-Pass matching', 'Exportable toll reports'].map(f => (
-                <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#333' }}>
-                  <span style={{ color: '#3b6d11', fontWeight: 700 }}>✓</span> {f}
-                </li>
-              ))}
-            </ul>
-            {subscribeError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{subscribeError}</div>}
-            {!isMobile && (
-              <button className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15 }}
-                disabled={subscribing} onClick={startSubscription}>
-                {subscribing ? <><span className="spinner" /> Redirecting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : `Subscribe for $${((plan?.price_cents || 1000) / 100).toFixed(2)}/mo`}
-              </button>
-            )}
-            <p style={{ textAlign: 'center', fontSize: 11, color: '#aaa', marginTop: 10 }}>Secure payment via Stripe · Cancel anytime</p>
-          </div>
-        )}
-
-        {/* Step 2 — T&C */}
-        {step === 2 && (
           <>
             <div
               ref={termsRef}
@@ -632,15 +518,15 @@ export default function SetupWizard() {
             {!isMobile && (
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginTop: 14 }}
-                disabled={!agreedTerms} onClick={() => setStep(3)}>
+                disabled={!agreedTerms} onClick={() => setStep(2)}>
                 I agree — Continue →
               </button>
             )}
           </>
         )}
 
-        {/* Step 3 — Add vehicles */}
-        {step === 3 && (
+        {/* Step 2 — Add vehicles */}
+        {step === 2 && (
           <>
             {vehicles.map((v, idx) => (
               <VehicleForm key={idx} v={v} idx={idx}
@@ -666,8 +552,8 @@ export default function SetupWizard() {
           </>
         )}
 
-        {/* Step 4 — EZ-Pass upload (optional) */}
-        {step === 4 && (
+        {/* Step 3 — Tolls upload (optional) */}
+        {step === 3 && (
           <>
             {uploadDone ? (
               <div className="alert alert-success" style={{ marginBottom: 16, fontSize: 14 }}>
@@ -721,13 +607,6 @@ export default function SetupWizard() {
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           {step === 1 && (
-            <button className="btn btn-primary"
-              style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
-              disabled={subscribing} onClick={startSubscription}>
-              {subscribing ? <><span className="spinner" /> Redirecting...</> : plan?.trial_days > 0 ? `Start ${plan.trial_days}-day free trial` : `Subscribe for $${((plan?.price_cents || 1000) / 100).toFixed(2)}/mo`}
-            </button>
-          )}
-          {step === 2 && (
             <>
               {!scrolledTerms && (
                 <p style={{ fontSize: 12, color: '#888', textAlign: 'center', margin: 0 }}>
@@ -736,19 +615,19 @@ export default function SetupWizard() {
               )}
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
-                disabled={!agreedTerms} onClick={() => setStep(3)}>
+                disabled={!agreedTerms} onClick={() => setStep(2)}>
                 I agree — Continue →
               </button>
             </>
           )}
-          {step === 3 && (
+          {step === 2 && (
             <button className="btn btn-primary"
               style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
               disabled={saving} onClick={saveVehicles}>
               {saving ? <><span className="spinner" /> Saving...</> : 'Next →'}
             </button>
           )}
-          {step === 4 && (
+          {step === 3 && (
             <>
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
