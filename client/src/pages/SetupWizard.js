@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
@@ -299,7 +300,8 @@ const STEPS = [
 ];
 
 export default function SetupWizard() {
-  const { completeSetup, logout } = useAuth();
+  const { completeSetup, logout, impersonating, exitImpersonation } = useAuth();
+  const navigate = useNavigate();
 
   const initStep = () => 1;
 
@@ -410,11 +412,38 @@ export default function SetupWizard() {
     3: { title: 'Upload tolls data', sub: 'Optional — upload now or anytime later from Toll Records.' },
   };
 
+  const handleExitImpersonation = async () => {
+    await exitImpersonation();
+    navigate('/admin');
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7f4' }}>
+      {impersonating && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000,
+          background: '#c47800', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          paddingBottom: '8px', paddingLeft: '16px', paddingRight: '16px',
+          fontSize: 13, fontWeight: 600,
+        }}>
+          <span>👤 Viewing as support mode</span>
+          <button
+            onClick={handleExitImpersonation}
+            style={{
+              background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)',
+              color: '#fff', borderRadius: 8, padding: '4px 12px',
+              fontSize: 12, cursor: 'pointer', fontWeight: 700,
+            }}
+          >
+            Exit
+          </button>
+        </div>
+      )}
       <div style={{
         maxWidth: 520, margin: '0 auto',
-        padding: `calc(1.5rem + env(safe-area-inset-top, 0px)) 16px ${step === 1 ? (isMobile ? 'calc(140px + env(safe-area-inset-bottom, 0px))' : bottomPad) : bottomPad}`,
+        padding: `calc(1.5rem + env(safe-area-inset-top, 0px) + ${impersonating ? '37px' : '0px'}) 16px ${step === 1 ? (isMobile ? 'calc(140px + env(safe-area-inset-bottom, 0px))' : bottomPad) : bottomPad}`,
       }}>
         {/* Header: logo + sign out */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
