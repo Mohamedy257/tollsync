@@ -276,6 +276,41 @@ router.get('/subscribers', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/users/:hostId/overview — full data for one user
+router.get('/users/:hostId/overview', requireAdmin, async (req, res) => {
+  try {
+    const host = await Host.findById(req.params.hostId).lean();
+    if (!host) return res.status(404).json({ error: 'User not found' });
+
+    const [vehicles, trips, tolls] = await Promise.all([
+      Vehicle.find({ host: host._id }).lean(),
+      Trip.find({ host: host._id }).sort({ end_date: -1 }).limit(50).lean(),
+      TollTransaction.find({ host: host._id }).sort({ transaction_date: -1 }).limit(100).lean(),
+    ]);
+
+    res.json({
+      host: {
+        id: host._id,
+        email: host.email,
+        name: host.name,
+        subscription_status: host.subscription_status,
+        free_trial_ends_at: host.free_trial_ends_at,
+        createdAt: host.createdAt,
+      },
+      stats: {
+        vehicles: vehicles.length,
+        trips: trips.length,
+        tolls: tolls.length,
+      },
+      vehicles,
+      trips,
+      tolls,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/notify-trial/:hostId — send trial email to a specific user
 router.post('/notify-trial/:hostId', requireAdmin, async (req, res) => {
   try {

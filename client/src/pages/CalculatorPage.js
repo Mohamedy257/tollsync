@@ -332,14 +332,16 @@ export default function CalculatorPage() {
   const tripsRef = useRef([]);
   const [uploadResults, setUploadResults] = useState([]);
   const [uploadError, setUploadError] = useState('');
-  const [dragging, setDragging] = useState(false);
   const [transponderInputs, setTransponderInputs] = useState({});
   const [plateInputs, setPlateInputs] = useState({});
   const [vehicleNameInputs, setVehicleNameInputs] = useState({}); // legacy / fallback
   const [ymmDraft, setYmmDraft] = useState({}); // vehicleId → { year, make, model, freeformMake, freeformModel }
   const [vehicleSelections, setVehicleSelections] = useState({}); // vehicleId → candidateId or 'new'
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [dragging, setDragging] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const tripFileRef = useRef();
+  const tollFileRef = useRef();
   const [calcNeeded, setCalcNeeded] = useState(false);
   const navigate = useNavigate();
   const fileRef = useRef();
@@ -787,6 +789,12 @@ export default function CalculatorPage() {
         </>
       )}
 
+      {/* Hidden inputs for step upload buttons */}
+      <input ref={tripFileRef} type="file" multiple accept=".csv,.xlsx,.xls,.pdf,image/*"
+        style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
+      <input ref={tollFileRef} type="file" multiple accept=".csv,.xlsx,.xls,.pdf,image/*"
+        style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
+
       {/* Single upload zone */}
       <div className="card">
         <label
@@ -859,16 +867,18 @@ export default function CalculatorPage() {
         const steps = [
           {
             n: 1, icon: '📸', title: 'Upload trip data',
-            desc: 'Go to Trips and upload screenshots, CSVs, or PDFs of your trip list.',
-            done: false, active: true, action: { label: 'Go to Trips', path: '/trips' },
+            desc: 'Upload screenshots, CSVs, or PDFs of your trip list.',
+            done: false, active: true, action: { label: 'Upload trips', upload: true },
           },
           {
             n: 2, icon: '🛣️', title: 'Upload your EZ-Pass statement',
             desc: tolls.length > 0
               ? `${tolls.length} toll record${tolls.length !== 1 ? 's' : ''} already loaded.`
-              : 'Go to Toll Records and upload your EZ-Pass PDF, CSV, or screenshots.',
-            done: tolls.length > 0, active: false,
-            action: { label: tolls.length > 0 ? 'View records' : 'Go to Toll Records', path: '/tolls' },
+              : 'Upload your EZ-Pass PDF, CSV, or screenshots.',
+            done: tolls.length > 0, active: !tolls.length,
+            action: tolls.length > 0
+              ? { label: 'View records', path: '/tolls' }
+              : { label: 'Upload tolls', upload: true },
           },
           {
             n: 3, icon: '⚡', title: 'Results load automatically',
@@ -906,13 +916,23 @@ export default function CalculatorPage() {
 
                 {/* Action */}
                 {s.action && (
-                  <button
-                    className="btn btn-sm"
-                    style={{ flexShrink: 0, ...(s.done ? {} : { background: '#185fa5', color: '#fff', borderColor: 'transparent' }) }}
-                    onClick={() => navigate(s.action.path)}
-                  >
-                    {s.action.label}
-                  </button>
+                  s.action.upload ? (
+                    <button
+                      className="btn btn-sm"
+                      style={{ flexShrink: 0, background: '#185fa5', color: '#fff', borderColor: 'transparent' }}
+                      onClick={() => (s.n === 1 ? tripFileRef : tollFileRef).current?.click()}
+                    >
+                      {s.action.label}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-sm"
+                      style={{ flexShrink: 0, ...(s.done ? {} : { background: '#185fa5', color: '#fff', borderColor: 'transparent' }) }}
+                      onClick={() => navigate(s.action.path)}
+                    >
+                      {s.action.label}
+                    </button>
+                  )
                 )}
               </div>
             ))}

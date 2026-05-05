@@ -908,6 +908,7 @@ export default function AdminPage() {
                         boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 160, overflow: 'hidden',
                       }}>
                         {[
+                          { label: '📊 View data', action: () => { navigate(`/admin/users/${s.id || s._id}`); setOpenDropdownId(null); } },
                           { label: '✉️ Send email', action: () => { setEmailModal({ id: s.id || s._id, email: s.email }); setEmailForm({ subject: '', body: '' }); setEmailMsg(''); setOpenDropdownId(null); } },
                           { label: s.subscription_status === 'active' ? '🚫 Revoke access' : '✅ Grant access', action: () => { s.subscription_status === 'active' ? revoke(s.id || s._id) : grant(s.id || s._id); setOpenDropdownId(null); } },
                           { label: '⏱ Grant trial', action: () => { setTrialModal({ id: s.id || s._id, email: s.email, name: s.name }); setTrialDaysInput('7'); setOpenDropdownId(null); } },
