@@ -829,8 +829,8 @@ export default function CalculatorPage() {
                 <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
                 {isMobile
                   ? <>
-                      <p className="upload-label">Tap to add files</p>
-                      <p className="upload-hint">Choose from library or paste</p>
+                      <p className="upload-label">Tap to upload trips or tolls</p>
+                      <p className="upload-hint">Screenshots · PDF · CSV — AI detects which is which</p>
                     </>
                   : <>
                       <p className="upload-label">Drop files, click to browse, or paste (⌘V)</p>
