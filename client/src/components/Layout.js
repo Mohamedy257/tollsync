@@ -152,7 +152,9 @@ export default function Layout({ children }) {
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000,
           background: '#c47800', color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
-          padding: '8px 16px', fontSize: 13, fontWeight: 600,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          paddingBottom: '8px', paddingLeft: '16px', paddingRight: '16px',
+          fontSize: 13, fontWeight: 600,
         }}>
           <span>👤 Viewing as {host?.email} — support mode</span>
           <button
@@ -168,7 +170,7 @@ export default function Layout({ children }) {
         </div>
       )}
       {/* Desktop sidebar */}
-      <aside className="sidebar" style={(impersonating || showVerifyBanner) ? { paddingTop: 'calc(1.5rem + 37px)' } : {}}>
+      <aside className="sidebar" style={(impersonating || showVerifyBanner) ? { paddingTop: 'calc(1.5rem + 37px + env(safe-area-inset-top, 0px))' } : {}}>
         <div className="sidebar-logo">
           <h1>⚡ TollSync</h1>
           <p>Rental toll calculator</p>
@@ -214,7 +216,7 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      <main className="main" style={(impersonating || showVerifyBanner) ? { paddingTop: 'calc(2rem + 37px)' } : {}}>
+      <main className="main" style={(impersonating || showVerifyBanner) ? { paddingTop: 'calc(2rem + 37px + env(safe-area-inset-top, 0px))' } : {}}>
         {/* Install banner */}
         {showBanner && (
           <div style={{
