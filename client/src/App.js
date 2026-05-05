@@ -53,6 +53,9 @@ function ProtectedRoute({ children, requireAdmin }) {
   return <Layout>{children}</Layout>;
 }
 
+const isPWA = window.navigator.standalone === true ||
+  window.matchMedia('(display-mode: standalone)').matches;
+
 function AppRoutes() {
   const { host } = useAuth();
   return (
@@ -71,9 +74,11 @@ function AppRoutes() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/verify-pending" element={<VerifyPendingPage />} />
       <Route path="/subscribe" element={<SubscribePage />} />
-      {/* Root: landing for guests, calculator for logged-in users */}
+      {/* Root: PWA or logged-in → app; browser guest → landing page */}
       <Route path="/" element={
-        !host ? <LandingPage /> : <ProtectedRoute><CalculatorPage /></ProtectedRoute>
+        host ? <ProtectedRoute><CalculatorPage /></ProtectedRoute> :
+        isPWA ? <Navigate to="/login" replace /> :
+        <LandingPage />
       } />
       <Route path="/trips" element={<ProtectedRoute><TripsPage /></ProtectedRoute>} />
       <Route path="/tolls" element={<ProtectedRoute><EzPassPage /></ProtectedRoute>} />
