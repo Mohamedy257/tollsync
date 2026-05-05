@@ -920,7 +920,7 @@ export default function CalculatorPage() {
                     <button
                       className="btn btn-sm"
                       style={{ flexShrink: 0, background: '#185fa5', color: '#fff', borderColor: 'transparent' }}
-                      onClick={() => (s.n === 1 ? tripFileRef : tollFileRef).current?.click()}
+                      onClick={() => isMobile ? setShowActionSheet(true) : (s.n === 1 ? tripFileRef : tollFileRef).current?.click()}
                     >
                       {s.action.label}
                     </button>
