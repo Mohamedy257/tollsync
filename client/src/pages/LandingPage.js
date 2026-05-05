@@ -25,16 +25,16 @@ export default function LandingPage() {
   };
 
   const FEATURES = [
-    { icon: '📸', title: 'Any format', desc: 'Upload Turo screenshots, PDFs, or CSVs — AI reads them all.' },
+    { icon: '📸', title: 'Any format', desc: 'Upload trip screenshots, PDFs, or CSVs — AI reads them all.' },
     { icon: '⚡', title: 'Auto-matched', desc: 'Toll charges are automatically matched to each renter by date and transponder.' },
     { icon: '🚗', title: 'Multi-vehicle', desc: 'Manage an entire fleet. Each car gets its own transponder and history.' },
-    { icon: '📄', title: 'Dispute-ready exports', desc: 'Save per-renter toll receipts as images to attach directly to Turo claims.' },
+    { icon: '📄', title: 'Dispute-ready exports', desc: 'Save per-renter toll receipts as images to attach directly to rental platform claims.' },
     { icon: '🛣️', title: 'EZ-Pass & more', desc: 'Supports EZ-Pass, E-ZPass, SunPass, and most major toll statement formats.' },
     { icon: '🔒', title: 'Private & secure', desc: 'Your data is stored securely and never shared with third parties.' },
   ];
 
   const STEPS = [
-    { n: 1, icon: '📋', title: 'Upload your trip list', desc: 'Take a screenshot of your Turo trips page or export a CSV. We parse it automatically.' },
+    { n: 1, icon: '📋', title: 'Upload your trip list', desc: 'Take a screenshot of your trips page or export a CSV. We parse it automatically.' },
     { n: 2, icon: '🛣️', title: 'Upload your toll statement', desc: 'Drop in your EZ-Pass PDF, CSV, or a screenshot of your account activity.' },
     { n: 3, icon: '⚡', title: 'Results in seconds', desc: 'TollSync matches every toll charge to the right trip and renter automatically.' },
   ];
@@ -107,7 +107,7 @@ export default function LandingPage() {
             Stop leaving toll charges<br />on the table
           </h1>
           <p style={{ fontSize: 'clamp(15px, 2.5vw, 19px)', color: 'rgba(255,255,255,0.75)', maxWidth: 520, margin: '0 auto 36px', lineHeight: 1.6 }}>
-            TollSync automatically matches your EZ-Pass toll charges to each Turo trip — so you can bill every renter accurately in seconds.
+            TollSync automatically matches your EZ-Pass toll charges to each rental trip — so you can bill every renter accurately in seconds.
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -180,7 +180,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#185fa5', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Features</p>
           <h2 style={{ textAlign: 'center', fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, marginBottom: 48, letterSpacing: '-0.01em' }}>
-            Everything a Turo host needs
+            Everything a rental host needs
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
             {FEATURES.map(f => (
@@ -278,7 +278,7 @@ export default function LandingPage() {
           Ready to get every toll back?
         </h2>
         <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', marginBottom: 32 }}>
-          Join Turo hosts who use TollSync to bill accurately and save time.
+          Join rental hosts who use TollSync to bill accurately and save time.
         </p>
         <button
           onClick={() => navigate('/login')}
@@ -297,7 +297,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: '#fff', marginBottom: 4 }}>⚡ TollSync</div>
-            <p style={{ fontSize: 13 }}>Rental toll calculator for Turo hosts</p>
+            <p style={{ fontSize: 13 }}>Rental toll calculator for car rental hosts</p>
           </div>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13 }}>
             <a href="/privacy" style={{ color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}
@@ -311,7 +311,7 @@ export default function LandingPage() {
           </div>
         </div>
         <div style={{ maxWidth: 900, margin: '20px auto 0', borderTop: '0.5px solid rgba(255,255,255,0.08)', paddingTop: 20, fontSize: 12, textAlign: 'center' }}>
-          © {new Date().getFullYear()} TollSync. Not affiliated with Turo, EZ-Pass, or any toll authority.
+          © {new Date().getFullYear()} TollSync. Not affiliated with any rental platform, EZ-Pass, or toll authority.
         </div>
       </footer>
     </div>
