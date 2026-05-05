@@ -186,16 +186,29 @@ export default function Layout({ children }) {
               {n.label}
             </button>
           ))}
+          {host?.is_admin && (
+            <>
+              <div style={{ height: '0.5px', background: '#f0ede8', margin: '8px 0' }} />
+              <button
+                className={`nav-item ${location.pathname === '/admin' ? 'active' : ''}`}
+                onClick={() => navigate('/admin')}
+              >
+                <span className="nav-icon">⚙️</span>
+                Admin
+              </button>
+              <button
+                className={`nav-item ${location.pathname === '/admin/dashboard' ? 'active' : ''}`}
+                onClick={() => navigate('/admin/dashboard')}
+              >
+                <span className="nav-icon">📊</span>
+                Dashboard
+              </button>
+            </>
+          )}
         </nav>
         <div className="sidebar-footer">
           <p className="host-name">{host?.name || 'Host'}</p>
           <p className="host-email">{host?.email}</p>
-          {host?.is_admin && (
-            <button className="nav-item" style={{ width: '100%', marginBottom: 4, fontSize: 12 }}
-              onClick={() => navigate('/admin')}>
-              ⚙️ Admin
-            </button>
-          )}
           <button className="nav-item" style={{ width: '100%', marginBottom: 4, fontSize: 12 }}
             onClick={() => navigate('/account')}>
             👤 Account
