@@ -203,6 +203,13 @@ export default function Layout({ children }) {
                 <span className="nav-icon">📊</span>
                 Dashboard
               </button>
+              <button
+                className={`nav-item ${location.pathname.startsWith('/admin/users') ? 'active' : ''}`}
+                onClick={() => navigate('/admin/users')}
+              >
+                <span className="nav-icon">👥</span>
+                Users
+              </button>
             </>
           )}
         </nav>
@@ -309,7 +316,7 @@ export default function Layout({ children }) {
           </button>
         ))}
         <button
-          className={`bottom-nav-item ${['/subscribe','/support','/contact','/about','/admin'].includes(location.pathname) ? 'active' : ''}`}
+          className={`bottom-nav-item ${['/subscribe','/support','/contact','/about','/admin','/admin/dashboard'].includes(location.pathname) || location.pathname.startsWith('/admin/users') ? 'active' : ''}`}
           onClick={() => setShowMore(true)}
         >
           <span className="bottom-nav-icon">•••</span>
@@ -346,7 +353,11 @@ export default function Layout({ children }) {
               { icon: '❓', label: 'Help & Support', path: '/support' },
               { icon: '💬', label: 'Chat with us', path: '/contact' },
               { icon: 'ℹ️', label: 'About TollSync', path: '/about' },
-              ...(host?.is_admin ? [{ icon: '⚙️', label: 'Admin', path: '/admin' }] : []),
+              ...(host?.is_admin ? [
+                { icon: '⚙️', label: 'Admin', path: '/admin' },
+                { icon: '📊', label: 'Dashboard', path: '/admin/dashboard' },
+                { icon: '👥', label: 'Users', path: '/admin/users' },
+              ] : []),
             ].map(item => (
               <button
                 key={item.path}

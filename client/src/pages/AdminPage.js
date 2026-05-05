@@ -868,93 +868,14 @@ export default function AdminPage() {
         <button className="btn btn-primary btn-sm" onClick={() => navigate('/admin/dashboard')}>View Dashboard →</button>
       </div>
 
-      {/* Subscribers */}
+      {/* Users */}
       <p className="section-title">Users</p>
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {subscribers.length === 0 ? (
-          <p style={{ padding: 16, color: '#aaa', fontSize: 13 }}>No users yet.</p>
-        ) : (
-          subscribers.map((s, i) => (
-            <div key={s.id || s._id} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-              borderBottom: i < subscribers.length - 1 ? '0.5px solid #f0ede8' : 'none',
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{s.name || s.email}</p>
-                {s.name && <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{s.email}</p>}
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#aaa' }}>
-                  Joined {fmtDate(s.createdAt)}
-                  {s.subscription_current_period_end && (
-                    <> · renews {fmtDate(s.subscription_current_period_end)}</>
-                  )}
-                  {s.free_trial_ends_at && (() => {
-                    const left = Math.ceil((new Date(s.free_trial_ends_at) - new Date()) / 86400000);
-                    return left > 0
-                      ? <span style={{ color: '#f59e0b', marginLeft: 4 }}>· trial: {left}d left</span>
-                      : <span style={{ color: '#e24b4a', marginLeft: 4 }}>· trial expired</span>;
-                  })()}
-                </p>
-              </div>
-              <span style={{
-                fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
-                color: STATUS_COLORS[s.subscription_status] || '#aaa',
-              }}>
-                {s.subscription_status || 'none'}
-              </span>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
-                <button
-                  className="btn btn-sm"
-                  style={{ fontSize: 11, background: '#185fa5', color: '#fff', borderColor: 'transparent' }}
-                  disabled={impersonatingId === (s.id || s._id)}
-                  onClick={() => impersonateUser(s.id || s._id)}
-                >
-                  {impersonatingId === (s.id || s._id) ? <span className="spinner" /> : '👤 View as'}
-                </button>
-                <div style={{ position: 'relative' }}>
-                  <button
-                    className="btn btn-sm"
-                    style={{ fontSize: 11 }}
-                    onClick={() => setOpenDropdownId(openDropdownId === (s.id || s._id) ? null : (s.id || s._id))}
-                  >
-                    Actions ▾
-                  </button>
-                  {openDropdownId === (s.id || s._id) && (
-                    <>
-                      <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpenDropdownId(null)} />
-                      <div style={{
-                        position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 100,
-                        background: '#fff', border: '1px solid #e5e3de', borderRadius: 10,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 160, overflow: 'hidden',
-                      }}>
-                        {[
-                          { label: '📊 View data', action: () => { navigate(`/admin/users/${s.id || s._id}`); setOpenDropdownId(null); } },
-                          { label: '✉️ Send email', action: () => { setEmailModal({ id: s.id || s._id, email: s.email }); setEmailForm({ subject: '', body: '' }); setEmailMsg(''); setOpenDropdownId(null); } },
-                          { label: s.subscription_status === 'active' ? '🚫 Revoke access' : '✅ Grant access', action: () => { s.subscription_status === 'active' ? revoke(s.id || s._id) : grant(s.id || s._id); setOpenDropdownId(null); } },
-                          { label: '⏱ Grant trial', action: () => { setTrialModal({ id: s.id || s._id, email: s.email, name: s.name }); setTrialDaysInput('7'); setOpenDropdownId(null); } },
-                          ...(s.free_trial_ends_at ? [{ label: notifyingTrialId === (s.id || s._id) ? 'Sending...' : '📧 Send trial email', action: () => { notifyTrialUser(s.id || s._id); setOpenDropdownId(null); } }] : []),
-                          ...(s.free_trial_ends_at && new Date(s.free_trial_ends_at) > new Date() ? [{ label: '⏹ Expire trial', danger: true, action: () => { expireTrial(s.id || s._id); setOpenDropdownId(null); } }] : []),
-                          { label: '🗑️ Delete user', danger: true, action: () => { setConfirmDeleteId(s.id || s._id); setOpenDropdownId(null); } },
-                        ].map(item => (
-                          <button key={item.label} onClick={item.action} style={{
-                            display: 'block', width: '100%', textAlign: 'left',
-                            padding: '9px 14px', fontSize: 13, background: 'none', border: 'none',
-                            cursor: 'pointer', color: item.danger ? '#e24b4a' : '#333',
-                            borderBottom: '0.5px solid #f5f3f0',
-                          }}
-                            onMouseEnter={e => e.currentTarget.style.background = item.danger ? '#fff5f5' : '#f8f7f4'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+      <div className="card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px' }}>
+        <div>
+          <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>All users</p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{subscribers.length} total · search, filter, and manage</p>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => navigate('/admin/users')}>View all users →</button>
       </div>
     </div>
   );

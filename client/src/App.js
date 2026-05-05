@@ -12,6 +12,7 @@ import SubscribePage from './pages/SubscribePage';
 import AdminPage from './pages/AdminPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUserPage from './pages/AdminUserPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 import SetupWizard from './pages/SetupWizard';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
@@ -71,6 +72,7 @@ function AppRoutes() {
       <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
       <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin><AdminDashboardPage /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
       <Route path="/admin/users/:hostId" element={<ProtectedRoute requireAdmin><AdminUserPage /></ProtectedRoute>} />
       <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
