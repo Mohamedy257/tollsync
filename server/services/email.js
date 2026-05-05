@@ -379,13 +379,21 @@ async function sendFreeTrialGranted(to, name, trialEndsAt, trialDays) {
 }
 
 async function sendCustom(to, subject, body) {
-  const htmlBody = body.replace(/\n/g, '<br>');
+  const htmlBody = body
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\n\n/g, '</p><p style="font-size:14px;color:#333;line-height:1.7;margin:0 0 14px">')
+    .replace(/\n/g, '<br>');
   await sendEmail(to, subject, `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
       <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
-        <h2 style="margin:0 0 20px;font-size:18px;color:#1a1a1a">⚡ TollSync</h2>
-        <div style="font-size:14px;color:#333;line-height:1.7">${htmlBody}</div>
-        <p style="color:#aaa;font-size:12px;margin-top:28px">— The TollSync team</p>
+        <div style="background:linear-gradient(135deg,#185fa5,#1577d4);border-radius:10px;padding:16px 20px;margin-bottom:24px">
+          <p style="margin:0;font-size:20px;font-weight:800;color:#fff">⚡ TollSync</p>
+          <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7)">Rental toll calculator</p>
+        </div>
+        <p style="font-size:14px;color:#333;line-height:1.7;margin:0 0 14px">${htmlBody}</p>
+        <p style="color:#aaa;font-size:12px;margin-top:28px;line-height:1.6">
+          Questions? Reply to this email — we're happy to help.<br/>— The TollSync team
+        </p>
       </div>
     </div>
   `);
