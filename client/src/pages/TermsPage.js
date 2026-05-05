@@ -23,6 +23,8 @@ export default function TermsPage() {
   const navigate = useNavigate();
   const [text, setText] = useState('');
 
+  useEffect(() => { document.title = 'Terms & Conditions — TollSync'; }, []);
+
   useEffect(() => {
     fetch('/api/billing/plan').then(r => r.json()).then(d => {
       if (d.terms_text) setText(d.terms_text);

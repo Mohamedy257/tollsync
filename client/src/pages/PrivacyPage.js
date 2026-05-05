@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const SECTIONS = [
@@ -55,6 +55,7 @@ We do not control the privacy practices of these third parties and encourage you
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
+  useEffect(() => { document.title = 'Privacy Policy — TollSync'; }, []);
 
   return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f8f7f4', minHeight: '100vh' }}>

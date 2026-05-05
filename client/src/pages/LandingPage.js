@@ -9,6 +9,29 @@ export default function LandingPage() {
 
   useEffect(() => {
     fetch('/api/billing/plan').then(r => r.json()).then(d => setPlan(d)).catch(() => {});
+
+    // SEO: page title + meta description
+    document.title = 'TollSync — Toll Charge Calculator for Rental Car Hosts';
+    let meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', 'Automatically match EZ-Pass toll charges to each rental trip. Upload your statement, get per-renter breakdowns in seconds. Free trial — no credit card required.');
+
+    // JSON-LD structured data
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'ld-json';
+    script.text = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'TollSync',
+      url: 'https://tollsync.app',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      description: 'Automatically match EZ-Pass toll charges to each rental trip. Upload your statement, get per-renter breakdowns in seconds.',
+      offers: { '@type': 'Offer', priceCurrency: 'USD', price: '0', description: 'Free trial available' },
+      screenshot: 'https://tollsync.app/icon-512.png',
+    });
+    document.head.appendChild(script);
+    return () => { document.getElementById('ld-json')?.remove(); };
   }, []);
 
   useEffect(() => {

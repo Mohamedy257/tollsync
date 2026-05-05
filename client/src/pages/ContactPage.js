@@ -20,7 +20,8 @@ export default function ContactPage() {
 
   useEffect(() => {
     fetch('/api/billing/contact').then(r => r.json()).then(d => setContact(d)).catch(() => {});
-  }, []);
+    if (!host) document.title = 'Contact Us — TollSync';
+  }, [host]);
 
   const waNumber = contact.whatsapp_number;
   const supportEmail = contact.support_email;
