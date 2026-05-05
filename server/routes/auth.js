@@ -47,7 +47,7 @@ router.get('/oauth-providers', async (req, res) => {
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, phone } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   if (!/[A-Z]/.test(password)) return res.status(400).json({ error: 'Password must contain at least one uppercase letter.' });
@@ -65,7 +65,7 @@ router.post('/register', async (req, res) => {
       ? new Date(Date.now() + freeTrialDays * 24 * 60 * 60 * 1000)
       : null;
     const host = await Host.create({
-      email, password_hash: hash, name: name || null,
+      email, password_hash: hash, name: name || null, phone: phone?.trim() || null,
       setup_complete: false,
       email_verified: false,
       email_verification_token: verificationToken,

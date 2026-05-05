@@ -39,8 +39,8 @@ export function AuthProvider({ children }) {
     return res.data.host;
   };
 
-  const register = async (email, password, name) => {
-    const res = await api.post('/auth/register', { email, password, name });
+  const register = async (email, password, name, phone) => {
+    const res = await api.post('/auth/register', { email, password, name, phone });
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
     setImpersonating(false);

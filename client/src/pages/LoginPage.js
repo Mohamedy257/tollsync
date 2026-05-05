@@ -66,7 +66,7 @@ function passwordRules(pw) {
 
 export default function LoginPage() {
   const [mode, setMode] = useState('login');
-  const [form, setForm] = useState({ email: '', password: '', name: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', phone: '' });
   const [agreed, setAgreed] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState('');
@@ -107,7 +107,7 @@ export default function LoginPage() {
     try {
       let h;
       if (mode === 'login') h = await login(form.email, form.password);
-      else h = await register(form.email, form.password, form.name);
+      else h = await register(form.email, form.password, form.name, form.phone);
       navigate(h?.email_verified === false ? '/verify-pending' : '/');
     } catch (err) {
       const code = err.response?.data?.code;
@@ -208,6 +208,12 @@ export default function LoginPage() {
             <div className="form-group">
               <label>Name</label>
               <input className="form-control" name="name" placeholder="Your name" value={form.name} onChange={handle} />
+            </div>
+          )}
+          {mode === 'register' && (
+            <div className="form-group">
+              <label>Phone <span style={{ color: '#aaa', fontWeight: 400, fontSize: 12 }}>(optional)</span></label>
+              <input className="form-control" name="phone" type="tel" placeholder="+1 (555) 000-0000" value={form.phone} onChange={handle} />
             </div>
           )}
           <div className="form-group">

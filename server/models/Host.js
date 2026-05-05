@@ -3,6 +3,7 @@ const schema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password_hash: { type: String, default: null }, // null for OAuth-only accounts
   name: { type: String, default: null },
+  phone: { type: String, default: null },
   setup_complete: { type: Boolean, default: null }, // null = existing user (skip wizard), false = new signup
   // OAuth
   google_id: { type: String, default: null },
