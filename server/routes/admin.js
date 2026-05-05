@@ -203,7 +203,7 @@ router.post('/create-price', requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/subscribers
+// GET /api/admin/stats
 router.get('/stats', requireAdmin, async (req, res) => {
   try {
     const now = new Date();
@@ -217,12 +217,16 @@ router.get('/stats', requireAdmin, async (req, res) => {
       newLast7,
       newLast30,
       activeSubscribers,
-      trialUsers,
+      stripeTrialing,
       cancelledUsers,
+      pastDueUsers,
+      // Custom free trial: free_trial_ends_at in the future AND not already on a paid/stripe-trial plan
+      freeTrialActive,
       totalTrips,
       totalTolls,
       unreadMessages,
       recentSignups,
+      plan,
     ] = await Promise.all([
       Host.countDocuments(),
       Host.countDocuments({ createdAt: { $gte: startOfToday } }),
@@ -231,14 +235,24 @@ router.get('/stats', requireAdmin, async (req, res) => {
       Host.countDocuments({ subscription_status: 'active' }),
       Host.countDocuments({ subscription_status: 'trialing' }),
       Host.countDocuments({ subscription_status: 'canceled' }),
+      Host.countDocuments({ subscription_status: 'past_due' }),
+      Host.countDocuments({
+        free_trial_ends_at: { $gt: now },
+        subscription_status: { $nin: ['active', 'trialing'] },
+      }),
       Trip.countDocuments(),
       TollTransaction.countDocuments(),
       ContactMessage.countDocuments({ read: { $ne: true } }),
       Host.find({ createdAt: { $gte: startOf30 } })
-        .select('email name subscription_status createdAt')
+        .select('email name subscription_status free_trial_ends_at createdAt')
         .sort({ createdAt: -1 })
         .limit(10),
+      PlanConfig.findOne().lean(),
     ]);
+
+    const hasAccess = activeSubscribers + stripeTrialing + freeTrialActive;
+    const priceCents = plan?.price_cents || 0;
+    const mrr = (activeSubscribers * priceCents / 100).toFixed(2);
 
     // Daily signups for the last 30 days (sparkline data)
     const [dailySignups, funnelStarts, funnelSubmits] = await Promise.all([
@@ -253,7 +267,15 @@ router.get('/stats', requireAdmin, async (req, res) => {
 
     res.json({
       users: { total: totalUsers, today: newToday, last7: newLast7, last30: newLast30 },
-      subscriptions: { active: activeSubscribers, trialing: trialUsers, cancelled: cancelledUsers },
+      subscriptions: {
+        active: activeSubscribers,
+        stripeTrialing,
+        freeTrial: freeTrialActive,
+        hasAccess,
+        pastDue: pastDueUsers,
+        cancelled: cancelledUsers,
+        mrr,
+      },
       content: { trips: totalTrips, tolls: totalTolls },
       unreadMessages,
       recentSignups,

@@ -21,16 +21,20 @@ export default function AdminDashboardPage() {
   }, []);
 
   const kpis = stats ? [
-    { label: 'Total Users',       value: stats.users.total,              color: '#185fa5' },
-    { label: 'New Today',         value: stats.users.today,              color: '#7c3aed' },
-    { label: 'New (7 days)',       value: stats.users.last7,             color: '#0891b2' },
-    { label: 'New (30 days)',      value: stats.users.last30,            color: '#0891b2' },
-    { label: 'Active Subs',        value: stats.subscriptions.active,    color: '#16a34a' },
-    { label: 'Trialing',           value: stats.subscriptions.trialing,  color: '#f59e0b' },
-    { label: 'Cancelled',          value: stats.subscriptions.cancelled, color: '#e24b4a' },
-    { label: 'Total Trips',        value: stats.content.trips,           color: '#64748b' },
-    { label: 'Total Toll Records', value: stats.content.tolls,           color: '#64748b' },
-    { label: 'Unread Messages',    value: stats.unreadMessages,          color: stats.unreadMessages > 0 ? '#e24b4a' : '#64748b' },
+    { label: 'Total Users',       value: stats.users.total,                        color: '#185fa5' },
+    { label: 'New Today',         value: stats.users.today,                        color: '#7c3aed' },
+    { label: 'New (7 days)',       value: stats.users.last7,                       color: '#0891b2' },
+    { label: 'New (30 days)',      value: stats.users.last30,                      color: '#0891b2' },
+    { label: 'Has Access',         value: stats.subscriptions.hasAccess,           color: '#16a34a' },
+    { label: 'Active Subs',        value: stats.subscriptions.active,              color: '#15803d' },
+    { label: 'MRR',                value: `$${stats.subscriptions.mrr}`,           color: '#15803d', big: true },
+    { label: 'Free Trial',         value: stats.subscriptions.freeTrial,           color: '#f59e0b' },
+    { label: 'Stripe Trial',       value: stats.subscriptions.stripeTrialing,      color: '#d97706' },
+    { label: 'Past Due',           value: stats.subscriptions.pastDue,             color: stats.subscriptions.pastDue > 0 ? '#dc2626' : '#64748b' },
+    { label: 'Cancelled',          value: stats.subscriptions.cancelled,           color: '#e24b4a' },
+    { label: 'Total Trips',        value: stats.content.trips,                     color: '#64748b' },
+    { label: 'Total Toll Records', value: stats.content.tolls,                     color: '#64748b' },
+    { label: 'Unread Messages',    value: stats.unreadMessages,                    color: stats.unreadMessages > 0 ? '#e24b4a' : '#64748b' },
   ] : [];
 
   return (
@@ -125,11 +129,15 @@ export default function AdminDashboardPage() {
                     {u.name && <p style={{ margin: 0, fontSize: 11, color: '#999' }}>{u.email}</p>}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99,
-                      background: u.subscription_status === 'active' ? '#dcfce7' : u.subscription_status === 'trialing' ? '#fef9c3' : '#f3f4f6',
-                      color: u.subscription_status === 'active' ? '#16a34a' : u.subscription_status === 'trialing' ? '#b45309' : '#6b7280',
-                    }}>{u.subscription_status || 'none'}</span>
+                    {(() => {
+                      const onFreeTrial = u.free_trial_ends_at && new Date(u.free_trial_ends_at) > new Date() && !['active','trialing'].includes(u.subscription_status);
+                      const label = onFreeTrial ? 'free trial' : (u.subscription_status || 'none');
+                      const bg = label === 'active' ? '#dcfce7' : label === 'trialing' ? '#fef9c3' : label === 'free trial' ? '#fff7ed' : '#f3f4f6';
+                      const color = label === 'active' ? '#16a34a' : label === 'trialing' ? '#b45309' : label === 'free trial' ? '#c2410c' : '#6b7280';
+                      return (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: bg, color }}>{label}</span>
+                      );
+                    })()}
                     <p style={{ margin: '3px 0 0', fontSize: 11, color: '#aaa' }}>{fmtDate(u.createdAt)}</p>
                   </div>
                 </div>
