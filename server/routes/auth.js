@@ -49,6 +49,7 @@ router.get('/oauth-providers', async (req, res) => {
 router.post('/register', async (req, res) => {
   const { email, password, name, phone } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   if (!/[A-Z]/.test(password)) return res.status(400).json({ error: 'Password must contain at least one uppercase letter.' });
   if (!/[a-z]/.test(password)) return res.status(400).json({ error: 'Password must contain at least one lowercase letter.' });

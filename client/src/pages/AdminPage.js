@@ -49,6 +49,7 @@ export default function AdminPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteAllTolls, setConfirmDeleteAllTolls] = useState(false);
   const [deletingAllTolls, setDeletingAllTolls] = useState(false);
+  const [deleteAllTollsText, setDeleteAllTollsText] = useState('');
   const [emailModal, setEmailModal] = useState(null); // { id, email }
   const [emailForm, setEmailForm] = useState({ subject: '', body: '' });
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -261,6 +262,7 @@ export default function AdminPage() {
     try {
       const res = await api.delete('/admin/tolls');
       setConfirmDeleteAllTolls(false);
+      setDeleteAllTollsText('');
       alert(`Deleted ${res.data.deleted} toll transaction(s).`);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete tolls');
@@ -446,22 +448,39 @@ export default function AdminPage() {
       {/* Delete All Tolls Confirmation Modal */}
       {confirmDeleteAllTolls && (
         <>
-          <div onClick={() => setConfirmDeleteAllTolls(false)}
+          <div onClick={() => { setConfirmDeleteAllTolls(false); setDeleteAllTollsText(''); }}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
             zIndex: 1001, background: '#fff', borderRadius: 16, padding: 28,
-            width: '90%', maxWidth: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', textAlign: 'center',
+            width: '90%', maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           }}>
-            <p style={{ fontSize: 40, margin: '0 0 12px' }}>⚠️</p>
-            <p style={{ fontWeight: 700, fontSize: 16, margin: '0 0 8px' }}>Delete ALL toll transactions?</p>
-            <p style={{ fontSize: 13, color: '#666', margin: '0 0 24px', lineHeight: 1.6 }}>
-              This permanently deletes every toll record across all users. This cannot be undone.
+            <p style={{ fontSize: 40, margin: '0 0 12px', textAlign: 'center' }}>🚨</p>
+            <p style={{ fontWeight: 800, fontSize: 17, margin: '0 0 8px', color: '#c0392b' }}>Danger — Irreversible Action</p>
+            <div style={{ background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+              <p style={{ fontSize: 13, color: '#c0392b', margin: 0, lineHeight: 1.6 }}>
+                This will <strong>permanently delete every toll record across all users</strong>. There is no way to recover this data. Do not proceed unless you are absolutely certain.
+              </p>
+            </div>
+            <p style={{ fontSize: 13, color: '#555', margin: '0 0 8px' }}>
+              Type <strong>delete all tolls</strong> to confirm:
             </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button className="btn" onClick={() => setConfirmDeleteAllTolls(false)}>Cancel</button>
-              <button className="btn btn-danger" disabled={deletingAllTolls} onClick={deleteAllTolls}>
-                {deletingAllTolls ? <><span className="spinner" /> Deleting...</> : 'Yes, delete all'}
+            <input
+              className="form-control"
+              placeholder="delete all tolls"
+              value={deleteAllTollsText}
+              onChange={e => setDeleteAllTollsText(e.target.value)}
+              style={{ marginBottom: 16, borderColor: deleteAllTollsText === 'delete all tolls' ? '#e24b4a' : undefined }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => { setConfirmDeleteAllTolls(false); setDeleteAllTollsText(''); }}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                disabled={deletingAllTolls || deleteAllTollsText !== 'delete all tolls'}
+                onClick={deleteAllTolls}
+              >
+                {deletingAllTolls ? <><span className="spinner" /> Deleting...</> : 'Delete all tolls'}
               </button>
             </div>
           </div>

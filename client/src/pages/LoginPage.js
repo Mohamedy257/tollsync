@@ -207,7 +207,7 @@ export default function LoginPage() {
           {mode === 'register' && (
             <div className="form-group">
               <label>Name</label>
-              <input className="form-control" name="name" placeholder="Your name" value={form.name} onChange={handle} />
+              <input className="form-control" name="name" placeholder="Your name" value={form.name} onChange={handle} required />
             </div>
           )}
           {mode === 'register' && (
