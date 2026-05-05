@@ -639,6 +639,8 @@ export default function CalculatorPage() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'ongoing' | 'ended'
+  const [filterAmountMin, setFilterAmountMin] = useState('');
+  const [filterAmountMax, setFilterAmountMax] = useState('');
   const [guestDropOpen, setGuestDropOpen] = useState(false);
   const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
   // 'all' = normal view sorted by end date; 'uploaded' = show only the just-uploaded trip(s)
@@ -663,6 +665,9 @@ export default function CalculatorPage() {
       if (filterStatus === 'ongoing' && !isOngoing) return false;
       if (filterStatus === 'ended' && isOngoing) return false;
     }
+    const amount = parseFloat(t.total_tolls) || 0;
+    if (filterAmountMin !== '' && amount < parseFloat(filterAmountMin)) return false;
+    if (filterAmountMax !== '' && amount > parseFloat(filterAmountMax)) return false;
     return true;
   });
 
@@ -1341,7 +1346,7 @@ export default function CalculatorPage() {
 
           {/* ── Filters ── */}
           {allTrips.length > 0 && (() => {
-            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo || filterStatus !== 'all';
+            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo || filterStatus !== 'all' || filterAmountMin !== '' || filterAmountMax !== '';
             const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#e8f0fb', color: '#185fa5', borderRadius: 99, fontSize: 12, fontWeight: 600, padding: '3px 10px' };
 
             const MultiSelect = ({ label, options, selected, setSelected, open, setOpen, icon }) => {
@@ -1395,6 +1400,25 @@ export default function CalculatorPage() {
                       value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
                       title="Trip start date to" />
                   </div>
+                  {/* Amount range */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 16 }}>💰</span>
+                    <input
+                      type="number" min="0" step="0.01" placeholder="Min $"
+                      className="form-control"
+                      style={{ fontSize: 12, padding: '5px 8px', width: 80 }}
+                      value={filterAmountMin}
+                      onChange={e => setFilterAmountMin(e.target.value)}
+                    />
+                    <span style={{ fontSize: 12, color: '#aaa' }}>–</span>
+                    <input
+                      type="number" min="0" step="0.01" placeholder="Max $"
+                      className="form-control"
+                      style={{ fontSize: 12, padding: '5px 8px', width: 80 }}
+                      value={filterAmountMax}
+                      onChange={e => setFilterAmountMax(e.target.value)}
+                    />
+                  </div>
                   {/* Status toggle */}
                   <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e3de' }}>
                     {[
@@ -1427,7 +1451,7 @@ export default function CalculatorPage() {
                   </div>
                   {hasFilters && (
                     <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
-                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); setFilterStatus('all'); }}>
+                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); setFilterStatus('all'); setFilterAmountMin(''); setFilterAmountMax(''); }}>
                       Clear filters
                     </button>
                   )}
