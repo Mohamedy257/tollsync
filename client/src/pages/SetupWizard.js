@@ -491,9 +491,29 @@ export default function SetupWizard() {
             </div>
 
             {!scrolledTerms && (
-              <p style={{ fontSize: 12, color: '#888', textAlign: 'center', marginBottom: 12 }}>
-                Scroll to the bottom to enable the agreement checkbox
-              </p>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10,
+                padding: '10px 14px', marginBottom: 12,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16, flexShrink: 0 }}>⬇️</span>
+                  <p style={{ fontSize: 13, color: '#92400e', margin: 0, fontWeight: 500 }}>
+                    Scroll through all the terms to enable the agreement checkbox.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => termsRef.current?.scrollTo({ top: termsRef.current.scrollHeight, behavior: 'smooth' })}
+                  style={{
+                    background: '#f59e0b', border: 'none', color: '#fff',
+                    borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  Scroll to end ↓
+                </button>
+              </div>
             )}
 
             <label style={{
@@ -609,9 +629,18 @@ export default function SetupWizard() {
           {step === 1 && (
             <>
               {!scrolledTerms && (
-                <p style={{ fontSize: 12, color: '#888', textAlign: 'center', margin: 0 }}>
-                  Scroll through the terms above to continue
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 12px' }}>
+                  <p style={{ fontSize: 12, color: '#92400e', margin: 0, fontWeight: 500 }}>
+                    ⬇️ Scroll through the terms to enable agreement
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => termsRef.current?.scrollTo({ top: termsRef.current.scrollHeight, behavior: 'smooth' })}
+                    style={{ background: '#f59e0b', border: 'none', color: '#fff', borderRadius: 7, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    End ↓
+                  </button>
+                </div>
               )}
               <button className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, borderRadius: 12 }}
