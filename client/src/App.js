@@ -90,7 +90,9 @@ function AppRoutes() {
       <Route path="/admin/users/:hostId" element={<ProtectedRoute requireAdmin><AdminUserPage /></ProtectedRoute>} />
       <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
-      <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
+      <Route path="/contact" element={
+        host ? <ProtectedRoute><ContactPage /></ProtectedRoute> : <ContactPage />
+      } />
       <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
