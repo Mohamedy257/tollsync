@@ -14,7 +14,11 @@ mongoose.set('toJSON', {
 async function connectDB() {
   const uri = process.env.MONGO_URL || process.env.MONGODB_URL;
   if (!uri) throw new Error('MONGO_URL environment variable is not set');
-  await mongoose.connect(uri);
+  await mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 10,
+  });
   console.log('✅ MongoDB connected');
 }
 
