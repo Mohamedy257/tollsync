@@ -830,11 +830,11 @@ export default function CalculatorPage() {
                 {isMobile
                   ? <>
                       <p className="upload-label">Tap to upload trips or tolls</p>
-                      <p className="upload-hint">Screenshots · PDF · CSV — AI detects which is which</p>
+                      <p className="upload-hint">Screenshots · PDF · CSV — we'll detect which is which</p>
                     </>
                   : <>
                       <p className="upload-label">Drop files, click to browse, or paste (⌘V)</p>
-                      <p className="upload-hint">Screenshots · PDF · CSV · Excel — AI detects which is which</p>
+                      <p className="upload-hint">Screenshots · PDF · CSV · Excel — we'll detect which is which</p>
                     </>
                 }
               </>
