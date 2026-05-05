@@ -283,9 +283,9 @@ router.get('/users/:hostId/overview', requireAdmin, async (req, res) => {
     if (!host) return res.status(404).json({ error: 'User not found' });
 
     const [vehicles, trips, tolls] = await Promise.all([
-      Vehicle.find({ host: host._id }).lean(),
-      Trip.find({ host: host._id }).sort({ end_date: -1 }).limit(50).lean(),
-      TollTransaction.find({ host: host._id }).sort({ transaction_date: -1 }).limit(100).lean(),
+      Vehicle.find({ host_id: host._id }).lean(),
+      Trip.find({ host_id: host._id }).sort({ end_date: -1 }).limit(50).lean(),
+      TollTransaction.find({ host_id: host._id }).sort({ transaction_date: -1 }).limit(100).lean(),
     ]);
 
     res.json({
