@@ -24,6 +24,9 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountPage from './pages/AccountPage';
 import NotFoundPage from './pages/NotFoundPage';
+import LandingPage from './pages/LandingPage';
+import PrivacyPage from './pages/PrivacyPage';
+import TermsPage from './pages/TermsPage';
 import './index.css';
 
 function ProtectedRoute({ children, requireAdmin }) {
@@ -54,6 +57,9 @@ function AppRoutes() {
   const { host } = useAuth();
   return (
     <Routes>
+      {/* Public pages */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route path="/login" element={
         !host ? <LoginPage /> :
         host.email_verified === false ? <Navigate to="/verify-pending" replace /> :
@@ -65,7 +71,10 @@ function AppRoutes() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/verify-pending" element={<VerifyPendingPage />} />
       <Route path="/subscribe" element={<SubscribePage />} />
-      <Route path="/" element={<ProtectedRoute><CalculatorPage /></ProtectedRoute>} />
+      {/* Root: landing for guests, calculator for logged-in users */}
+      <Route path="/" element={
+        !host ? <LandingPage /> : <ProtectedRoute><CalculatorPage /></ProtectedRoute>
+      } />
       <Route path="/trips" element={<ProtectedRoute><TripsPage /></ProtectedRoute>} />
       <Route path="/tolls" element={<ProtectedRoute><EzPassPage /></ProtectedRoute>} />
       <Route path="/vehicles" element={<ProtectedRoute><VehiclesPage /></ProtectedRoute>} />

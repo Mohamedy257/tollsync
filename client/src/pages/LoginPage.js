@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 
@@ -287,6 +287,11 @@ export default function LoginPage() {
             </button>
           </p>
         )}
+        <div style={{ borderTop: '0.5px solid #f0ede8', marginTop: 20, paddingTop: 14, display: 'flex', justifyContent: 'center', gap: 16 }}>
+          <Link to="/" style={{ fontSize: 12, color: '#aaa' }}>Home</Link>
+          <Link to="/privacy" style={{ fontSize: 12, color: '#aaa' }}>Privacy Policy</Link>
+          <Link to="/terms" style={{ fontSize: 12, color: '#aaa' }}>Terms</Link>
+        </div>
       </div>
     </div>
   );
