@@ -17,9 +17,10 @@ export default function SubscribePage() {
     api.get('/billing/plan').then(r => setPlan(r.data)).catch(() => {});
   }, []);
 
-  // On mount, refresh host — if admin granted a trial since last login, redirect to app
+  // On mount, refresh host — only redirect to app if user isn't already subscribed
+  // (handles case where admin granted access since last login)
   useEffect(() => {
-    if (!host) return;
+    if (!host || isSubscribed) return;
     refreshHost().then(updated => {
       if (
         updated?.is_admin ||
