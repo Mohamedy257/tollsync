@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const steps = [
     { icon: '🚗', label: 'Add vehicles', sub: 'Set transponder IDs for each car', done: stats.vehicles > 0, path: '/vehicles' },
     { icon: '📋', label: 'Upload trips', sub: 'Screenshots, PDFs, or CSVs of your rental trips', done: stats.trips > 0, path: '/trips' },
-    { icon: '🛣️', label: 'Upload EZ-Pass', sub: 'Your toll statement for the period', done: stats.tolls > 0, path: '/ezpass' },
+    { icon: '🛣️', label: 'Upload tolls', sub: 'Your toll statement for the period', done: stats.tolls > 0, path: '/ezpass' },
     { icon: '⚡', label: 'Calculate tolls', sub: 'AI matches tolls to each trip', done: stats.totalCharged > 0, path: '/results' },
   ];
 
@@ -37,7 +37,7 @@ export default function DashboardPage() {
     <div>
       <div className="page-header">
         <h2>Welcome{host?.name ? `, ${host.name}` : ''}</h2>
-        <p>Match your EZ-Pass charges to rental trips automatically.</p>
+        <p>Match your toll charges to rental trips automatically.</p>
       </div>
 
       <div className="metrics">

@@ -91,7 +91,7 @@ function TripCard({ t, reportRange, vehicles }) {
   const linkedVehicle = t.vehicle_id && vehicles ? vehicles.find(v => v.id === t.vehicle_id) : null;
   const vehicleName = linkedVehicle ? linkedVehicle.name : (t.vehicle || '—');
 
-  // Check if trip extends outside EZ-Pass report range
+  // Check if trip extends outside toll report range
   let coverageWarning = null;
   if (reportRange) {
     const tripStart = new Date(t.start_datetime);
@@ -101,7 +101,7 @@ function TripCard({ t, reportRange, vehicles }) {
     const startBefore = reportFrom && tripStart < reportFrom;
     const endAfter = reportTo && tripEnd > reportTo;
     if (startBefore || endAfter) {
-      coverageWarning = `Trip (${fmtDate(t.start_datetime)} – ${fmtDate(t.end_datetime)}) extends outside your EZ-Pass report range (${fmtDate(reportRange.from)} – ${fmtDate(reportRange.to)}). Toll charges may be incomplete.`;
+      coverageWarning = `Trip (${fmtDate(t.start_datetime)} – ${fmtDate(t.end_datetime)}) extends outside your toll report range (${fmtDate(reportRange.from)} – ${fmtDate(reportRange.to)}). Toll charges may be incomplete.`;
     }
   }
 
@@ -707,7 +707,7 @@ export default function CalculatorPage() {
         </div>
         {/* Row 2: feature chips */}
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          {['📸 Trip screenshots', '📄 EZ-Pass PDFs & CSVs', '⚡ Auto-matched tolls'].map(label => (
+          {['📸 Trip screenshots', '📄 Toll PDFs & CSVs', '⚡ Auto-matched tolls'].map(label => (
             <span key={label} style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>{label}</span>
           ))}
         </div>
@@ -876,10 +876,10 @@ export default function CalculatorPage() {
             done: false, active: true, action: { label: 'Upload trips', upload: true },
           },
           {
-            n: 2, icon: '🛣️', title: 'Upload your EZ-Pass statement',
+            n: 2, icon: '🛣️', title: 'Upload your toll statement',
             desc: tolls.length > 0
               ? `${tolls.length} toll record${tolls.length !== 1 ? 's' : ''} already loaded.`
-              : 'Upload your EZ-Pass PDF, CSV, or screenshots.',
+              : 'Upload your toll statement PDF, CSV, or screenshots.',
             done: tolls.length > 0, active: !tolls.length,
             action: tolls.length > 0
               ? { label: 'View records', path: '/tolls' }
@@ -1228,7 +1228,7 @@ export default function CalculatorPage() {
                     )}
                     {!isExistingSelected(v) && (
                       <div>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>EZ-Pass transponder</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>transponder ID</p>
                         {renderTransponder(v)}
                       </div>
                     )}
@@ -1250,7 +1250,7 @@ export default function CalculatorPage() {
                   <span>Vehicle (YMM) · Renter · Dates</span>
                   {anyHasCandidates && <span>Which car</span>}
                   <span>License Plate</span>
-                  <span>EZ-Pass Transponder</span>
+                  <span>Transponder ID</span>
                   <span />
                 </div>
                 {missingTransponders.map((v, idx) => (

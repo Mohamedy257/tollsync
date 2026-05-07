@@ -131,13 +131,13 @@ async function sendWelcome(to, name) {
             <div style="width:32px;height:32px;border-radius:50%;background:#185fa5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">1</div>
             <div>
               <p style="font-weight:600;font-size:14px;margin:0 0 2px;color:#1a1a1a">Add your vehicles</p>
-              <p style="font-size:13px;color:#888;margin:0">Enter each car you host with its license plate and EZ-Pass transponder ID.</p>
+              <p style="font-size:13px;color:#888;margin:0">Enter each car you host with its license plate and transponder ID.</p>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
             <div style="width:32px;height:32px;border-radius:50%;background:#185fa5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">2</div>
             <div>
-              <p style="font-weight:600;font-size:14px;margin:0 0 2px;color:#1a1a1a">Upload your EZ-Pass statement</p>
+              <p style="font-weight:600;font-size:14px;margin:0 0 2px;color:#1a1a1a">Upload your toll statement</p>
               <p style="font-size:13px;color:#888;margin:0">Drop in your PDF or CSV — our AI parses it automatically.</p>
             </div>
           </div>
@@ -359,7 +359,7 @@ async function sendFreeTrialGranted(to, name, trialEndsAt, trialDays) {
 
         <div style="background:#f0f4fa;border-radius:10px;padding:16px 18px;margin-bottom:24px">
           <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">What you can do</p>
-          ${['Upload trip screenshots, PDFs, CSVs, or Excel files', 'Upload EZ-Pass / toll statements', 'AI matches tolls to each renter automatically', 'Get exact per-renter toll amounts to charge back', 'Export reports for your records'].map(f => `
+          ${['Upload trip screenshots, PDFs, CSVs, or Excel files', 'Upload tolls / toll statements', 'AI matches tolls to each renter automatically', 'Get exact per-renter toll amounts to charge back', 'Export reports for your records'].map(f => `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="color:#185fa5;font-size:14px;font-weight:700">✓</span>
             <span style="font-size:13px;color:#374151">${f}</span>

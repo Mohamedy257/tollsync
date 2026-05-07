@@ -7,7 +7,7 @@ const FAQS = [
     items: [
       {
         q: 'What files can I upload?',
-        a: 'TollSync accepts EZ-Pass PDFs, CSVs, and screenshots for toll records — and screenshots or PDFs of your Turo trip list. You can upload multiple files at once. The AI figures out which is which automatically.',
+        a: 'TollSync accepts toll PDFs, CSVs, and screenshots for toll records — and screenshots or PDFs of your Turo trip list. You can upload multiple files at once. The AI figures out which is which automatically.',
       },
       {
         q: 'How does the toll matching work?',
@@ -15,10 +15,10 @@ const FAQS = [
       },
       {
         q: 'What is a transponder ID and where do I find it?',
-        a: 'Your transponder ID is the unique number on your EZ-Pass tag. It appears on every line of your EZ-Pass statement. You\'ll need to enter it once per vehicle in the Vehicles page so TollSync can link tolls to the right car.',
+        a: 'Your transponder ID is the unique number on your toll statement tag. It appears on every line of your toll statement. You\'ll need to enter it once per vehicle in the Vehicles page so TollSync can link tolls to the right car.',
       },
       {
-        q: 'Can I upload multiple EZ-Pass statements?',
+        q: 'Can I upload multiple toll statements?',
         a: 'Yes. Upload as many statements as you need — TollSync deduplicates tolls automatically so the same charge won\'t appear twice even if your statements overlap.',
       },
     ],
@@ -28,7 +28,7 @@ const FAQS = [
     items: [
       {
         q: 'How do I add a vehicle?',
-        a: 'Go to the Vehicles page and tap "Add vehicle." Enter the year, make, model, license plate, and EZ-Pass transponder ID. The transponder ID is required for toll matching to work.',
+        a: 'Go to the Vehicles page and tap "Add vehicle." Enter the year, make, model, license plate, and transponder ID. The transponder ID is required for toll matching to work.',
       },
       {
         q: 'I have multiple transponders for the same car — is that supported?',
@@ -41,19 +41,19 @@ const FAQS = [
     ],
   },
   {
-    category: 'EZ-Pass & toll records',
+    category: 'Toll records',
     items: [
       {
-        q: 'My EZ-Pass PDF upload failed — what should I do?',
-        a: 'Large statements (10+ pages) are parsed natively without AI. If you see an error, try splitting the PDF into smaller chunks, or export a CSV from your EZ-Pass account instead — CSVs are the most reliable format.',
+        q: 'My toll statement PDF upload failed — what should I do?',
+        a: 'Large statements (10+ pages) are parsed natively without AI. If you see an error, try splitting the PDF into smaller chunks, or export a CSV from your toll statement account instead — CSVs are the most reliable format.',
       },
       {
         q: 'Some tolls are showing up twice — why?',
         a: 'This can happen if two uploaded files overlap (e.g. monthly and quarterly statements). TollSync deduplicates based on transponder, amount, and timestamp. If duplicates still appear, try deleting all toll records from that period and re-uploading a single authoritative file.',
       },
       {
-        q: 'Which EZ-Pass states and agencies are supported?',
-        a: 'TollSync works with any EZ-Pass-compatible statement including E-ZPass, SunPass, TxTag, and others. The AI parser handles most PDF and image formats. The native high-speed parser is optimized for E-ZPass Virginia and similar column-based PDFs.',
+        q: 'Which toll providers and states are supported?',
+        a: 'TollSync works with any toll statement including E-ZPass, SunPass, TxTag, and others. The AI parser handles most PDF and image formats. The native high-speed parser is optimized for E-ZPass Virginia and similar column-based PDFs.',
       },
     ],
   },

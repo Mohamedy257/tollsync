@@ -20,7 +20,7 @@ router.post('/calculate', async (req, res) => {
     ]);
 
     if (!trips.length) return res.status(400).json({ error: 'No trips found. Upload trip data first.' });
-    if (!tolls.length) return res.status(400).json({ error: 'No toll transactions found. Upload EZ-Pass data first.' });
+    if (!tolls.length) return res.status(400).json({ error: 'No toll transactions found. Upload toll data first.' });
 
     const vehiclesMapped = vehicles.map(v => ({ id: v.id, name: v.name, plate: v.plate, transponder: v.transponder_id }));
     const tripsMapped = trips.map(t => ({

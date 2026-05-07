@@ -180,7 +180,7 @@ export default function SubscribePage() {
                 'Unlimited trip calculations',
                 'AI-powered file parsing',
                 'Multi-vehicle support',
-                'EZ-Pass matching',
+                'Toll matching',
                 'Exportable toll reports',
               ].map(f => (
                 <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#333' }}>

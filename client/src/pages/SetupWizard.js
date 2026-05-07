@@ -40,7 +40,7 @@ function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitt
     err.nickname && 'Nickname',
     (err.year || err.make || err.freeformMake || err.model || err.freeformModel) && 'Year / Make / Model',
     err.plate && 'License plate',
-    err.transponder_id && 'EZ-Pass transponder',
+    err.transponder_id && 'transponder ID',
   ].filter(Boolean) : [];
 
   return (
@@ -160,7 +160,7 @@ function VehicleForm({ v, idx, onChange, onRemove, showRemove, isMobile, submitt
 
       {/* Transponder */}
       <div className="form-group">
-        <label style={{ ...label, color: err.transponder_id ? '#e24b4a' : '#555' }}>EZ-Pass Transponder {req}</label>
+        <label style={{ ...label, color: err.transponder_id ? '#e24b4a' : '#555' }}>Transponder ID {req}</label>
         <input className="form-control" placeholder="Transponder ID"
           style={{ fontFamily: 'monospace', fontSize: 16, ...(err.transponder_id ? errStyle : {}) }}
           value={v.transponder_id}
@@ -201,7 +201,7 @@ const TERMS_TEXT = [
   },
   {
     title: '2. Description of Service',
-    body: `TollSync is a software-as-a-service (SaaS) platform designed to assist peer-to-peer vehicle rental hosts in calculating, tracking, and documenting toll charges incurred during rental periods. The Service uses artificial intelligence (AI) and optical character recognition (OCR) technology to parse documents uploaded by users, including but not limited to EZ-Pass statements, trip screenshots, and CSV files. TollSync is an independent service and is not affiliated with, endorsed by, or in any way officially connected to Turo, Inc., any toll authority, state or municipal transportation agency, or any other rental platform.`,
+    body: `TollSync is a software-as-a-service (SaaS) platform designed to assist peer-to-peer vehicle rental hosts in calculating, tracking, and documenting toll charges incurred during rental periods. The Service uses artificial intelligence (AI) and optical character recognition (OCR) technology to parse documents uploaded by users, including but not limited to toll statements, trip screenshots, and CSV files. TollSync is an independent service and is not affiliated with, endorsed by, or in any way officially connected to Turo, Inc., any toll authority, state or municipal transportation agency, or any other rental platform.`,
   },
   {
     title: '3. Eligibility',
@@ -241,7 +241,7 @@ const TERMS_TEXT = [
   },
   {
     title: '12. User-Uploaded Content',
-    body: `By uploading content to TollSync (including EZ-Pass statements, screenshots, and other documents), you grant TollSync a limited, non-exclusive, royalty-free license to store, process, and analyze such content solely for the purpose of providing the Service to you. You represent and warrant that you have all necessary rights to upload such content and that doing so does not violate any third-party rights or applicable laws. TollSync does not claim ownership of your uploaded content. You are responsible for ensuring that any personally identifiable information contained in uploaded documents is handled in compliance with applicable privacy laws.`,
+    body: `By uploading content to TollSync (including toll statements, screenshots, and other documents), you grant TollSync a limited, non-exclusive, royalty-free license to store, process, and analyze such content solely for the purpose of providing the Service to you. You represent and warrant that you have all necessary rights to upload such content and that doing so does not violate any third-party rights or applicable laws. TollSync does not claim ownership of your uploaded content. You are responsible for ensuring that any personally identifiable information contained in uploaded documents is handled in compliance with applicable privacy laws.`,
   },
   {
     title: '13. Privacy & Data Processing',
@@ -606,7 +606,7 @@ export default function SetupWizard() {
           <>
             {uploadDone ? (
               <div className="alert alert-success" style={{ marginBottom: 16, fontSize: 14 }}>
-                ✓ EZ-Pass statement uploaded successfully
+                ✓ toll statement uploaded successfully
               </div>
             ) : (
               <div className="card" style={{ marginBottom: 12 }}>
@@ -619,7 +619,7 @@ export default function SetupWizard() {
                   ) : (
                     <>
                       <div style={{ fontSize: 36, marginBottom: 8 }}>🛣️</div>
-                      <p className="upload-label">{isMobile ? 'Tap to upload EZ-Pass files' : 'Drop files or click to browse'}</p>
+                      <p className="upload-label">{isMobile ? 'Tap to upload toll files' : 'Drop files or click to browse'}</p>
                       <p className="upload-hint">PDF · CSV · Screenshots — multiple files OK</p>
                     </>
                   )}

@@ -151,7 +151,7 @@ export default function VehiclesPage() {
                 onChange={e => setEditForm(f => ({ ...f, plate: e.target.value.toUpperCase() }))} />
             </div>
             <div style={fg}>
-              <label style={lbl}>EZ-Pass transponder</label>
+              <label style={lbl}>transponder ID</label>
               <input className="form-control" style={{ fontFamily: 'monospace' }}
                 value={editForm.transponder_id}
                 onChange={e => setEditForm(f => ({ ...f, transponder_id: e.target.value }))} />
@@ -273,7 +273,7 @@ export default function VehiclesPage() {
                 value={form.plate} onChange={handle} />
             </div>
             <div>
-              <label style={lbl}>EZ-Pass transponder <span style={{ color: '#e24b4a' }}>*</span></label>
+              <label style={lbl}>transponder ID <span style={{ color: '#e24b4a' }}>*</span></label>
               <input className="form-control" name="transponder_id" placeholder="10613822"
                 value={form.transponder_id} onChange={handle} />
             </div>

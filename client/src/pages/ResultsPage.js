@@ -81,7 +81,7 @@ export default function ResultsPage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h2>Results</h2>
-          <p>Per-trip toll summary matched from your EZ-Pass transactions.</p>
+          <p>Per-trip toll summary matched from your toll transactions.</p>
         </div>
         <button className="btn btn-primary" onClick={calculate} disabled={calculating}>
           {calculating ? <><span className="spinner" /> Calculating...</> : '⚡ Calculate tolls'}
@@ -95,7 +95,7 @@ export default function ResultsPage() {
             <> — <button onClick={() => navigate('/trips')} style={{ background: 'none', border: 'none', color: '#185fa5', cursor: 'pointer', fontSize: 13 }}>Upload trips</button></>
           )}
           {error.includes('No toll') && (
-            <> — <button onClick={() => navigate('/ezpass')} style={{ background: 'none', border: 'none', color: '#185fa5', cursor: 'pointer', fontSize: 13 }}>Upload EZ-Pass</button></>
+            <> — <button onClick={() => navigate('/ezpass')} style={{ background: 'none', border: 'none', color: '#185fa5', cursor: 'pointer', fontSize: 13 }}>Upload tolls</button></>
           )}
         </div>
       )}
@@ -221,10 +221,10 @@ export default function ResultsPage() {
       {!calculating && !results && (
         <div className="empty">
           <p style={{ fontSize: 32, marginBottom: 12 }}>⚡</p>
-          <p>Upload your trips and EZ-Pass data, then click <strong>Calculate tolls</strong>.</p>
+          <p>Upload your trips and toll data, then click <strong>Calculate tolls</strong>.</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
             <button className="btn" onClick={() => navigate('/trips')}>Go to Trips →</button>
-            <button className="btn" onClick={() => navigate('/ezpass')}>Go to EZ-Pass →</button>
+            <button className="btn" onClick={() => navigate('/ezpass')}>Go to Tolls →</button>
           </div>
         </div>
       )}

@@ -193,7 +193,7 @@ export default function EzPassPage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h2>Toll Records</h2>
-          <p>All EZ-Pass transactions — re-uploading the same file only adds new records.</p>
+          <p>All toll transactions — re-uploading the same file only adds new records.</p>
         </div>
         {tolls.length > 0 && (
           <button className="btn btn-danger btn-sm" onClick={clearAll}>Delete all tolls</button>
@@ -207,7 +207,7 @@ export default function EzPassPage() {
       ) : tolls.length === 0 ? (
         <div className="empty">
           <p style={{ fontSize: 32, marginBottom: 8 }}>🛣️</p>
-          No toll records yet. Upload an EZ-Pass statement from the Calculator page.
+          No toll records yet. Upload a toll statement from the Calculator page.
         </div>
       ) : (
         <>

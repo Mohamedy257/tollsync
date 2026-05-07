@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 const steps = [
   { icon: '📸', title: 'Upload trip screenshots', desc: 'Take a screenshot of your Turo trip list and upload it. TollSync reads the renter name, dates, and vehicle automatically.' },
-  { icon: '📄', title: 'Upload your EZ-Pass statement', desc: 'Drop in your monthly EZ-Pass PDF, CSV, or a screenshot. Our AI parses every transaction — no manual entry.' },
+  { icon: '📄', title: 'Upload your toll statement', desc: 'Drop in your monthly toll statement PDF, CSV, or a screenshot. Our AI parses every transaction — no manual entry.' },
   { icon: '⚡', title: 'Get instant results', desc: 'TollSync matches each toll to the right renter based on date and vehicle. Export a clean report to share or keep for records.' },
 ];
 
@@ -31,7 +31,7 @@ export default function AboutPage() {
           Make toll reimbursement effortless for every peer-to-peer car rental host.
         </p>
         <p style={{ fontSize: 14, color: '#555', lineHeight: 1.7, margin: 0 }}>
-          Rental hosts spend hours every month cross-referencing EZ-Pass statements against trip records to figure out who owes what. TollSync automates all of it — upload your files, and within seconds you have an itemized report per renter. No spreadsheets. No guesswork.
+          Rental hosts spend hours every month cross-referencing toll statements against trip records to figure out who owes what. TollSync automates all of it — upload your files, and within seconds you have an itemized report per renter. No spreadsheets. No guesswork.
         </p>
       </div>
 

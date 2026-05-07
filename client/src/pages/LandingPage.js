@@ -13,7 +13,7 @@ export default function LandingPage() {
     // SEO: page title + meta description
     document.title = 'TollSync — Toll Charge Calculator for Rental Car Hosts';
     let meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', 'Automatically match EZ-Pass toll charges to each rental trip. Upload your statement, get per-renter breakdowns in seconds. Free trial — no credit card required.');
+    if (meta) meta.setAttribute('content', 'Automatically match toll charges to each rental trip. Upload your statement, get per-renter breakdowns in seconds. Free trial — no credit card required.');
 
     // JSON-LD structured data
     const script = document.createElement('script');
@@ -26,7 +26,7 @@ export default function LandingPage() {
       url: 'https://tollsync.app',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
-      description: 'Automatically match EZ-Pass toll charges to each rental trip. Upload your statement, get per-renter breakdowns in seconds.',
+      description: 'Automatically match toll charges to each rental trip. Upload your statement, get per-renter breakdowns in seconds.',
       offers: { '@type': 'Offer', priceCurrency: 'USD', price: '0', description: 'Free trial available' },
       screenshot: 'https://tollsync.app/icon-512.png',
     });
@@ -52,13 +52,13 @@ export default function LandingPage() {
     { icon: '⚡', title: 'Auto-matched', desc: 'Toll charges are automatically matched to each renter by date and transponder.' },
     { icon: '🚗', title: 'Multi-vehicle', desc: 'Manage an entire fleet. Each car gets its own transponder and history.' },
     { icon: '📄', title: 'Dispute-ready exports', desc: 'Save per-renter toll receipts as images to attach directly to rental platform claims.' },
-    { icon: '🛣️', title: 'EZ-Pass & more', desc: 'Supports EZ-Pass, E-ZPass, SunPass, and most major toll statement formats.' },
+    { icon: '🛣️', title: 'Multi-provider support', desc: 'Supports EZ-Pass, E-ZPass, SunPass, and most major toll statement formats.' },
     { icon: '🔒', title: 'Private & secure', desc: 'Your data is stored securely and never shared with third parties.' },
   ];
 
   const STEPS = [
     { n: 1, icon: '📋', title: 'Upload your trip list', desc: 'Take a screenshot of your trips page or export a CSV. We parse it automatically.' },
-    { n: 2, icon: '🛣️', title: 'Upload your toll statement', desc: 'Drop in your EZ-Pass PDF, CSV, or a screenshot of your account activity.' },
+    { n: 2, icon: '🛣️', title: 'Upload your toll statement', desc: 'Drop in your toll statement PDF, CSV, or a screenshot of your account activity.' },
     { n: 3, icon: '⚡', title: 'Results in seconds', desc: 'TollSync matches every toll charge to the right trip and renter automatically.' },
   ];
 
@@ -130,7 +130,7 @@ export default function LandingPage() {
             Stop leaving toll charges<br />on the table
           </h1>
           <p style={{ fontSize: 'clamp(15px, 2.5vw, 19px)', color: 'rgba(255,255,255,0.75)', maxWidth: 520, margin: '0 auto 36px', lineHeight: 1.6 }}>
-            TollSync automatically matches your EZ-Pass toll charges to each rental trip — so you can bill every renter accurately in seconds.
+            TollSync automatically matches your toll charges to each rental trip — so you can bill every renter accurately in seconds.
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -265,7 +265,7 @@ export default function LandingPage() {
                 'AI-powered document parsing',
                 'Screenshot, PDF & CSV uploads',
                 'Export toll receipts as images',
-                'EZ-Pass & major toll providers',
+                'All major toll providers',
               ].map(item => (
                 <li key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '0.5px solid #f5f3f0', fontSize: 14, color: '#333' }}>
                   <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>
@@ -334,7 +334,7 @@ export default function LandingPage() {
           </div>
         </div>
         <div style={{ maxWidth: 900, margin: '20px auto 0', borderTop: '0.5px solid rgba(255,255,255,0.08)', paddingTop: 20, fontSize: 12, textAlign: 'center' }}>
-          © {new Date().getFullYear()} TollSync. Not affiliated with any rental platform, EZ-Pass, or toll authority.
+          © {new Date().getFullYear()} TollSync. Not affiliated with any rental platform, or toll authority.
         </div>
       </footer>
     </div>

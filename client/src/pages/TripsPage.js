@@ -74,7 +74,7 @@ function MissingTransponderRow({ vehicle, onSaved, style }) {
         <input
           className="form-control"
           style={{ flex: 1, minWidth: 180, fontSize: 13 }}
-          placeholder="EZPass transponder ID"
+          placeholder="Transponder ID"
           value={transponder}
           onChange={e => setTransponder(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && save()}
@@ -268,7 +268,7 @@ export default function TripsPage() {
             {missingTransponder.length} vehicle{missingTransponder.length !== 1 ? 's' : ''} missing transponder ID
           </p>
           <p style={{ fontSize: 13, color: '#888', margin: '0 0 14px' }}>
-            Add the EZPass transponder ID so tolls can be matched to these vehicles.
+            Add the Transponder ID so tolls can be matched to these vehicles.
           </p>
           {missingTransponder.map((v, i) => (
             <MissingTransponderRow
