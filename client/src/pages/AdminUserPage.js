@@ -51,7 +51,7 @@ export default function AdminUserPage() {
           <h2>{host.name || host.email}</h2>
           <p>{host.email} · joined {fmtDate(host.createdAt)}</p>
         </div>
-        <button className="btn btn-sm" onClick={() => navigate('/admin')}>← Users</button>
+        <button className="btn btn-sm" onClick={() => navigate('/admin/users')}>← Users</button>
       </div>
 
       {/* User info card */}

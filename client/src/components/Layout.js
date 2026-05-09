@@ -92,7 +92,7 @@ export default function Layout({ children }) {
 
   const handleExitImpersonation = async () => {
     await exitImpersonation();
-    navigate('/admin');
+    navigate('/admin/users');
   };
 
   return (
