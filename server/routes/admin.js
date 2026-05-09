@@ -13,6 +13,7 @@ const GmailConfig = require('../models/GmailConfig');
 const EzpassReportRange = require('../models/EzpassReportRange');
 const FunnelEvent = require('../models/FunnelEvent');
 const { sendCustom, sendFreeTrialGranted } = require('../services/email');
+const { runNudgeJob } = require('../jobs/nudge');
 
 const router = express.Router();
 router.use(auth);
@@ -582,6 +583,17 @@ router.post('/backfill-trials', requireAdmin, async (req, res) => {
     res.json({ updated, trial_days: days });
   } catch (err) {
     console.error('Backfill trials error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/nudge — manually trigger the get-started nudge job
+router.post('/nudge', requireAdmin, async (req, res) => {
+  try {
+    const result = await runNudgeJob();
+    res.json(result);
+  } catch (err) {
+    console.error('Nudge job error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

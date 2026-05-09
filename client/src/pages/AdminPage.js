@@ -279,6 +279,18 @@ export default function AdminPage() {
     } finally { setBackfilling(false); }
   };
 
+  const [runningNudge, setRunningNudge] = useState(false);
+  const [nudgeMsg, setNudgeMsg] = useState('');
+  const runNudge = async () => {
+    setRunningNudge(true); setNudgeMsg('');
+    try {
+      const res = await api.post('/admin/nudge');
+      setNudgeMsg(`Done — sent: ${res.data.sent}, skipped (already uploaded): ${res.data.skipped}`);
+    } catch (err) {
+      setNudgeMsg(err.response?.data?.error || 'Failed');
+    } finally { setRunningNudge(false); }
+  };
+
   const [notifyingTrialId, setNotifyingTrialId] = useState(null);
   const notifyTrialUser = async (id) => {
     setNotifyingTrialId(id);
@@ -592,9 +604,13 @@ export default function AdminPage() {
             <button type="button" className="btn btn-sm" onClick={notifyTrialUsers} disabled={notifying}>
               {notifying ? <><span className="spinner" /> Sending...</> : 'Email trial users'}
             </button>
+            <button type="button" className="btn btn-sm" onClick={runNudge} disabled={runningNudge}>
+              {runningNudge ? <><span className="spinner" /> Sending...</> : 'Nudge inactive users'}
+            </button>
             {saveMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{saveMsg}</span>}
             {backfillMsg && <span style={{ fontSize: 13, color: backfillMsg.startsWith('Done') ? '#3b6d11' : '#e24b4a' }}>{backfillMsg}</span>}
             {notifyMsg && <span style={{ fontSize: 13, color: notifyMsg.startsWith('Sent') ? '#3b6d11' : '#e24b4a' }}>{notifyMsg}</span>}
+            {nudgeMsg && <span style={{ fontSize: 13, color: nudgeMsg.startsWith('Done') ? '#3b6d11' : '#e24b4a' }}>{nudgeMsg}</span>}
           </div>
         </form>
       </div>

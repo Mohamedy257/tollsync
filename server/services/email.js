@@ -378,6 +378,59 @@ async function sendFreeTrialGranted(to, name, trialEndsAt, trialDays) {
   `);
 }
 
+async function sendNudge(to, name, trialEndsAt) {
+  const firstName = (name || to).split(' ')[0];
+  const isTrial = trialEndsAt && new Date(trialEndsAt) > new Date();
+  const trialLine = isTrial
+    ? `<p style="background:#fff8e6;border:1px solid #fde8a0;border-radius:8px;padding:12px 16px;font-size:13px;color:#854f0b;margin:0 0 20px">
+        ⏳ Your free trial ends on <strong>${fmtDate(trialEndsAt)}</strong> — don't let it go to waste.
+      </p>`
+    : '';
+
+  await sendEmail(to, `${firstName}, you haven't tried TollSync yet`, `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#f8f7f4">
+      <div style="background:#fff;border-radius:16px;padding:32px;border:0.5px solid #e5e3de">
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">⚡ Hi ${firstName}, ready to get started?</h2>
+        <p style="color:#555;font-size:14px;margin:0 0 20px;line-height:1.6">
+          You signed up for TollSync but haven't uploaded anything yet. It only takes a minute to see exactly how much you can charge renters for tolls.
+        </p>
+        ${trialLine}
+        <div style="margin-bottom:24px">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+            <div style="width:28px;height:28px;border-radius:50%;background:#185fa5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">1</div>
+            <div>
+              <p style="font-weight:600;font-size:14px;margin:0 0 2px;color:#1a1a1a">Upload a trip screenshot or CSV</p>
+              <p style="font-size:13px;color:#888;margin:0">Drag it into the calculator — AI reads it automatically.</p>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+            <div style="width:28px;height:28px;border-radius:50%;background:#185fa5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">2</div>
+            <div>
+              <p style="font-weight:600;font-size:14px;margin:0 0 2px;color:#1a1a1a">Upload your toll statement</p>
+              <p style="font-size:13px;color:#888;margin:0">PDF, CSV, or screenshot — we parse any format.</p>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div style="width:28px;height:28px;border-radius:50%;background:#3b6d11;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">✓</div>
+            <div>
+              <p style="font-weight:600;font-size:14px;margin:0 0 2px;color:#1a1a1a">Get per-renter toll amounts instantly</p>
+              <p style="font-size:13px;color:#888;margin:0">Exact dollar amounts you can charge back, ready to export.</p>
+            </div>
+          </div>
+        </div>
+
+        <a href="${APP_URL()}" style="display:inline-block;padding:13px 28px;background:#185fa5;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+          Try it now →
+        </a>
+
+        <p style="color:#aaa;font-size:12px;margin-top:24px;line-height:1.6">
+          Need help getting started? Reply to this email — we'll walk you through it.<br/>— The TollSync team
+        </p>
+      </div>
+    </div>
+  `);
+}
+
 async function sendCustom(to, subject, body) {
   const htmlBody = body
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -403,5 +456,5 @@ module.exports = {
   sendPasswordReset, sendWelcome, sendVerificationEmail, sendCustom,
   sendSubscriptionWelcome, sendCancellation, sendPaymentFailed,
   sendSubscriptionRenewed, sendTrialEnding, sendAdminNewUser,
-  sendFreeTrialGranted,
+  sendFreeTrialGranted, sendNudge,
 };

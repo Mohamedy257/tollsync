@@ -17,6 +17,8 @@ const schema = new mongoose.Schema({
   // Free trial (no CC required)
   free_trial_ends_at: { type: Date, default: null },
   free_trial_notified: { type: Boolean, default: false },
+  // Engagement nudge
+  nudge_sent_at: { type: Date, default: null },
   // Email verification
   email_verified: { type: Boolean, default: null }, // null = pre-feature (treat as verified), false = pending, true = verified
   email_verification_token: { type: String, default: null },

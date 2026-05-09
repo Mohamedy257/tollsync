@@ -13,6 +13,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { connectDB } = require('./db/mongoose');
+const { runNudgeJob } = require('./jobs/nudge');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,6 +60,12 @@ connectDB()
     app.listen(PORT, () => {
       console.log(`✅ Server running on http://localhost:${PORT}`);
     });
+
+    // Run nudge job once on startup, then every 24 hours
+    runNudgeJob().catch(err => console.error('[nudge] Startup run failed:', err.message));
+    setInterval(() => {
+      runNudgeJob().catch(err => console.error('[nudge] Scheduled run failed:', err.message));
+    }, 24 * 60 * 60 * 1000);
   })
   .catch(err => {
     console.error('❌ Failed to connect to MongoDB:', err);
