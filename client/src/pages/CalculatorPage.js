@@ -418,7 +418,17 @@ export default function CalculatorPage() {
           if (fileRef.current) fileRef.current.value = '';
         }
         // status === 'processing' → keep polling
-      } catch { /* network error — keep polling */ }
+      } catch (err) {
+        // Job not found (expired or server restarted) — clear stale state
+        if (err?.response?.status === 404) {
+          clearInterval(pollRef.current); pollRef.current = null;
+          clearInterval(progressTimerRef.current);
+          localStorage.removeItem('upload_pending_job');
+          setUploading(0);
+          setUploadProgress(0);
+        }
+        // Other network errors — keep polling
+      }
     }, 3000);
   }, [loadAll]);
 
@@ -433,7 +443,10 @@ export default function CalculatorPage() {
         startPolling(jobId);
       } catch { localStorage.removeItem('upload_pending_job'); }
     }
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      clearInterval(pollRef.current);
+      clearInterval(progressTimerRef.current);
+    };
   }, [startPolling]);
 
   const calculate = useCallback(async () => {
