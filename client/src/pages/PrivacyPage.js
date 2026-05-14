@@ -7,19 +7,29 @@ const SECTIONS = [
     body: `When you create an account, we collect your name, email address, and optionally your phone number. When you upload documents, we temporarily process the file contents to extract trip and toll data using AI. We also collect basic usage data (page visits, feature usage) to improve the service.`,
   },
   {
-    title: '2. How We Use Your Information',
+    title: '2. We Do Not Sell Your Data',
+    body: `We will never sell, rent, lease, or trade your personal information to any third party — ever. Your data is yours. We collect only what is necessary to provide the TollSync service, and we use it exclusively for that purpose.
+
+This means:
+• We do not sell your data to data brokers, advertisers, or any other third parties.
+• We do not share your data with partners for their own marketing or commercial use.
+• We do not use your uploaded files or trip data to build profiles for sale or targeting.
+• We do not monetize your data in any way beyond providing you the TollSync service in exchange for your subscription fee.`,
+  },
+  {
+    title: '3. How We Use Your Information',
     body: `We use your information solely to provide and improve TollSync. Specifically:
 • Your account data (name, email) is used for authentication and support.
 • Uploaded files are processed by AI to extract trip and toll records and are associated with your account.
 • We do not use your data to train AI models shared with other users.
-• We do not sell, rent, or share your personal data with third parties for marketing purposes.`,
+• We may use anonymized, aggregated usage statistics (never personally identifiable) to improve the product.`,
   },
   {
-    title: '3. Data Storage & Security',
+    title: '4. Data Storage & Security',
     body: `Your data is stored on secure servers. We use industry-standard encryption in transit (HTTPS/TLS) and at rest. Access to stored data is restricted to authorized systems and personnel only.`,
   },
   {
-    title: '4. Third-Party Services',
+    title: '5. Third-Party Services',
     body: `We use the following third-party services to operate TollSync:
 • Stripe — for payment processing. Stripe's privacy policy governs payment data.
 • Anthropic / Claude — for AI-powered document parsing. Files are sent to Anthropic's API for processing and are subject to Anthropic's data usage policies.
@@ -28,27 +38,27 @@ const SECTIONS = [
 We do not control the privacy practices of these third parties and encourage you to review their policies.`,
   },
   {
-    title: '5. Data Retention',
+    title: '6. Data Retention',
     body: `We retain your account data and uploaded records for as long as your account is active. If you delete your account, your data is permanently removed from our systems within 30 days.`,
   },
   {
-    title: '6. Your Rights',
+    title: '7. Your Rights',
     body: `You have the right to access, correct, or delete the personal data we hold about you. To request this, contact us at the address below. We will respond within 30 days.`,
   },
   {
-    title: '7. Cookies',
+    title: '8. Cookies',
     body: `TollSync uses a single session cookie to keep you logged in. We do not use tracking cookies or third-party advertising cookies.`,
   },
   {
-    title: '8. Children\'s Privacy',
+    title: '9. Children\'s Privacy',
     body: `TollSync is not intended for use by anyone under the age of 18. We do not knowingly collect personal data from children.`,
   },
   {
-    title: '9. Changes to This Policy',
+    title: '10. Changes to This Policy',
     body: `We may update this Privacy Policy from time to time. We will notify you of material changes by email or by a notice in the app. Continued use of TollSync after changes take effect constitutes acceptance of the updated policy.`,
   },
   {
-    title: '10. Contact',
+    title: '11. Contact',
     body: `If you have any questions about this Privacy Policy or how we handle your data, please contact us through the Contact page or by emailing us directly.`,
   },
 ];
@@ -86,7 +96,24 @@ export default function PrivacyPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px 80px' }}>
         <div style={{ marginBottom: 36 }}>
           <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Privacy Policy</h1>
-          <p style={{ fontSize: 13, color: '#888' }}>Last updated: May 2025</p>
+          <p style={{ fontSize: 13, color: '#888' }}>Last updated: May 2026</p>
+        </div>
+
+        {/* "We don't sell your data" callout */}
+        <div style={{
+          background: '#eaf3de', border: '1px solid #b7dda0', borderRadius: 14,
+          padding: '18px 24px', marginBottom: 20,
+          display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <span style={{ fontSize: 26, flexShrink: 0 }}>🔒</span>
+          <div>
+            <p style={{ fontWeight: 800, fontSize: 15, color: '#2d5a0e', margin: '0 0 4px' }}>
+              We will never sell your data — period.
+            </p>
+            <p style={{ fontSize: 13, color: '#3b6d11', margin: 0, lineHeight: 1.6 }}>
+              Your personal information, uploaded files, and usage data are used exclusively to operate TollSync. They are never sold, rented, or traded to data brokers, advertisers, or any third parties.
+            </p>
+          </div>
         </div>
 
         <div style={{ background: '#fff', border: '0.5px solid #e5e3de', borderRadius: 16, padding: '28px 32px' }}>
