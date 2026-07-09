@@ -24,7 +24,8 @@ function fmtDate(iso) {
 function TripCard({ t, reportRange, vehicles }) {
   const gridRef = useRef();
   const [exporting, setExporting] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewUrls, setPreviewUrls] = useState([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [expanded, setExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [paidMap, setPaidMap] = useState(() => {
@@ -61,55 +62,121 @@ function TripCard({ t, reportRange, vehicles }) {
     }
   };
 
+  const ROWS_PER_PAGE = 10;
+
+  const buildChunkElement = (rows, pageNum, totalPages) => {
+    const safe = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:900px;background:#fff;font-family:system-ui,sans-serif;';
+
+    const pageTag = totalPages > 1 ? `<div><p style="margin:0;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Page</p><p style="margin:1px 0 0;font-size:13px;font-weight:600;color:#111;">${pageNum} of ${totalPages}</p></div>` : '';
+    const tripTag = t.trip_id ? `<div><p style="margin:0;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Trip #</p><p style="margin:1px 0 0;font-size:13px;font-weight:600;color:#111;">${safe(t.trip_id)}</p></div>` : '';
+
+    wrap.innerHTML = `
+      <div style="background:#f0f4fa;border-bottom:1px solid #d0daea;padding:10px 18px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 16px;">
+          <div><p style="margin:0;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Renter</p><p style="margin:1px 0 0;font-size:13px;font-weight:600;color:#111;">${safe(t.renter_name || 'Unknown')}</p></div>
+          <div><p style="margin:0;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Vehicle</p><p style="margin:1px 0 0;font-size:13px;font-weight:600;color:#111;">${safe(vehicleName)}</p></div>
+          <div><p style="margin:0;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Trip Period</p><p style="margin:1px 0 0;font-size:12px;font-weight:500;color:#111;">${safe(fmtDt(t.start_datetime))}</p><p style="margin:0;font-size:12px;color:#555;">${safe(fmtDt(t.end_datetime))}</p></div>
+          ${tripTag}${pageTag}
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#1e4d8c;">
+            ${['Transponder ID','Entry Date & Time','Exit Date & Time','Location','Amount'].map(h =>
+              `<th style="padding:7px 14px;text-align:${h==='Amount'?'right':'left'};font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;">${h}</th>`
+            ).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((ti, i) => `
+            <tr style="background:${i%2===0?'#fff':'#f0f4fa'};border-bottom:0.5px solid #d0daea;">
+              <td style="padding:8px 14px;font-family:monospace;font-size:11px;color:#374151;white-space:nowrap;">${safe(ti.transponder_id) || '—'}</td>
+              <td style="padding:8px 14px;color:#374151;white-space:nowrap;">${safe(fmtDt(ti.entry_datetime))}</td>
+              <td style="padding:8px 14px;color:#374151;white-space:nowrap;">${safe(fmtDt(ti.exit_datetime))}</td>
+              <td style="padding:8px 14px;color:#111;">${ti.location && !/^[-_\s.]+$/.test(ti.location.trim()) ? safe(ti.location) : '—'}</td>
+              <td style="padding:8px 14px;text-align:right;font-weight:700;color:#0d3b6e;white-space:nowrap;">$${parseFloat(ti.amount).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background:#0d3b6e;">
+            <td colspan="4" style="padding:8px 14px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.05em;">
+              ${totalPages > 1 ? `Page ${pageNum} of ${totalPages} — ` : ''}Total Charges — ${rows.length} transaction${rows.length !== 1 ? 's' : ''}
+            </td>
+            <td style="padding:8px 14px;text-align:right;font-size:15px;font-weight:800;color:#fff;">
+              $${rows.reduce((s, ti) => s + parseFloat(ti.amount), 0).toFixed(2)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+    return wrap;
+  };
+
+  const captureElement = async (el, isDesktop) => {
+    document.body.appendChild(el);
+    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: isDesktop ? 3 : 2, width: 900 });
+    document.body.removeChild(el);
+    return canvas.toDataURL('image/png');
+  };
+
   const exportImage = async (e) => {
     e.stopPropagation();
-    if (!gridRef.current) return;
     setExporting(true);
-
-    const filename = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.png`;
+    const baseName = `tolls_${(t.renter_name || 'trip').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}`;
+    const isDesktop = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
     try {
-      const isDesktop = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      const rows = unpaidItems.length > 0 ? unpaidItems : (t.toll_items || []);
+      const chunks = [];
+      for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) chunks.push(rows.slice(i, i + ROWS_PER_PAGE));
+      if (!chunks.length) chunks.push([]);
 
-      let canvas;
-      if (isDesktop) {
-        // Force a wide render so the output is large enough for Turo / evidence uploads
-        const el = gridRef.current;
-        const saved = { width: el.style.width, minWidth: el.style.minWidth, maxWidth: el.style.maxWidth };
-        el.style.width = '900px';
-        el.style.minWidth = '900px';
-        el.style.maxWidth = '900px';
-        canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 3, width: 900 });
-        el.style.width = saved.width;
-        el.style.minWidth = saved.minWidth;
-        el.style.maxWidth = saved.maxWidth;
-      } else {
-        canvas = await html2canvas(gridRef.current, { backgroundColor: '#ffffff', scale: 2 });
+      const dataUrls = [];
+      for (let ci = 0; ci < chunks.length; ci++) {
+        // For single page with ≤10 rows, use the live gridRef for pixel-perfect output
+        if (chunks.length === 1 && gridRef.current) {
+          const el = gridRef.current;
+          const saved = { width: el.style.width, minWidth: el.style.minWidth, maxWidth: el.style.maxWidth };
+          el.style.width = '900px'; el.style.minWidth = '900px'; el.style.maxWidth = '900px';
+          const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: isDesktop ? 3 : 2, width: 900 });
+          el.style.width = saved.width; el.style.minWidth = saved.minWidth; el.style.maxWidth = saved.maxWidth;
+          dataUrls.push(canvas.toDataURL('image/png'));
+        } else {
+          dataUrls.push(await captureElement(buildChunkElement(chunks[ci], ci + 1, chunks.length), isDesktop));
+        }
       }
 
-      const dataUrl = canvas.toDataURL('image/png');
-
-      // Desktop: trigger download
       if (isDesktop) {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        dataUrls.forEach((url, ci) => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = chunks.length > 1 ? `${baseName}_part${ci + 1}.png` : `${baseName}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
         return;
       }
 
-      // Mobile: try native share sheet (Save to Photos), fall back to overlay
+      // Mobile: try sharing all at once
       try {
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], filename, { type: 'image/png' });
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Toll charges' });
+        const files = await Promise.all(dataUrls.map(async (url, ci) => {
+          const blob = await (await fetch(url)).blob();
+          const name = chunks.length > 1 ? `${baseName}_part${ci + 1}.png` : `${baseName}.png`;
+          return new File([blob], name, { type: 'image/png' });
+        }));
+        if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+          await navigator.share({ files, title: 'Toll charges' });
           return;
         }
-      } catch (e) { /* user cancelled or share not supported — fall through */ }
-      setPreviewUrl(dataUrl);
+      } catch (err) { /* cancelled or unsupported — fall through */ }
+
+      // Mobile fallback: show preview overlay
+      setPreviewUrls(dataUrls);
+      setPreviewIndex(0);
     } catch (err) {
       console.error('Export failed:', err);
     } finally { setExporting(false); }
@@ -136,9 +203,9 @@ function TripCard({ t, reportRange, vehicles }) {
   return (
     <div className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
       {/* Mobile image preview overlay */}
-      {previewUrl && (
+      {previewUrls.length > 0 && (
         <div
-          onClick={() => setPreviewUrl(null)}
+          onClick={() => setPreviewUrls([])}
           style={{
             position: 'fixed', inset: 0, zIndex: 1000,
             background: 'rgba(0,0,0,0.85)',
@@ -148,14 +215,23 @@ function TripCard({ t, reportRange, vehicles }) {
           }}
         >
           <img
-            src={previewUrl} alt="Toll charges"
-            style={{ maxWidth: '100%', maxHeight: '65vh', borderRadius: 8 }}
+            src={previewUrls[previewIndex]} alt={`Toll charges ${previewIndex + 1}`}
+            style={{ maxWidth: '100%', maxHeight: '60vh', borderRadius: 8 }}
             onClick={e => e.stopPropagation()}
           />
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }} onClick={e => e.stopPropagation()}>
+          {previewUrls.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }} onClick={e => e.stopPropagation()}>
+              <button onClick={() => setPreviewIndex(i => Math.max(0, i - 1))} disabled={previewIndex === 0}
+                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 18 }}>‹</button>
+              <span style={{ color: '#fff', fontSize: 13 }}>{previewIndex + 1} of {previewUrls.length}</span>
+              <button onClick={() => setPreviewIndex(i => Math.min(previewUrls.length - 1, i + 1))} disabled={previewIndex === previewUrls.length - 1}
+                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 18 }}>›</button>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }} onClick={e => e.stopPropagation()}>
             <a
-              href={previewUrl}
-              download={`tollsync_${new Date().toISOString().slice(0, 10)}.png`}
+              href={previewUrls[previewIndex]}
+              download={`tollsync_${new Date().toISOString().slice(0, 10)}${previewUrls.length > 1 ? `_part${previewIndex + 1}` : ''}.png`}
               style={{
                 background: '#185fa5', color: '#fff', border: 'none', borderRadius: 10,
                 padding: '12px 28px', fontWeight: 700, fontSize: 15, textDecoration: 'none',
@@ -165,7 +241,7 @@ function TripCard({ t, reportRange, vehicles }) {
               Save Image
             </a>
             <button
-              onClick={() => setPreviewUrl(null)}
+              onClick={() => setPreviewUrls([])}
               style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 10, padding: '12px 20px', fontWeight: 600, fontSize: 15 }}
             >
               Close
