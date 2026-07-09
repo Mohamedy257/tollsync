@@ -44,11 +44,23 @@ router.post('/calculate', async (req, res) => {
 
     const matched = matchTollsToTrips(vehiclesMapped, tripsMapped, tollsMapped);
 
-    // Preserve paid status before replacing results
-    const existingResults = await TripResult.find({ host_id: req.hostId }).lean();
-    const paidByTollId = {};
-    existingResults.forEach(r => {
-      if (r.paid) paidByTollId[r.toll_transaction_id?.toString()] = true;
+    // Preserve paid status using a content fingerprint (transponder + exit_datetime + amount)
+    // so paid state survives re-uploads of the same toll file (which create new _ids)
+    const existingPaid = await TripResult.find({ host_id: req.hostId, paid: true }).lean();
+    const paidFingerprints = new Set();
+    if (existingPaid.length) {
+      const paidTollDocs = await TollTransaction.find({
+        _id: { $in: existingPaid.map(r => r.toll_transaction_id).filter(Boolean) },
+      }).lean();
+      paidTollDocs.forEach(t => {
+        paidFingerprints.add(`${t.transponder_id || ''}|${t.exit_datetime ? new Date(t.exit_datetime).toISOString() : ''}|${parseFloat(t.amount).toFixed(2)}`);
+      });
+    }
+
+    // Build fingerprint lookup for current tolls
+    const tollFingerprint = {};
+    tolls.forEach(t => {
+      tollFingerprint[t.id] = `${t.transponder_id || ''}|${t.exit_datetime ? new Date(t.exit_datetime).toISOString() : ''}|${parseFloat(t.amount).toFixed(2)}`;
     });
 
     await TripResult.deleteMany({ host_id: req.hostId });
@@ -56,12 +68,13 @@ router.post('/calculate', async (req, res) => {
     for (const trip of matched.trips) {
       for (const item of (trip.toll_items || [])) {
         if (!item.toll_db_id || !trip.trip_db_id) continue;
+        const fp = tollFingerprint[item.toll_db_id];
         toInsert.push({
           host_id: req.hostId,
           trip_id: trip.trip_db_id,
           toll_transaction_id: item.toll_db_id,
           amount: item.amount,
-          paid: !!paidByTollId[item.toll_db_id],
+          paid: !!(fp && paidFingerprints.has(fp)),
         });
       }
     }
