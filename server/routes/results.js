@@ -44,7 +44,13 @@ router.post('/calculate', async (req, res) => {
 
     const matched = matchTollsToTrips(vehiclesMapped, tripsMapped, tollsMapped);
 
-    // Replace persisted results for this host
+    // Preserve paid status before replacing results
+    const existingResults = await TripResult.find({ host_id: req.hostId }).lean();
+    const paidByTollId = {};
+    existingResults.forEach(r => {
+      if (r.paid) paidByTollId[r.toll_transaction_id?.toString()] = true;
+    });
+
     await TripResult.deleteMany({ host_id: req.hostId });
     const toInsert = [];
     for (const trip of matched.trips) {
@@ -55,6 +61,7 @@ router.post('/calculate', async (req, res) => {
           trip_id: trip.trip_db_id,
           toll_transaction_id: item.toll_db_id,
           amount: item.amount,
+          paid: !!paidByTollId[item.toll_db_id],
         });
       }
     }

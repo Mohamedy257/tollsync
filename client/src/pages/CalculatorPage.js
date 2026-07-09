@@ -41,6 +41,17 @@ function TripCard({ t, reportRange, vehicles }) {
     return () => window.removeEventListener('resize', h);
   }, []);
 
+  // Sync paidMap when toll_items change (e.g. after recalculation adds new tolls)
+  useEffect(() => {
+    setPaidMap(m => {
+      const next = { ...m };
+      (t.toll_items || []).forEach(ti => {
+        if (ti.result_id && !(ti.result_id in next)) next[ti.result_id] = ti.paid || false;
+      });
+      return next;
+    });
+  }, [t.toll_items]);
+
   const unpaidItems = (t.toll_items || []).filter(ti => !ti.result_id || !paidMap[ti.result_id]);
   const allPaid = (t.toll_items || []).length > 0 && unpaidItems.length === 0;
   const unpaidTotal = unpaidItems.reduce((sum, ti) => sum + parseFloat(ti.amount), 0);
