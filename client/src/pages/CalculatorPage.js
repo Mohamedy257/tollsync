@@ -45,16 +45,17 @@ function TripCard({ t, reportRange, vehicles }) {
   const allPaid = (t.toll_items || []).length > 0 && unpaidItems.length === 0;
   const unpaidTotal = unpaidItems.reduce((sum, ti) => sum + parseFloat(ti.amount), 0);
 
-  const markAllPaid = async (e) => {
+  const toggleAllPaid = async (e) => {
     e.stopPropagation();
-    if (allPaid || markingPaid) return;
+    if (markingPaid) return;
+    const markPaid = !allPaid;
     setMarkingPaid(true);
-    const toMark = (t.toll_items || []).filter(ti => ti.result_id && !paidMap[ti.result_id]);
+    const toToggle = (t.toll_items || []).filter(ti => ti.result_id && (markPaid ? !paidMap[ti.result_id] : paidMap[ti.result_id]));
     const newMap = { ...paidMap };
-    toMark.forEach(ti => { newMap[ti.result_id] = true; });
+    toToggle.forEach(ti => { newMap[ti.result_id] = markPaid; });
     setPaidMap(newMap);
     try {
-      await Promise.all(toMark.map(ti => api.patch(`/results/${ti.result_id}/paid`, { paid: true })));
+      await Promise.all(toToggle.map(ti => api.patch(`/results/${ti.result_id}/paid`, { paid: markPaid })));
     } catch {
       setPaidMap(paidMap);
     } finally {
@@ -302,13 +303,13 @@ function TripCard({ t, reportRange, vehicles }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {(t.toll_items || []).length > 0 && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: allPaid ? 'default' : 'pointer', flexShrink: 0 }} onClick={e => e.stopPropagation()} title={allPaid ? 'All paid' : 'Mark all as paid'}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: markingPaid ? 'wait' : 'pointer', flexShrink: 0 }} onClick={e => e.stopPropagation()} title={allPaid ? 'Click to unmark as paid' : 'Mark all as paid'}>
                 <input
                   type="checkbox"
                   checked={allPaid}
-                  disabled={allPaid || markingPaid}
-                  onChange={markAllPaid}
-                  style={{ accentColor: '#16a34a', width: 16, height: 16, cursor: allPaid ? 'default' : 'pointer' }}
+                  disabled={markingPaid}
+                  onChange={toggleAllPaid}
+                  style={{ accentColor: '#16a34a', width: 16, height: 16, cursor: 'pointer' }}
                 />
                 <span style={{ fontSize: 11, color: allPaid ? '#16a34a' : '#888', whiteSpace: 'nowrap' }}>
                   {allPaid ? 'Paid' : 'Mark paid'}
