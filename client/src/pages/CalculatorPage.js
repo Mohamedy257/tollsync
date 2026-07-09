@@ -591,7 +591,9 @@ export default function CalculatorPage() {
   const calculate = useCallback(async () => {
     setCalculating(true); setCalcError('');
     try {
-      const res = await api.post('/results/calculate');
+      await api.post('/results/calculate');
+      // Fetch results separately so paid status is included (calculate response doesn't carry it)
+      const res = await api.get('/results');
       setResults(res.data);
     } catch (err) {
       setCalcError(err.response?.data?.error || 'Calculation failed');
