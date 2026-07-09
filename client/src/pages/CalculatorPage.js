@@ -779,7 +779,7 @@ export default function CalculatorPage() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'ongoing' | 'ended'
-  const [filterAmountMin, setFilterAmountMin] = useState('');
+  const [filterAmountMin, setFilterAmountMin] = useState('1');
   const [filterAmountMax, setFilterAmountMax] = useState('');
   const [guestDropOpen, setGuestDropOpen] = useState(false);
   const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
@@ -1486,7 +1486,7 @@ export default function CalculatorPage() {
 
           {/* ── Filters ── */}
           {allTrips.length > 0 && (() => {
-            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo || filterStatus !== 'all' || filterAmountMin !== '' || filterAmountMax !== '';
+            const hasFilters = filterGuests.length || filterVehicles.length || filterDateFrom || filterDateTo || filterStatus !== 'all' || filterAmountMin !== '1' || filterAmountMax !== '';
             const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#e8f0fb', color: '#185fa5', borderRadius: 99, fontSize: 12, fontWeight: 600, padding: '3px 10px' };
 
             const MultiSelect = ({ label, options, selected, setSelected, open, setOpen, icon }) => {
@@ -1591,7 +1591,7 @@ export default function CalculatorPage() {
                   </div>
                   {hasFilters && (
                     <button className="btn btn-sm" style={{ color: '#e24b4a', borderColor: '#e24b4a' }}
-                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); setFilterStatus('all'); setFilterAmountMin(''); setFilterAmountMax(''); }}>
+                      onClick={() => { setFilterGuests([]); setFilterVehicles([]); setFilterDateFrom(''); setFilterDateTo(''); setFilterStatus('all'); setFilterAmountMin('1'); setFilterAmountMax(''); }}>
                       Clear filters
                     </button>
                   )}
