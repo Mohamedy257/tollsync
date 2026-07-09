@@ -76,7 +76,7 @@ function TripCard({ t, reportRange, vehicles }) {
 
   const ROWS_PER_PAGE = 10;
 
-  const buildChunkElement = (rows, pageNum, totalPages) => {
+  const buildChunkElement = (rows, pageNum, totalPages, grandTotal) => {
     const safe = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:900px;background:#fff;font-family:system-ui,sans-serif;';
@@ -118,7 +118,7 @@ function TripCard({ t, reportRange, vehicles }) {
               ${totalPages > 1 ? `Page ${pageNum} of ${totalPages} — ` : ''}Total Charges — ${rows.length} transaction${rows.length !== 1 ? 's' : ''}
             </td>
             <td style="padding:8px 14px;text-align:right;font-size:15px;font-weight:800;color:#fff;">
-              $${rows.reduce((s, ti) => s + parseFloat(ti.amount), 0).toFixed(2)}
+              $${grandTotal.toFixed(2)}
             </td>
           </tr>
         </tfoot>
@@ -157,7 +157,8 @@ function TripCard({ t, reportRange, vehicles }) {
           el.style.width = saved.width; el.style.minWidth = saved.minWidth; el.style.maxWidth = saved.maxWidth;
           dataUrls.push(canvas.toDataURL('image/png'));
         } else {
-          dataUrls.push(await captureElement(buildChunkElement(chunks[ci], ci + 1, chunks.length), isDesktop));
+          const grandTotal = rows.reduce((s, ti) => s + parseFloat(ti.amount), 0);
+          dataUrls.push(await captureElement(buildChunkElement(chunks[ci], ci + 1, chunks.length, grandTotal), isDesktop));
         }
       }
 
