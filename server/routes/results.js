@@ -85,11 +85,13 @@ router.get('/', async (req, res) => {
         const toll = tolls.find(t => t.id === r.toll_transaction_id?.toString());
         if (!toll) return null;
         return {
+          result_id: r.id,
           toll_db_id: toll.id,
           location: toll.location,
           entry_datetime: toll.entry_datetime,
           exit_datetime: toll.exit_datetime,
           amount: r.amount,
+          paid: r.paid || false,
           transponder_id: toll.transponder_id,
         };
       }).filter(Boolean);
@@ -115,6 +117,19 @@ router.get('/', async (req, res) => {
   const total_unmatched = unmatched_tolls.reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
   res.json({ trips: tripRows, unmatched_tolls, total_matched, total_unmatched });
+});
+
+// PATCH /api/results/:resultId/paid — toggle paid status
+router.patch('/:resultId/paid', async (req, res) => {
+  try {
+    const result = await TripResult.findOne({ _id: req.params.resultId, host_id: req.hostId });
+    if (!result) return res.status(404).json({ error: 'Not found' });
+    result.paid = !!req.body.paid;
+    await result.save();
+    res.json({ ok: true, paid: result.paid });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = router;

@@ -4,5 +4,6 @@ const schema = new mongoose.Schema({
   trip_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip' },
   toll_transaction_id: { type: mongoose.Schema.Types.ObjectId, ref: 'TollTransaction' },
   amount: { type: Number, required: true },
+  paid: { type: Boolean, default: false },
 }, { timestamps: true });
 module.exports = mongoose.model('TripResult', schema);

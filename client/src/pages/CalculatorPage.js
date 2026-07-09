@@ -27,11 +27,35 @@ function TripCard({ t, reportRange, vehicles }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [expanded, setExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [paidMap, setPaidMap] = useState(() => {
+    const m = {};
+    (t.toll_items || []).forEach(ti => { if (ti.result_id) m[ti.result_id] = ti.paid || false; });
+    return m;
+  });
+
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
+
+  const togglePaid = async (ti) => {
+    if (!ti.result_id) return;
+    const newPaid = !paidMap[ti.result_id];
+    setPaidMap(m => ({ ...m, [ti.result_id]: newPaid }));
+    try {
+      await api.patch(`/results/${ti.result_id}/paid`, { paid: newPaid });
+    } catch {
+      setPaidMap(m => ({ ...m, [ti.result_id]: !newPaid }));
+    }
+  };
+
+  const unpaidTotal = (t.toll_items || []).reduce((sum, ti) => {
+    if (ti.result_id && paidMap[ti.result_id]) return sum;
+    return sum + parseFloat(ti.amount);
+  }, 0);
+  const hasPaid = Object.values(paidMap).some(Boolean);
+  const displayTotal = hasPaid ? unpaidTotal : parseFloat(t.total_tolls);
 
   const exportImage = async (e) => {
     e.stopPropagation();
@@ -197,8 +221,14 @@ function TripCard({ t, reportRange, vehicles }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <div style={{ textAlign: 'right' }}>
-            <p style={{ fontSize: 18, fontWeight: 700, color: '#185fa5', margin: 0 }}>${parseFloat(t.total_tolls).toFixed(2)}</p>
-            <p style={{ fontSize: 11, color: '#aaa', margin: 0 }}>{t.toll_count} charge{t.toll_count !== 1 ? 's' : ''}</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: hasPaid ? '#e67e22' : '#185fa5', margin: 0 }}>
+              ${displayTotal.toFixed(2)}
+            </p>
+            {hasPaid ? (
+              <p style={{ fontSize: 11, color: '#aaa', margin: 0 }}>unpaid of ${parseFloat(t.total_tolls).toFixed(2)}</p>
+            ) : (
+              <p style={{ fontSize: 11, color: '#aaa', margin: 0 }}>{t.toll_count} charge{t.toll_count !== 1 ? 's' : ''}</p>
+            )}
           </div>
           <button
             className="btn btn-sm"
@@ -247,27 +277,35 @@ function TripCard({ t, reportRange, vehicles }) {
               {isMobile ? (
                 /* Mobile: stacked rows */
                 <div>
-                  {t.toll_items.map((ti, i) => (
-                    <div key={i} style={{ padding: '10px 18px', borderBottom: '0.5px solid #e5e7eb', background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#111', flex: 1, paddingRight: 8 }}>{(ti.location && !/^[-_\s.]+$/.test(ti.location.trim())) ? ti.location : '—'}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#0d3b6e', flexShrink: 0 }}>${parseFloat(ti.amount).toFixed(2)}</span>
+                  {t.toll_items.map((ti, i) => {
+                    const isPaid = ti.result_id ? paidMap[ti.result_id] : false;
+                    return (
+                      <div key={i} style={{ padding: '10px 18px', borderBottom: '0.5px solid #e5e7eb', background: isPaid ? '#f0fdf4' : (i % 2 === 0 ? '#fff' : '#f9fafb'), opacity: isPaid ? 0.7 : 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={isPaid} onChange={() => togglePaid(ti)} style={{ marginTop: 2, accentColor: '#16a34a', flexShrink: 0 }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#111', textDecoration: isPaid ? 'line-through' : 'none', paddingRight: 8 }}>
+                              {(ti.location && !/^[-_\s.]+$/.test(ti.location.trim())) ? ti.location : '—'}
+                            </span>
+                          </label>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: isPaid ? '#16a34a' : '#0d3b6e', flexShrink: 0, textDecoration: isPaid ? 'line-through' : 'none' }}>${parseFloat(ti.amount).toFixed(2)}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#6b7280', paddingLeft: 22 }}>
+                          <span>In: {fmtDt(ti.entry_datetime)}</span>
+                          <span style={{ margin: '0 6px' }}>·</span>
+                          <span>Out: {fmtDt(ti.exit_datetime)}</span>
+                        </div>
+                        {ti.transponder_id && <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2, paddingLeft: 22 }}>{ti.transponder_id}</div>}
                       </div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>
-                        <span>In: {fmtDt(ti.entry_datetime)}</span>
-                        <span style={{ margin: '0 6px' }}>·</span>
-                        <span>Out: {fmtDt(ti.exit_datetime)}</span>
-                      </div>
-                      {ti.transponder_id && <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>{ti.transponder_id}</div>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 /* Desktop: full table */
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: '#1e4d8c' }}>
-                      {['Transponder ID', 'Entry Date & Time', 'Exit Date & Time', 'Location', 'Amount'].map(h => (
+                      {['Paid', 'Transponder ID', 'Entry Date & Time', 'Exit Date & Time', 'Location', 'Amount'].map(h => (
                         <th key={h} style={{
                           padding: '7px 14px', textAlign: h === 'Amount' ? 'right' : 'left',
                           fontSize: 10, fontWeight: 700, color: '#fff',
@@ -277,23 +315,31 @@ function TripCard({ t, reportRange, vehicles }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {t.toll_items.map((ti, i) => (
-                      <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f0f4fa', borderBottom: '0.5px solid #d0daea' }}>
-                        <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: '#374151', whiteSpace: 'nowrap' }}>{ti.transponder_id || '—'}</td>
-                        <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDt(ti.entry_datetime)}</td>
-                        <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDt(ti.exit_datetime)}</td>
-                        <td style={{ padding: '8px 14px', color: '#111' }}>{(ti.location && !/^[-_\s.]+$/.test(ti.location.trim())) ? ti.location : '—'}</td>
-                        <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, color: '#0d3b6e', whiteSpace: 'nowrap' }}>${parseFloat(ti.amount).toFixed(2)}</td>
-                      </tr>
-                    ))}
+                    {t.toll_items.map((ti, i) => {
+                      const isPaid = ti.result_id ? paidMap[ti.result_id] : false;
+                      return (
+                        <tr key={i} style={{ background: isPaid ? '#f0fdf4' : (i % 2 === 0 ? '#fff' : '#f0f4fa'), borderBottom: '0.5px solid #d0daea', opacity: isPaid ? 0.75 : 1 }}>
+                          <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                            <input type="checkbox" checked={isPaid} onChange={() => togglePaid(ti)} style={{ accentColor: '#16a34a', cursor: 'pointer', width: 15, height: 15 }} onClick={e => e.stopPropagation()} />
+                          </td>
+                          <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontSize: 11, color: '#374151', whiteSpace: 'nowrap', textDecoration: isPaid ? 'line-through' : 'none' }}>{ti.transponder_id || '—'}</td>
+                          <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap', textDecoration: isPaid ? 'line-through' : 'none' }}>{fmtDt(ti.entry_datetime)}</td>
+                          <td style={{ padding: '8px 14px', color: '#374151', whiteSpace: 'nowrap', textDecoration: isPaid ? 'line-through' : 'none' }}>{fmtDt(ti.exit_datetime)}</td>
+                          <td style={{ padding: '8px 14px', color: '#111', textDecoration: isPaid ? 'line-through' : 'none' }}>{(ti.location && !/^[-_\s.]+$/.test(ti.location.trim())) ? ti.location : '—'}</td>
+                          <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, color: isPaid ? '#16a34a' : '#0d3b6e', whiteSpace: 'nowrap', textDecoration: isPaid ? 'line-through' : 'none' }}>${parseFloat(ti.amount).toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr style={{ background: '#0d3b6e' }}>
-                      <td colSpan={4} style={{ padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Total Charges — {t.toll_count} transaction{t.toll_count !== 1 ? 's' : ''}
+                      <td colSpan={5} style={{ padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {hasPaid
+                          ? `Unpaid — ${(t.toll_items || []).filter(ti => ti.result_id && !paidMap[ti.result_id]).length} of ${t.toll_count} transaction${t.toll_count !== 1 ? 's' : ''}`
+                          : `Total Charges — ${t.toll_count} transaction${t.toll_count !== 1 ? 's' : ''}`}
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 15, fontWeight: 800, color: '#fff' }}>
-                        ${parseFloat(t.total_tolls).toFixed(2)}
+                        ${displayTotal.toFixed(2)}
                       </td>
                     </tr>
                   </tfoot>
@@ -302,9 +348,9 @@ function TripCard({ t, reportRange, vehicles }) {
               {isMobile && (
                 <div style={{ background: '#0d3b6e', padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Total — {t.toll_count} transaction{t.toll_count !== 1 ? 's' : ''}
+                    {hasPaid ? 'Unpaid' : 'Total'} — {t.toll_count} transaction{t.toll_count !== 1 ? 's' : ''}
                   </span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>${parseFloat(t.total_tolls).toFixed(2)}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>${displayTotal.toFixed(2)}</span>
                 </div>
               )}
             </div>
