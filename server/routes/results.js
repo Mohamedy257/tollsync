@@ -6,6 +6,7 @@ const TripResult = require('../models/TripResult');
 const EzpassReportRange = require('../models/EzpassReportRange');
 const Vehicle = require('../models/Vehicle');
 const Host = require('../models/Host');
+const PlanConfig = require('../models/PlanConfig');
 const { matchTollsToTrips } = require('../services/ai');
 
 const router = express.Router();
@@ -146,7 +147,8 @@ router.post('/charge-trip', async (req, res) => {
     const { trip_db_id, result_ids } = req.body;
     if (!trip_db_id || !result_ids?.length) return res.status(400).json({ error: 'trip_db_id and result_ids are required' });
 
-    const host = await Host.findById(req.hostId);
+    const [host, plan] = await Promise.all([Host.findById(req.hostId), PlanConfig.findOne().lean()]);
+    if (!plan?.private_rental_enabled) return res.status(403).json({ error: 'Private rental feature is not enabled' });
     if (!host?.private_rental) return res.status(403).json({ error: 'Private rental not enabled for this account' });
     if (!host.rental_stripe_secret_key) return res.status(400).json({ error: 'Stripe secret key not configured. Go to Integrations to set it up.' });
 

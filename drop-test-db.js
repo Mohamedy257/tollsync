@@ -1,19 +1,17 @@
-require('dotenv').config({ path: './server/.env' });
-const mongoose = require('./server/node_modules/mongoose');
+const { MongoClient } = require('./server/node_modules/mongodb');
 
 async function main() {
   const uri = process.env.MONGO_URL || process.env.MONGODB_URL;
   if (!uri) throw new Error('MONGO_URL not set');
 
-  // Connect to the test database specifically to drop it
-  const base = uri.replace(/\/[^/?]+(\?|$)/, '/test$1');
-  await mongoose.connect(base);
-  console.log('Connected');
+  const client = new MongoClient(uri);
+  await client.connect();
+  console.log('Connected to tollsync');
 
-  await mongoose.connection.db.dropDatabase();
+  await client.db('test').dropDatabase();
   console.log('Dropped "test" database');
 
-  await mongoose.disconnect();
+  await client.close();
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

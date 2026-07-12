@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import { loadStripe } from '@stripe/stripe-js';
@@ -29,14 +29,16 @@ function ChargeForm({ trip, unpaidItems, onSuccess, onClose }) {
   const elements = useElements();
   const [charging, setCharging] = useState(false);
   const [error, setError] = useState('');
-  const total = unpaidItems.reduce((s, ti) => s + parseFloat(ti.amount), 0);
+  // Only items with a result_id can be charged and marked paid
+  const chargeableItems = unpaidItems.filter(ti => ti.result_id);
+  const total = chargeableItems.reduce((s, ti) => s + parseFloat(ti.amount), 0);
 
   const handleSubmit = async e => {
     e.preventDefault();
     if (!stripe || !elements) return;
     setCharging(true); setError('');
     try {
-      const resultIds = unpaidItems.filter(ti => ti.result_id).map(ti => ti.result_id);
+      const resultIds = chargeableItems.map(ti => ti.result_id);
       const { data } = await api.post('/results/charge-trip', { trip_db_id: trip.trip_db_id, result_ids: resultIds });
       const { error: stripeErr } = await stripe.confirmCardPayment(data.client_secret, {
         payment_method: { card: elements.getElement(CardElement) },
@@ -53,8 +55,8 @@ function ChargeForm({ trip, unpaidItems, onSuccess, onClose }) {
     <form onSubmit={handleSubmit}>
       {/* Toll breakdown */}
       <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px', marginBottom: 14, maxHeight: 180, overflowY: 'auto' }}>
-        {unpaidItems.map((ti, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: i < unpaidItems.length - 1 ? '0.5px solid #e9ecef' : 'none' }}>
+        {chargeableItems.map((ti, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: i < chargeableItems.length - 1 ? '0.5px solid #e9ecef' : 'none' }}>
             <span style={{ color: '#555' }}>{ti.location || fmtDt(ti.exit_datetime) || `Toll ${i + 1}`}</span>
             <span style={{ fontWeight: 600 }}>${parseFloat(ti.amount).toFixed(2)}</span>
           </div>
@@ -93,10 +95,10 @@ function TripCard({ t, reportRange, vehicles, isPrivateRental, rentalPublishable
   });
   const [markingPaid, setMarkingPaid] = useState(false);
   const [showChargeModal, setShowChargeModal] = useState(false);
-  const stripePromise = useRef(null);
-  if (isPrivateRental && rentalPublishableKey && !stripePromise.current) {
-    stripePromise.current = loadStripe(rentalPublishableKey);
-  }
+  const stripePromise = useMemo(
+    () => (isPrivateRental && rentalPublishableKey ? loadStripe(rentalPublishableKey) : null),
+    [isPrivateRental, rentalPublishableKey]
+  );
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);

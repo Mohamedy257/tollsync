@@ -29,9 +29,8 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/login', { email, password });
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
+    setPlanFeatures(res.data.plan_features || { private_rental_enabled: false });
     setImpersonating(false);
-    const me = await api.get('/auth/me');
-    setPlanFeatures(me.data.plan_features || { private_rental_enabled: false });
     return res.data.host;
   };
 
@@ -48,6 +47,7 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/register', { email, password, name, phone });
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
+    setPlanFeatures(res.data.plan_features || { private_rental_enabled: false });
     setImpersonating(false);
     return res.data.host;
   };
@@ -81,8 +81,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
     setImpersonating(true);
-    const me = await api.get('/auth/me');
-    setPlanFeatures(me.data.plan_features || { private_rental_enabled: false });
+    // plan_features stays the same across impersonation — it's global, not per-user
     return res.data.host;
   };
 

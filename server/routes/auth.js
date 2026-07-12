@@ -10,6 +10,10 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+function serializePlanFeatures(plan) {
+  return { private_rental_enabled: !!(plan?.private_rental_enabled) };
+}
+
 function serializeHost(host) {
   const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
   return {
@@ -74,7 +78,7 @@ router.post('/register', async (req, res) => {
       free_trial_ends_at,
     });
     const token = issueToken(host.id);
-    res.json({ token, host: serializeHost(host) });
+    res.json({ token, host: serializeHost(host), plan_features: serializePlanFeatures(plan) });
     // Send verification email — fire and forget
     sendVerificationEmail(host.email, verificationToken, host.name)
       .then(() => console.log('Verification email sent to', host.email))
@@ -92,13 +96,16 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   try {
-    const host = await Host.findOne({ email: email.toLowerCase() });
+    const [host, plan] = await Promise.all([
+      Host.findOne({ email: email.toLowerCase() }),
+      PlanConfig.findOne().lean(),
+    ]);
     if (!host) return res.status(401).json({ error: 'No account found with that email. Would you like to create one?', code: 'EMAIL_NOT_FOUND' });
     if (!host.password_hash) return res.status(401).json({ error: `This account uses ${host.oauth_provider || 'social'} login. Please sign in with that provider.` });
     const valid = await bcrypt.compare(password, host.password_hash);
     if (!valid) return res.status(401).json({ error: 'Incorrect password.' });
     const token = issueToken(host.id);
-    res.json({ token, host: serializeHost(host) });
+    res.json({ token, host: serializeHost(host), plan_features: serializePlanFeatures(plan) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -438,11 +445,12 @@ async function findOrCreateOAuthUser({ email, name, provider, providerId, field 
   return host;
 }
 
-// GET /api/auth/rental-stripe — return whether keys are configured (never expose actual values)
+// GET /api/auth/rental-stripe — return whether keys are configured (never expose actual secret)
 router.get('/rental-stripe', require('../middleware/auth'), async (req, res) => {
   try {
     const host = await Host.findById(req.hostId);
     if (!host) return res.status(404).json({ error: 'Not found' });
+    if (!host.private_rental) return res.status(403).json({ error: 'Private rental not enabled for this account' });
     res.json({
       publishable_key_set: !!host.rental_stripe_publishable_key,
       secret_key_set: !!host.rental_stripe_secret_key,
@@ -456,12 +464,19 @@ router.get('/rental-stripe', require('../middleware/auth'), async (req, res) => 
 // PUT /api/auth/rental-stripe — save rental Stripe keys
 router.put('/rental-stripe', require('../middleware/auth'), async (req, res) => {
   try {
+    const host = await Host.findById(req.hostId);
+    if (!host) return res.status(404).json({ error: 'Not found' });
+    if (!host.private_rental) return res.status(403).json({ error: 'Private rental not enabled for this account' });
     const { publishable_key, secret_key } = req.body;
     const updates = {};
     if (publishable_key !== undefined) updates.rental_stripe_publishable_key = publishable_key.trim() || null;
     if (secret_key && secret_key.trim()) updates.rental_stripe_secret_key = secret_key.trim();
     await Host.findByIdAndUpdate(req.hostId, updates);
-    res.json({ ok: true, publishable_key_set: !!(updates.rental_stripe_publishable_key || req.body.publishable_key), secret_key_set: true });
+    res.json({
+      ok: true,
+      publishable_key_set: !!(updates.rental_stripe_publishable_key ?? host.rental_stripe_publishable_key),
+      secret_key_set: !!(updates.rental_stripe_secret_key ?? host.rental_stripe_secret_key),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
