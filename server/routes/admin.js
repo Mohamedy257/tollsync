@@ -63,6 +63,8 @@ router.get('/config', requireAdmin, async (req, res) => {
       facebook_oauth_enabled: !!plan.facebook_oauth_enabled,
       facebook_app_id: plan.facebook_app_id || '',
       facebook_app_secret_set: !!plan.facebook_app_secret,
+      // Feature flags
+      private_rental_enabled: !!plan.private_rental_enabled,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -78,6 +80,7 @@ router.put('/config', requireAdmin, async (req, res) => {
       google_oauth_enabled, google_client_id, google_client_secret,
       facebook_oauth_enabled, facebook_app_id, facebook_app_secret,
       whatsapp_number, support_email, terms_text,
+      private_rental_enabled,
     } = req.body;
     const existing = await PlanConfig.findOne();
 
@@ -136,6 +139,10 @@ router.put('/config', requireAdmin, async (req, res) => {
     if (facebook_app_id !== undefined) oauthUpdates.facebook_app_id = facebook_app_id.trim();
     if (facebook_app_secret && facebook_app_secret.trim()) oauthUpdates.facebook_app_secret = facebook_app_secret.trim();
 
+    // Feature flag updates
+    const featureUpdates = {};
+    if (private_rental_enabled !== undefined) featureUpdates.private_rental_enabled = !!private_rental_enabled;
+
     const { stripe_price_id: _ignored, ...restKeyUpdates } = keyUpdates;
     const plan = await PlanConfig.findOneAndUpdate(
       {},
@@ -151,6 +158,7 @@ router.put('/config', requireAdmin, async (req, res) => {
         ...legalUpdates,
         ...contactUpdates,
         ...oauthUpdates,
+        ...featureUpdates,
       },
       { upsert: true, new: true }
     );
@@ -319,6 +327,7 @@ router.get('/users/:hostId/overview', requireAdmin, async (req, res) => {
         subscription_status: host.subscription_status,
         free_trial_ends_at: host.free_trial_ends_at,
         createdAt: host.createdAt,
+        private_rental: host.private_rental || false,
       },
       stats: {
         vehicles: vehicles.length,
@@ -583,6 +592,19 @@ router.post('/backfill-trials', requireAdmin, async (req, res) => {
     res.json({ updated, trial_days: days });
   } catch (err) {
     console.error('Backfill trials error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/toggle-private-rental/:hostId — enable or disable private rental mode for a user
+router.post('/toggle-private-rental/:hostId', requireAdmin, async (req, res) => {
+  try {
+    const host = await Host.findById(req.params.hostId);
+    if (!host) return res.status(404).json({ error: 'User not found' });
+    host.private_rental = !host.private_rental;
+    await host.save();
+    res.json({ success: true, private_rental: host.private_rental });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

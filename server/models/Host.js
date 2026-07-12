@@ -25,5 +25,7 @@ const schema = new mongoose.Schema({
   // Password reset
   reset_token: { type: String, default: null },
   reset_token_expires: { type: Date, default: null },
+  // Private rental
+  private_rental: { type: Boolean, default: false },
 }, { timestamps: true });
 module.exports = mongoose.model('Host', schema);

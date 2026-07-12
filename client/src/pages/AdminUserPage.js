@@ -21,6 +21,7 @@ export default function AdminUserPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('trips');
+  const [togglingRental, setTogglingRental] = useState(false);
 
   useEffect(() => {
     api.get(`/admin/users/${hostId}/overview`)
@@ -28,6 +29,16 @@ export default function AdminUserPage() {
       .catch(e => setError(e.response?.data?.error || 'Failed to load'))
       .finally(() => setLoading(false));
   }, [hostId]);
+
+  const togglePrivateRental = async () => {
+    setTogglingRental(true);
+    try {
+      const res = await api.post(`/admin/toggle-private-rental/${hostId}`);
+      setData(d => ({ ...d, host: { ...d.host, private_rental: res.data.private_rental } }));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to toggle');
+    } finally { setTogglingRental(false); }
+  };
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
@@ -68,6 +79,22 @@ export default function AdminUserPage() {
             <p style={{ fontSize: 22, fontWeight: 700, color: k.color, margin: 0, lineHeight: 1, textTransform: 'capitalize' }}>{k.value}</p>
           </div>
         ))}
+        {/* Private Rental toggle card */}
+        <div style={{ background: '#fff', border: `1px solid ${host.private_rental ? '#185fa5' : '#f0ede8'}`, borderRadius: 12, padding: '12px 14px' }}>
+          <p style={{ fontSize: 11, color: '#999', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Private Rental</p>
+          <button
+            onClick={togglePrivateRental}
+            disabled={togglingRental}
+            style={{
+              background: host.private_rental ? '#185fa5' : '#f0ede8',
+              color: host.private_rental ? '#fff' : '#555',
+              border: 'none', borderRadius: 8, padding: '4px 12px',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            {togglingRental ? '...' : host.private_rental ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

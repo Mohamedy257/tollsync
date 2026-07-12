@@ -25,6 +25,7 @@ function serializeHost(host) {
     email_verified: host.email_verified,
     free_trial_ends_at: host.free_trial_ends_at || null,
     createdAt: host.createdAt || null,
+    private_rental: host.private_rental || false,
   };
 }
 
@@ -112,9 +113,15 @@ router.post('/complete-setup', require('../middleware/auth'), async (req, res) =
 
 // GET /api/auth/me
 router.get('/me', require('../middleware/auth'), async (req, res) => {
-  const host = await Host.findById(req.hostId);
+  const [host, plan] = await Promise.all([
+    Host.findById(req.hostId),
+    PlanConfig.findOne().lean(),
+  ]);
   if (!host) return res.status(404).json({ error: 'Host not found' });
-  const data = { host: serializeHost(host) };
+  const data = {
+    host: serializeHost(host),
+    plan_features: { private_rental_enabled: !!(plan?.private_rental_enabled) },
+  };
   if (req.impersonatedBy) data.impersonatedBy = req.impersonatedBy;
   res.json(data);
 });

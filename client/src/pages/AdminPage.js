@@ -64,6 +64,9 @@ export default function AdminPage() {
   const [trialModal, setTrialModal] = useState(null); // { id, email, name }
   const [trialDaysInput, setTrialDaysInput] = useState('7');
   const [grantingTrial, setGrantingTrial] = useState(false);
+  const [featuresForm, setFeaturesForm] = useState({ private_rental_enabled: false });
+  const [savingFeatures, setSavingFeatures] = useState(false);
+  const [featuresMsg, setFeaturesMsg] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -103,6 +106,7 @@ export default function AdminPage() {
         support_email: cfgRes.data.support_email || '',
       });
       setTermsText(cfgRes.data.terms_text || '');
+      setFeaturesForm({ private_rental_enabled: !!cfgRes.data.private_rental_enabled });
       setSubscribers(subRes.data.subscribers);
       setMessages(msgRes.data.messages || []);
     } catch (err) {
@@ -186,6 +190,18 @@ export default function AdminPage() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save OAuth settings');
     } finally { setSavingOauth(false); }
+  };
+
+  const saveFeatures = async e => {
+    e.preventDefault();
+    setSavingFeatures(true); setFeaturesMsg(''); setError('');
+    try {
+      await api.put('/admin/config', { private_rental_enabled: featuresForm.private_rental_enabled });
+      setFeaturesMsg('Feature flags saved');
+      setTimeout(() => setFeaturesMsg(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save feature flags');
+    } finally { setSavingFeatures(false); }
   };
 
   const saveContact = async e => {
@@ -764,6 +780,29 @@ export default function AdminPage() {
               {savingOauth ? <><span className="spinner" /> Saving...</> : 'Save OAuth settings'}
             </button>
             {oauthMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{oauthMsg}</span>}
+          </div>
+        </form>
+      </div>
+
+      {/* Feature Flags */}
+      <p className="section-title">Features</p>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <form onSubmit={saveFeatures}>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              <input type="checkbox" checked={featuresForm.private_rental_enabled}
+                onChange={e => setFeaturesForm(f => ({ ...f, private_rental_enabled: e.target.checked }))} />
+              Enable Private Rental
+            </label>
+            <p style={{ fontSize: 12, color: '#888', margin: '4px 0 0 22px' }}>
+              Allows designated users to charge renters directly via their own Stripe account.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn btn-primary btn-sm" type="submit" disabled={savingFeatures}>
+              {savingFeatures ? <><span className="spinner" /> Saving...</> : 'Save features'}
+            </button>
+            {featuresMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{featuresMsg}</span>}
           </div>
         </form>
       </div>

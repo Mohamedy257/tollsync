@@ -23,5 +23,7 @@ const schema = new mongoose.Schema({
   facebook_oauth_enabled: { type: Boolean, default: false },
   facebook_app_id: { type: String, default: null },
   facebook_app_secret: { type: String, default: null },
+  // Feature flags
+  private_rental_enabled: { type: Boolean, default: false },
 }, { timestamps: true });
 module.exports = mongoose.model('PlanConfig', schema);

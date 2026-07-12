@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [host, setHost] = useState(null);
+  const [planFeatures, setPlanFeatures] = useState({ private_rental_enabled: false });
   const [loading, setLoading] = useState(true);
   const [impersonating, setImpersonating] = useState(false);
 
@@ -14,6 +15,7 @@ export function AuthProvider({ children }) {
       api.get('/auth/me')
         .then(res => {
           setHost(res.data.host);
+          setPlanFeatures(res.data.plan_features || { private_rental_enabled: false });
           setImpersonating(!!res.data.impersonatedBy);
         })
         .catch(() => localStorage.removeItem('token'))
@@ -28,6 +30,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
     setImpersonating(false);
+    const me = await api.get('/auth/me');
+    setPlanFeatures(me.data.plan_features || { private_rental_enabled: false });
     return res.data.host;
   };
 
@@ -35,6 +39,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', token);
     const res = await api.get('/auth/me');
     setHost(res.data.host);
+    setPlanFeatures(res.data.plan_features || { private_rental_enabled: false });
     setImpersonating(!!res.data.impersonatedBy);
     return res.data.host;
   };
@@ -63,6 +68,7 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/auth/me');
       setHost(res.data.host);
+      setPlanFeatures(res.data.plan_features || { private_rental_enabled: false });
       setImpersonating(!!res.data.impersonatedBy);
       return res.data.host;
     } catch { return null; }
@@ -71,11 +77,12 @@ export function AuthProvider({ children }) {
   // Admin: start impersonating a user
   const impersonate = async (userId) => {
     const res = await api.post(`/admin/impersonate/${userId}`);
-    // Save original admin token so we can restore it
     localStorage.setItem('admin_token', localStorage.getItem('token'));
     localStorage.setItem('token', res.data.token);
     setHost(res.data.host);
     setImpersonating(true);
+    const me = await api.get('/auth/me');
+    setPlanFeatures(me.data.plan_features || { private_rental_enabled: false });
     return res.data.host;
   };
 
@@ -88,6 +95,7 @@ export function AuthProvider({ children }) {
     }
     const res = await api.get('/auth/me');
     setHost(res.data.host);
+    setPlanFeatures(res.data.plan_features || { private_rental_enabled: false });
     setImpersonating(false);
   };
 
@@ -109,7 +117,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      host, loading, impersonating,
+      host, loading, impersonating, planFeatures,
       login, loginWithToken, register, logout,
       completeSetup, refreshHost, isSubscribed,
       resendVerification, verifyEmail,
