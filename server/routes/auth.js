@@ -438,6 +438,35 @@ async function findOrCreateOAuthUser({ email, name, provider, providerId, field 
   return host;
 }
 
+// GET /api/auth/rental-stripe — return whether keys are configured (never expose actual values)
+router.get('/rental-stripe', require('../middleware/auth'), async (req, res) => {
+  try {
+    const host = await Host.findById(req.hostId);
+    if (!host) return res.status(404).json({ error: 'Not found' });
+    res.json({
+      publishable_key_set: !!host.rental_stripe_publishable_key,
+      secret_key_set: !!host.rental_stripe_secret_key,
+      publishable_key: host.rental_stripe_publishable_key || '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/auth/rental-stripe — save rental Stripe keys
+router.put('/rental-stripe', require('../middleware/auth'), async (req, res) => {
+  try {
+    const { publishable_key, secret_key } = req.body;
+    const updates = {};
+    if (publishable_key !== undefined) updates.rental_stripe_publishable_key = publishable_key.trim() || null;
+    if (secret_key && secret_key.trim()) updates.rental_stripe_secret_key = secret_key.trim();
+    await Host.findByIdAndUpdate(req.hostId, updates);
+    res.json({ ok: true, publishable_key_set: !!(updates.rental_stripe_publishable_key || req.body.publishable_key), secret_key_set: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/auth/funnel — lightweight registration funnel tracking (no auth)
 router.post('/funnel', async (req, res) => {
   try {

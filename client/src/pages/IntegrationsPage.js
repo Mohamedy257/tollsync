@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function IntegrationsPage() {
+  const { host, planFeatures } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -13,6 +15,14 @@ export default function IntegrationsPage() {
   const [config, setConfig] = useState({ query: '', subjectRegex: '', maxResults: 50, afterDate: '' });
   const [configDirty, setConfigDirty] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
+
+  // Private rental Stripe config
+  const [rentalStripe, setRentalStripe] = useState({ publishable_key: '', secret_key: '', publishable_key_set: false, secret_key_set: false });
+  const [savingRentalStripe, setSavingRentalStripe] = useState(false);
+  const [rentalStripeMsg, setRentalStripeMsg] = useState('');
+  const [rentalStripeError, setRentalStripeError] = useState('');
+
+  const showRentalStripe = planFeatures?.private_rental_enabled && host?.private_rental;
 
   const loadStatus = useCallback(async () => {
     try {
@@ -33,6 +43,26 @@ export default function IntegrationsPage() {
       setSearchParams({});
     }
   }, [loadStatus, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!showRentalStripe) return;
+    api.get('/auth/rental-stripe')
+      .then(res => setRentalStripe(s => ({ ...s, publishable_key: res.data.publishable_key || '', publishable_key_set: res.data.publishable_key_set, secret_key_set: res.data.secret_key_set })))
+      .catch(() => {});
+  }, [showRentalStripe]);
+
+  const saveRentalStripe = async e => {
+    e.preventDefault();
+    setSavingRentalStripe(true); setRentalStripeMsg(''); setRentalStripeError('');
+    try {
+      await api.put('/auth/rental-stripe', { publishable_key: rentalStripe.publishable_key, secret_key: rentalStripe.secret_key || undefined });
+      setRentalStripe(s => ({ ...s, secret_key: '', publishable_key_set: !!s.publishable_key, secret_key_set: s.secret_key ? true : s.secret_key_set }));
+      setRentalStripeMsg('Stripe keys saved');
+      setTimeout(() => setRentalStripeMsg(''), 3000);
+    } catch (err) {
+      setRentalStripeError(err.response?.data?.error || 'Failed to save');
+    } finally { setSavingRentalStripe(false); }
+  };
 
   const connectGmail = async () => {
     setConnecting(true);
@@ -214,6 +244,60 @@ export default function IntegrationsPage() {
           )}
         </div>
       </div>
+
+      {/* Private Rental — Stripe configuration */}
+      {showRentalStripe && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 10, background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+              💳
+            </div>
+            <div>
+              <p style={{ fontWeight: 600, margin: 0 }}>Stripe — Private Rental</p>
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Charge renters directly via your own Stripe account</p>
+            </div>
+          </div>
+
+          <form onSubmit={saveRentalStripe}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px 12px', marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>
+                  Publishable Key
+                  {rentalStripe.publishable_key_set && <span style={{ color: '#3b6d11', marginLeft: 6, fontWeight: 600 }}>✓ set</span>}
+                </label>
+                <input
+                  className="form-control"
+                  placeholder="pk_live_... or pk_test_..."
+                  value={rentalStripe.publishable_key}
+                  onChange={e => setRentalStripe(s => ({ ...s, publishable_key: e.target.value }))}
+                  style={{ fontFamily: 'monospace', fontSize: 12 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>
+                  Secret Key
+                  {rentalStripe.secret_key_set && <span style={{ color: '#3b6d11', marginLeft: 6, fontWeight: 600 }}>✓ set</span>}
+                </label>
+                <input
+                  className="form-control"
+                  type="password"
+                  placeholder={rentalStripe.secret_key_set ? 'Leave blank to keep existing' : 'sk_live_... or sk_test_...'}
+                  value={rentalStripe.secret_key}
+                  onChange={e => setRentalStripe(s => ({ ...s, secret_key: e.target.value }))}
+                  style={{ fontFamily: 'monospace', fontSize: 12 }}
+                />
+              </div>
+            </div>
+            {rentalStripeError && <p style={{ fontSize: 13, color: '#e24b4a', marginBottom: 8 }}>{rentalStripeError}</p>}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button className="btn btn-primary btn-sm" type="submit" disabled={savingRentalStripe}>
+                {savingRentalStripe ? <><span className="spinner" /> Saving...</> : 'Save Stripe keys'}
+              </button>
+              {rentalStripeMsg && <span style={{ fontSize: 13, color: '#3b6d11' }}>{rentalStripeMsg}</span>}
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Setup instructions */}
       <div className="card" style={{ background: '#fafafa' }}>
