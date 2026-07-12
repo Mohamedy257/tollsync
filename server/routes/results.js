@@ -5,6 +5,7 @@ const TollTransaction = require('../models/TollTransaction');
 const TripResult = require('../models/TripResult');
 const EzpassReportRange = require('../models/EzpassReportRange');
 const Vehicle = require('../models/Vehicle');
+const Host = require('../models/Host');
 const { matchTollsToTrips } = require('../services/ai');
 
 const router = express.Router();
@@ -137,6 +138,43 @@ router.get('/', async (req, res) => {
   const total_unmatched = unmatched_tolls.reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
   res.json({ trips: tripRows, unmatched_tolls, total_matched, total_unmatched });
+});
+
+// POST /api/results/charge-trip — create a Stripe PaymentIntent for unpaid tolls on a trip
+router.post('/charge-trip', async (req, res) => {
+  try {
+    const { trip_db_id, result_ids } = req.body;
+    if (!trip_db_id || !result_ids?.length) return res.status(400).json({ error: 'trip_db_id and result_ids are required' });
+
+    const host = await Host.findById(req.hostId);
+    if (!host?.private_rental) return res.status(403).json({ error: 'Private rental not enabled for this account' });
+    if (!host.rental_stripe_secret_key) return res.status(400).json({ error: 'Stripe secret key not configured. Go to Integrations to set it up.' });
+
+    // Verify all result_ids belong to this host and this trip, and are unpaid
+    const results = await TripResult.find({
+      _id: { $in: result_ids },
+      host_id: req.hostId,
+      trip_id: trip_db_id,
+      paid: false,
+    });
+    if (!results.length) return res.status(400).json({ error: 'No unpaid tolls found for this trip' });
+
+    const amountCents = Math.round(results.reduce((sum, r) => sum + parseFloat(r.amount), 0) * 100);
+    if (amountCents < 50) return res.status(400).json({ error: 'Charge amount must be at least $0.50' });
+
+    const stripe = require('stripe')(host.rental_stripe_secret_key);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: { host_id: req.hostId.toString(), trip_db_id, result_ids: result_ids.join(',') },
+    });
+
+    res.json({ client_secret: paymentIntent.client_secret, amount_cents: amountCents });
+  } catch (err) {
+    console.error('charge-trip error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PATCH /api/results/:resultId/paid — toggle paid status

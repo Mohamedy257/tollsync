@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import api from '../api/client';
 import { CAR_YEARS, CAR_MAKES, CAR_MODELS } from '../data/carData';
+import { useAuth } from '../context/AuthContext';
 
 function fmtDt(iso) {
   if (!iso) return '—';
@@ -21,7 +24,62 @@ function fmtDate(iso) {
   } catch { return iso; }
 }
 
-function TripCard({ t, reportRange, vehicles }) {
+function ChargeForm({ trip, unpaidItems, onSuccess, onClose }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [charging, setCharging] = useState(false);
+  const [error, setError] = useState('');
+  const total = unpaidItems.reduce((s, ti) => s + parseFloat(ti.amount), 0);
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setCharging(true); setError('');
+    try {
+      const resultIds = unpaidItems.filter(ti => ti.result_id).map(ti => ti.result_id);
+      const { data } = await api.post('/results/charge-trip', { trip_db_id: trip.trip_db_id, result_ids: resultIds });
+      const { error: stripeErr } = await stripe.confirmCardPayment(data.client_secret, {
+        payment_method: { card: elements.getElement(CardElement) },
+      });
+      if (stripeErr) { setError(stripeErr.message); return; }
+      await Promise.all(resultIds.map(id => api.patch(`/results/${id}/paid`, { paid: true })));
+      onSuccess(resultIds);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Payment failed');
+    } finally { setCharging(false); }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Toll breakdown */}
+      <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '10px 14px', marginBottom: 14, maxHeight: 180, overflowY: 'auto' }}>
+        {unpaidItems.map((ti, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: i < unpaidItems.length - 1 ? '0.5px solid #e9ecef' : 'none' }}>
+            <span style={{ color: '#555' }}>{ti.location || fmtDt(ti.exit_datetime) || `Toll ${i + 1}`}</span>
+            <span style={{ fontWeight: 600 }}>${parseFloat(ti.amount).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 15, marginBottom: 16 }}>
+        <span>Total</span>
+        <span style={{ color: '#185fa5' }}>${total.toFixed(2)}</span>
+      </div>
+      {/* Card input */}
+      <div style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 12px', marginBottom: 14, background: '#fff' }}>
+        <CardElement options={{ style: { base: { fontSize: '15px', color: '#1a1a1a' } } }} />
+      </div>
+      {error && <p style={{ color: '#e24b4a', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={charging || !stripe}>
+          {charging ? <><span className="spinner" /> Processing...</> : `Charge $${total.toFixed(2)}`}
+        </button>
+        <button type="button" className="btn btn-sm" onClick={onClose} disabled={charging}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+function TripCard({ t, reportRange, vehicles, isPrivateRental, rentalPublishableKey }) {
   const gridRef = useRef();
   const [exporting, setExporting] = useState(false);
   const [previewUrls, setPreviewUrls] = useState([]);
@@ -34,6 +92,11 @@ function TripCard({ t, reportRange, vehicles }) {
     return m;
   });
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [showChargeModal, setShowChargeModal] = useState(false);
+  const stripePromise = useRef(null);
+  if (isPrivateRental && rentalPublishableKey && !stripePromise.current) {
+    stripePromise.current = loadStripe(rentalPublishableKey);
+  }
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -213,8 +276,47 @@ function TripCard({ t, reportRange, vehicles }) {
     }
   }
 
+  const handleChargeSuccess = (paidResultIds) => {
+    const paidSet = new Set(paidResultIds);
+    setPaidMap(m => {
+      const next = { ...m };
+      paidSet.forEach(id => { next[id] = true; });
+      return next;
+    });
+    setShowChargeModal(false);
+  };
+
   return (
     <div className="card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
+      {/* Charge modal */}
+      {showChargeModal && stripePromise.current && (
+        <>
+          <div onClick={() => setShowChargeModal(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 1001, background: '#fff', borderRadius: 16, padding: 24,
+            width: '90%', maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Charge renter</p>
+                <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>{t.renter_name || 'Unknown renter'}</p>
+              </div>
+              <button onClick={() => setShowChargeModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>✕</button>
+            </div>
+            <Elements stripe={stripePromise.current}>
+              <ChargeForm
+                trip={t}
+                unpaidItems={unpaidItems}
+                onSuccess={handleChargeSuccess}
+                onClose={() => setShowChargeModal(false)}
+              />
+            </Elements>
+          </div>
+        </>
+      )}
       {/* Mobile image preview overlay */}
       {previewUrls.length > 0 && (
         <div
@@ -337,6 +439,15 @@ function TripCard({ t, reportRange, vehicles }) {
               </p>
             </div>
           </div>
+          {isPrivateRental && unpaidItems.length > 0 && !allPaid && (
+            <button
+              className="btn btn-sm"
+              style={{ flexShrink: 0, background: '#185fa5', color: '#fff', borderColor: '#185fa5' }}
+              onClick={e => { e.stopPropagation(); setShowChargeModal(true); }}
+            >
+              💳 Charge ${unpaidTotal.toFixed(2)}
+            </button>
+          )}
           <button
             className="btn btn-sm"
             style={{ flexShrink: 0 }}
@@ -458,6 +569,9 @@ function TripCard({ t, reportRange, vehicles }) {
 }
 
 export default function CalculatorPage() {
+  const { host, planFeatures } = useAuth();
+  const isPrivateRental = !!(planFeatures?.private_rental_enabled && host?.private_rental);
+  const [rentalPublishableKey, setRentalPublishableKey] = useState('');
   const [trips, setTrips] = useState([]);
   const [tolls, setTolls] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -509,6 +623,10 @@ export default function CalculatorPage() {
     loadAll();
     api.get('/results').then(r => { if (r.data.trips?.length) setResults(r.data); }).catch(() => {});
   }, [loadAll]);
+  useEffect(() => {
+    if (!isPrivateRental) return;
+    api.get('/auth/rental-stripe').then(r => setRentalPublishableKey(r.data.publishable_key || '')).catch(() => {});
+  }, [isPrivateRental]);
 
   // Poll for background upload job completion
   const startPolling = useCallback((jobId) => {
@@ -1470,7 +1588,7 @@ export default function CalculatorPage() {
           )}
           {recentTrips.length > 0
             ? recentTrips.map(t => (
-                <TripCard key={t.trip_db_id} t={t} reportRange={results?.report_range} vehicles={vehicles} />
+                <TripCard key={t.trip_db_id} t={t} reportRange={results?.report_range} vehicles={vehicles} isPrivateRental={isPrivateRental} rentalPublishableKey={rentalPublishableKey} />
               ))
             : !calculating && (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#aaa', fontSize: 13 }}>
