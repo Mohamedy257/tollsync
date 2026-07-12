@@ -8,6 +8,7 @@ const NAV = [
   { path: '/trips', icon: '📋', label: 'Trips' },
   { path: '/tolls', icon: '🛣️', label: 'Toll Records' },
   { path: '/vehicles', icon: '🚗', label: 'Vehicles' },
+  { path: '/integrations', icon: '🔗', label: 'Integrations' },
 ];
 
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -350,6 +351,7 @@ export default function Layout({ children }) {
             {[
               { icon: '👤', label: 'Account Settings', path: '/account' },
               { icon: '💳', label: 'Billing', path: '/subscribe' },
+              { icon: '🔗', label: 'Integrations', path: '/integrations' },
               { icon: '❓', label: 'Help & Support', path: '/support' },
               { icon: '💬', label: 'Chat with us', path: '/contact' },
               { icon: 'ℹ️', label: 'About TollSync', path: '/about' },
