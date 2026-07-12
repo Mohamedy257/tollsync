@@ -1738,7 +1738,7 @@ export default function CalculatorPage() {
           })()}
 
           {sortedTrips.map(t => (
-            <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} />
+            <TripCard key={t.trip_db_id} t={t} reportRange={results.report_range} vehicles={vehicles} isPrivateRental={isPrivateRental} rentalPublishableKey={rentalPublishableKey} />
           ))}
 
           <div className="action-bar">
